@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { RefreshCw, ChevronLeft, ChevronRight, X, Search } from 'lucide-react';
@@ -12,7 +13,7 @@ import { cn } from '@/lib/utils';
 
 const STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'];
 
-export default function AgentsPage() {
+function AgentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [data, setData] = useState<AgentRunsResponse | null>(null);
@@ -197,5 +198,13 @@ export default function AgentsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AgentsPage() {
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AgentsPageContent />
+    </Suspense>
   );
 }

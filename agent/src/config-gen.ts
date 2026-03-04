@@ -90,13 +90,17 @@ export function generateConfig(): string {
     model: process.env.ZEROCLAW_MODEL || 'anthropic/claude-sonnet-4-6',
     telegramBotToken: process.env.ZEROCLAW_TELEGRAM_BOT_TOKEN,
     telegramAllowedUsers: process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS?.split(',').map((s) => s.trim()).filter(Boolean),
-    memoryBackend: process.env.ZEROCLAW_MEMORY_BACKEND || 'sqlite',
+    memoryBackend: process.env.ZEROCLAW_MEMORY_BACKEND || 'postgres',
     postgresUrl: process.env.DATABASE_URL,
     autonomyLevel: process.env.ZEROCLAW_AUTONOMY || 'supervised',
     allowedCommands: (process.env.ZEROCLAW_ALLOWED_COMMANDS || 'git,npm,cargo,ls,cat,grep,curl').split(',').map((s) => s.trim()),
     gatewayPort: parseInt(process.env.ZEROCLAW_GATEWAY_PORT || '3002', 10),
     workspaceDir: process.env.ZEROCLAW_WORKSPACE || '/app/workspace',
   };
+
+  if (cfg.memoryBackend === 'postgres' && !cfg.postgresUrl) {
+    throw new Error('[config-gen] ZEROCLAW_MEMORY_BACKEND=postgres requires DATABASE_URL');
+  }
 
   const toml = buildToml(cfg);
 
