@@ -38,6 +38,12 @@ export class IpAllowlistGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     if (!request) return true;
 
+    // Ingest endpoints use agent API key auth; allow agent traffic from any IP.
+    const path = request.url?.split('?')[0] ?? '';
+    if (path.startsWith('/api/ingest/') && request.headers['x-agent-token']) {
+      return true;
+    }
+
     const clientIp = this.extractIp(request);
 
     if (this.isRailwayInternal(clientIp)) return true;
