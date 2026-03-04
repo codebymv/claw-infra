@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync, chmodSync } from 'fs';
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import { join } from 'path';
+import { execSync } from 'child_process';
 
 interface ZeroClawConfig {
   apiKey: string;
@@ -14,6 +15,7 @@ interface ZeroClawConfig {
   allowedCommands: string[];
   gatewayPort: number;
   workspaceDir: string;
+  githubToken?: string;
 }
 
 function buildToml(cfg: ZeroClawConfig): string {
@@ -43,7 +45,7 @@ function buildToml(cfg: ZeroClawConfig): string {
     `level = "${cfg.autonomyLevel}"`,
     `workspace_only = false`,
     `allowed_commands = [${cmds}]`,
-    `allowed_roots = ["/app/workspace"]`,
+    `allowed_roots = ["${cfg.workspaceDir}", "/app/workspace", "/tmp"]`,
     `max_actions_per_hour = 200`,
     `max_cost_per_day_cents = 5000`,
     `require_approval_for_medium_risk = false`,
@@ -110,6 +112,7 @@ export function generateConfig(): string {
     allowedCommands: (process.env.ZEROCLAW_ALLOWED_COMMANDS || 'git,npm,npx,cargo,ls,cat,grep,curl,wget,find,head,tail,wc,diff,sort,uniq,mkdir,cp,mv,rm,touch,echo,sed,awk,tar,unzip,python3,node,sh,bash').split(',').map((s) => s.trim()),
     gatewayPort: parseInt(process.env.ZEROCLAW_GATEWAY_PORT || '3002', 10),
     workspaceDir: process.env.ZEROCLAW_WORKSPACE || '/app/workspace',
+    githubToken: process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN,
   };
 
   if (cfg.memoryBackend === 'postgres' && !cfg.postgresUrl) {
@@ -140,6 +143,37 @@ export function generateConfig(): string {
   console.log(`[config-gen] Provider: ${cfg.provider}, Model: ${cfg.model}`);
   console.log(`[config-gen] Memory: ${cfg.memoryBackend}, Autonomy: ${cfg.autonomyLevel}`);
   console.log(`[config-gen] Telegram: ${cfg.telegramBotToken ? 'enabled' : 'disabled'}`);
+
+  // ── GitHub credential helper ──
+  // Configure git to authenticate with GITHUB_TOKEN so the agent can clone
+  // private repos and view repository contents via the GitHub API.
+  if (cfg.githubToken && platform() !== 'win32') {
+    try {
+      // Write a minimal credential helper script
+      const helperPath = '/usr/local/bin/git-credentials-github';
+      const helperScript = `#!/bin/sh\necho "username=x-access-token"\necho "password=${cfg.githubToken}"\n`;
+      writeFileSync(helperPath, helperScript, 'utf-8');
+      chmodSync(helperPath, 0o755);
+
+      // Point git at the helper for github.com
+      execSync('git config --global credential.https://github.com.helper /usr/local/bin/git-credentials-github', { stdio: 'pipe' });
+
+      // Also set a token-based URL rewrite so "git clone https://" works without a prompt
+      execSync(`git config --global url."https://x-access-token:${cfg.githubToken}@github.com/".insteadOf "https://github.com/"`, { stdio: 'pipe' });
+
+      // Configure git identity so commits don't fail (default no-op identity)
+      const gitName = process.env.GIT_AUTHOR_NAME || 'zeroclaw-agent';
+      const gitEmail = process.env.GIT_AUTHOR_EMAIL || 'agent@zeroclaw.local';
+      execSync(`git config --global user.name "${gitName}"`, { stdio: 'pipe' });
+      execSync(`git config --global user.email "${gitEmail}"`, { stdio: 'pipe' });
+
+      console.log('[config-gen] GitHub credential helper configured (GITHUB_TOKEN)');
+    } catch (err) {
+      console.warn('[config-gen] WARNING: Failed to configure GitHub credential helper:', err);
+    }
+  } else if (!cfg.githubToken) {
+    console.warn('[config-gen] No GITHUB_TOKEN set — agent will not be able to access private GitHub repos.');
+  }
 
   return primaryPath;
 }

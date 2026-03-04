@@ -174,6 +174,9 @@ ZEROCLAW_TELEGRAM_ALLOWED_USERS=<your telegram user id>
 ZEROCLAW_AUTONOMY=supervised
 # Prebuilt binary only supports sqlite (not postgres)
 ZEROCLAW_MEMORY_BACKEND=sqlite
+# Required for the agent to clone/read GitHub repos (public or private).
+# Create at https://github.com/settings/tokens — needs Contents + Metadata read access.
+GITHUB_TOKEN=ghp_...
 ```
 
 ## Pages

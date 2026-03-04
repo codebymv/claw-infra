@@ -12,7 +12,7 @@ RUN npm run build
 FROM debian:trixie-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates nodejs \
+    && apt-get install -y --no-install-recommends curl ca-certificates nodejs git openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ZeroClaw binary from GitHub releases
