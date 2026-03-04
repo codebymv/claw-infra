@@ -77,23 +77,23 @@ export default function ResourcesPage() {
             />
             <div className="flex flex-col items-center justify-center space-y-1.5">
               <p className="font-display text-2xl font-bold">{formatBytes(displayLatest.memoryMb)}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                 Memory Used
               </p>
             </div>
             <div className="flex flex-col items-center justify-center space-y-1.5">
               <p className="font-display text-2xl font-bold">{displayLatest.activeConnections}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
                 Active Connections
               </p>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
-            <p className="text-[13px] text-muted-foreground/50">
+            <p className="text-[13px] text-muted-foreground">
               No metrics data available
             </p>
-            <p className="text-[11px] text-muted-foreground/30">
+            <p className="text-[11px] text-muted-foreground">
               Make sure agents are reporting resource snapshots
             </p>
           </div>
@@ -108,8 +108,8 @@ export default function ResourcesPage() {
             className={cn(
               'rounded-lg px-3 py-1.5 text-[11px] font-semibold tracking-wide transition-all duration-200',
               resolution === value
-                ? 'bg-primary/15 text-primary border border-primary/20'
-                : 'bg-card/60 border border-border/40 text-muted-foreground/60 hover:text-foreground hover:border-border',
+                ? 'bg-primary/15 text-primary border border-primary/25'
+                : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20',
             )}
           >
             {label}
@@ -141,17 +141,17 @@ export default function ResourcesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="border-b border-border/30">
-                  <th className="pb-3 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Agent</th>
-                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Avg CPU</th>
-                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Peak CPU</th>
-                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Avg Memory</th>
-                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Peak Memory</th>
+                <tr className="border-b border-border">
+                  <th className="pb-3 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Agent</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Avg CPU</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Peak CPU</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Avg Memory</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Peak Memory</th>
                 </tr>
               </thead>
               <tbody>
                 {byAgent.map((a) => (
-                  <tr key={a.agentName} className="border-b border-border/15">
+                  <tr key={a.agentName} className="border-b border-border/50">
                     <td className="py-2.5 font-medium">{a.agentName}</td>
                     <td className="py-2.5 text-right tabular-nums font-mono text-[12px]">
                       {parseFloat(a.avgCpu).toFixed(1)}%
@@ -189,9 +189,9 @@ export default function ResourcesPage() {
 
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-muted/20 border border-border/30 p-4 text-center">
+    <div className="rounded-lg bg-muted/30 border border-border p-4 text-center">
       <p className="font-display text-lg font-bold">{value}</p>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mt-1">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mt-1">
         {label}
       </p>
     </div>
@@ -201,7 +201,7 @@ function MetricTile({ label, value }: { label: string; value: string }) {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex h-48 items-center justify-center">
-      <p className="text-[13px] text-muted-foreground/40">{message}</p>
+      <p className="text-[13px] text-muted-foreground">{message}</p>
     </div>
   );
 }

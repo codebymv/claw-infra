@@ -24,8 +24,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ZeroClaw Dashboard',
-  description: 'Monitor ZeroClaw agent processes, costs, and resources',
+  title: 'ClawInfra Dashboard',
+  description: 'Monitor ClawInfra agent processes, costs, and resources',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

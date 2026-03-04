@@ -42,23 +42,24 @@ export function RunTimelineChart({ data }: Props) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 14% / 0.5)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis
           dataKey="day"
-          tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }}
+          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-jetbrains)' }}
           tickFormatter={(v: string) => {
             try { return format(parseISO(v), 'MMM d'); } catch { return v; }
           }}
         />
-        <YAxis tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }} />
+        <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-jetbrains)' }} />
         <Tooltip
           contentStyle={{
-            background: 'hsl(222 47% 6%)',
-            border: '1px solid hsl(215 25% 14% / 0.5)',
+            background: 'hsl(var(--chart-tooltip-bg))',
+            border: '1px solid hsl(var(--chart-tooltip-border))',
             borderRadius: '10px',
             fontSize: '11px',
             fontFamily: 'var(--font-jetbrains)',
-            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
+            color: 'hsl(var(--foreground))',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.3)',
           }}
           labelFormatter={(v: string) => {
             try { return format(parseISO(v), 'MMM d, yyyy'); } catch { return v; }

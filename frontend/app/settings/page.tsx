@@ -89,39 +89,39 @@ export default function SettingsPage() {
     <div className="max-w-3xl space-y-6 animate-fade-in">
       <SectionCard
         title="Agent API Keys"
-        description="Keys used by ZeroClaw agents to report metrics, logs, and status"
+        description="Keys used by ClawInfra agents to report metrics, logs, and status"
         action={
-          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50">
+          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Shield className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Secured with bcrypt</span>
           </span>
         }
       >
         {createdKey && (
-          <div className="mb-5 rounded-lg bg-primary/5 border border-primary/15 p-5">
+          <div className="mb-5 rounded-lg bg-primary/8 border border-primary/20 p-5">
             <p className="text-[13px] font-semibold text-primary mb-3">
               New key created for <strong>{createdKey.name}</strong> — copy it now, it won&apos;t be shown again.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 rounded-lg bg-background/60 border border-border/30 p-2.5 text-[11px] font-mono overflow-x-auto">
+              <code className="flex-1 rounded-lg bg-muted border border-border p-2.5 text-[11px] font-mono overflow-x-auto">
                 {showKey ? createdKey.key : '•'.repeat(40)}
               </code>
               <button
                 onClick={() => setShowKey((p) => !p)}
-                className="p-2 hover:bg-accent/40 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
-                {showKey ? <EyeOff className="h-4 w-4 text-muted-foreground/60" /> : <Eye className="h-4 w-4 text-muted-foreground/60" />}
+                {showKey ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </button>
               <button
                 onClick={() => navigator.clipboard.writeText(createdKey.key)}
-                className="p-2 hover:bg-accent/40 rounded-lg transition-colors"
+                className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
-                <Copy className="h-4 w-4 text-muted-foreground/60" />
+                <Copy className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
             <button
               onClick={() => setCreatedKey(null)}
-              className="mt-2 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+              className="mt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Dismiss
             </button>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && createKey()}
-            className="flex-1 h-10 rounded-lg border border-border/50 bg-background/60 px-4 text-[13px] placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+            className="flex-1 h-10 rounded-lg border border-border bg-background px-4 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
           />
           <button
             onClick={createKey}
@@ -149,7 +149,7 @@ export default function SettingsPage() {
 
         <div className="space-y-2">
           {apiKeys.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground/40 py-2">No API keys yet</p>
+            <p className="text-[13px] text-muted-foreground py-2">No API keys yet</p>
           ) : (
             apiKeys.map((key) => (
               <div
@@ -157,28 +157,28 @@ export default function SettingsPage() {
                 className={cn(
                   'flex items-center justify-between rounded-lg border p-4 transition-all',
                   key.isActive
-                    ? 'border-border/40 bg-muted/10 hover:bg-muted/20'
-                    : 'border-border/20 bg-muted/5 opacity-40',
+                    ? 'border-border bg-muted/20 hover:bg-muted/30'
+                    : 'border-border/50 bg-muted/10 opacity-50',
                 )}
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-medium">{key.name}</span>
                     {!key.isActive && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-400/70 bg-rose-400/8 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-500 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
                         revoked
                       </span>
                     )}
                   </div>
                   <div className="flex gap-3 mt-1">
-                    <span className="text-[11px] text-muted-foreground/40 font-mono">{key.keyPrefix}…</span>
-                    <span className="text-[11px] text-muted-foreground/40 capitalize">{key.type}</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">{key.keyPrefix}…</span>
+                    <span className="text-[11px] text-muted-foreground capitalize">{key.type}</span>
                     {key.lastUsedAt && (
-                      <span className="text-[11px] text-muted-foreground/40">
+                      <span className="text-[11px] text-muted-foreground">
                         Used {formatRelativeTime(key.lastUsedAt)}
                       </span>
                     )}
-                    <span className="text-[11px] text-muted-foreground/30">
+                    <span className="text-[11px] text-muted-foreground">
                       Created {formatDateTime(key.createdAt)}
                     </span>
                   </div>
@@ -186,7 +186,7 @@ export default function SettingsPage() {
                 {key.isActive && (
                   <button
                     onClick={() => revokeKey(key.id)}
-                    className="p-2 text-muted-foreground/40 hover:text-rose-400 hover:bg-rose-400/8 rounded-lg transition-all"
+                    className="p-2 text-muted-foreground hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -207,10 +207,10 @@ export default function SettingsPage() {
               {budgets.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/10 p-4 text-[13px]"
+                  className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-4 text-[13px]"
                 >
                   <span className="font-medium">{b.agentName || 'Global'}</span>
-                  <div className="flex gap-4 text-muted-foreground/50 text-[11px] font-mono">
+                  <div className="flex gap-4 text-muted-foreground text-[11px] font-mono">
                     {b.dailyLimitUsd && <span>Daily: ${b.dailyLimitUsd}</span>}
                     {b.monthlyLimitUsd && <span>Monthly: ${b.monthlyLimitUsd}</span>}
                     <span>Alert at {b.alertThresholdPercent}%</span>
@@ -222,7 +222,7 @@ export default function SettingsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                 Agent Name (blank = global)
               </label>
               <input
@@ -230,11 +230,11 @@ export default function SettingsPage() {
                 placeholder="e.g. my-agent (or blank for global)"
                 value={budgetForm.agentName}
                 onChange={(e) => setBudgetForm((p) => ({ ...p, agentName: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border/50 bg-background/60 px-4 text-[13px] placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+                className="w-full h-10 rounded-lg border border-border bg-background px-4 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                 Alert Threshold (%)
               </label>
               <input
@@ -243,11 +243,11 @@ export default function SettingsPage() {
                 max="100"
                 value={budgetForm.alertThresholdPercent}
                 onChange={(e) => setBudgetForm((p) => ({ ...p, alertThresholdPercent: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border/50 bg-background/60 px-4 text-[13px] font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+                className="w-full h-10 rounded-lg border border-border bg-background px-4 text-[13px] font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                 Daily Limit (USD)
               </label>
               <input
@@ -257,11 +257,11 @@ export default function SettingsPage() {
                 placeholder="e.g. 5.00"
                 value={budgetForm.dailyLimitUsd}
                 onChange={(e) => setBudgetForm((p) => ({ ...p, dailyLimitUsd: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border/50 bg-background/60 px-4 text-[13px] font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+                className="w-full h-10 rounded-lg border border-border bg-background px-4 text-[13px] font-mono placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mb-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground mb-2">
                 Monthly Limit (USD)
               </label>
               <input
@@ -271,7 +271,7 @@ export default function SettingsPage() {
                 placeholder="e.g. 50.00"
                 value={budgetForm.monthlyLimitUsd}
                 onChange={(e) => setBudgetForm((p) => ({ ...p, monthlyLimitUsd: e.target.value }))}
-                className="w-full h-10 rounded-lg border border-border/50 bg-background/60 px-4 text-[13px] font-mono placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+                className="w-full h-10 rounded-lg border border-border bg-background px-4 text-[13px] font-mono placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
               />
             </div>
           </div>
@@ -290,15 +290,15 @@ export default function SettingsPage() {
         title="Connection Info"
         description="Configure your agents to report to these endpoints"
         action={
-          <Terminal className="h-3.5 w-3.5 text-muted-foreground/40" />
+          <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
         }
       >
         <div className="space-y-3 font-mono text-[11px]">
-          <div className="rounded-lg bg-background/60 border border-border/30 p-4">
-            <p className="text-muted-foreground/40 text-[10px] uppercase tracking-wider font-semibold mb-1.5">
+          <div className="rounded-lg bg-muted/30 border border-border p-4">
+            <p className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold mb-1.5">
               Agent Ingest Base URL
             </p>
-            <p className="text-foreground/80">
+            <p>
               {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/ingest
             </p>
           </div>
@@ -308,8 +308,8 @@ export default function SettingsPage() {
             <EndpointTile label="Send Logs" method="POST" path="/ingest/logs/batch" />
             <EndpointTile label="Report Metrics" method="POST" path="/ingest/metrics" />
           </div>
-          <p className="text-muted-foreground/40 pt-1">
-            Header: <code className="text-foreground/70 bg-muted/30 px-1.5 py-0.5 rounded">X-Agent-Token: &lt;your-api-key&gt;</code>
+          <p className="text-muted-foreground pt-1">
+            Header: <code className="text-foreground bg-muted px-1.5 py-0.5 rounded">X-Agent-Token: &lt;your-api-key&gt;</code>
           </p>
         </div>
       </SectionCard>
@@ -319,13 +319,13 @@ export default function SettingsPage() {
 
 function EndpointTile({ label, method, path }: { label: string; method: string; path: string }) {
   return (
-    <div className="rounded-lg bg-background/60 border border-border/30 p-3.5">
-      <p className="text-muted-foreground/40 text-[10px] uppercase tracking-wider font-semibold mb-1">
+    <div className="rounded-lg bg-muted/30 border border-border p-3.5">
+      <p className="text-muted-foreground text-[10px] uppercase tracking-wider font-semibold mb-1">
         {label}
       </p>
       <p>
-        <span className="text-primary/70 font-bold">{method}</span>
-        <span className="text-foreground/70 ml-1.5">{path}</span>
+        <span className="text-primary font-bold">{method}</span>
+        <span className="ml-1.5">{path}</span>
       </p>
     </div>
   );

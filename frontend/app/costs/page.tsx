@@ -81,8 +81,8 @@ export default function CostsPage() {
             className={cn(
               'rounded-lg px-4 py-1.5 text-[12px] font-semibold tracking-wide transition-all duration-200',
               period === value
-                ? 'bg-primary/15 text-primary border border-primary/20'
-                : 'bg-card/60 border border-border/40 text-muted-foreground/60 hover:text-foreground hover:border-border',
+                ? 'bg-primary/15 text-primary border border-primary/25'
+                : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20',
             )}
           >
             {label}
@@ -128,19 +128,19 @@ export default function CostsPage() {
                     {budget.agentName || 'Global budget'}
                   </span>
                   {(dayAlert || monthAlert) && (
-                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse-slow" />
+                    <span className="text-[11px] text-amber-500 dark:text-amber-400 font-semibold flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse-slow" />
                       Alert threshold reached
                     </span>
                   )}
                 </div>
                 {budget.dailyLimitUsd && (
                   <div className="mb-3">
-                    <div className="flex justify-between text-[11px] text-muted-foreground/60 mb-1.5">
+                    <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
                       <span className="font-mono">Daily: {formatCost(daySpend)} / {formatCost(budget.dailyLimitUsd)}</span>
                       <span className="font-mono">{dayPercent?.toFixed(0)}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className={cn(
                           'h-full rounded-full transition-all duration-500',
@@ -155,11 +155,11 @@ export default function CostsPage() {
                 )}
                 {budget.monthlyLimitUsd && (
                   <div>
-                    <div className="flex justify-between text-[11px] text-muted-foreground/60 mb-1.5">
+                    <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
                       <span className="font-mono">Monthly: {formatCost(monthSpend)} / {formatCost(budget.monthlyLimitUsd)}</span>
                       <span className="font-mono">{monthPercent?.toFixed(0)}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className={cn(
                           'h-full rounded-full transition-all duration-500',
@@ -208,10 +208,10 @@ export default function CostsPage() {
               {topRuns.map((run, i) => (
                 <div
                   key={run.runId}
-                  className="flex items-center justify-between rounded-lg p-2.5 hover:bg-accent/20 transition-colors"
+                  className="flex items-center justify-between rounded-lg p-2.5 hover:bg-accent/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-[11px] font-mono text-muted-foreground/40 w-5 text-right">
+                    <span className="text-[11px] font-mono text-muted-foreground w-5 text-right">
                       {i + 1}
                     </span>
                     <div className="min-w-0">
@@ -221,12 +221,12 @@ export default function CostsPage() {
                       >
                         {run.agentName}
                       </Link>
-                      <p className="text-[10px] text-muted-foreground/40 font-mono">{run.runId.slice(0, 8)}…</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{run.runId.slice(0, 8)}…</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-3">
                     <p className="text-[13px] font-semibold font-mono">{formatCost(run.totalCostUsd)}</p>
-                    <p className="text-[10px] text-muted-foreground/40 font-mono">
+                    <p className="text-[10px] text-muted-foreground font-mono">
                       {formatTokens(parseInt(run.totalTokens))} tok
                     </p>
                   </div>
@@ -243,7 +243,7 @@ export default function CostsPage() {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex h-48 items-center justify-center">
-      <p className="text-[13px] text-muted-foreground/40">{message}</p>
+      <p className="text-[13px] text-muted-foreground">{message}</p>
     </div>
   );
 }

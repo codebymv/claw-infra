@@ -103,7 +103,7 @@ export default function DashboardPage() {
           action={
             <Link
               href="/agents"
-              className="flex items-center gap-1 text-[11px] font-medium text-primary/80 hover:text-primary transition-colors"
+              className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
             >
               View all
               <ArrowUpRight className="h-3 w-3" />
@@ -112,10 +112,10 @@ export default function DashboardPage() {
         >
           {activeRuns.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
-              <div className="h-10 w-10 rounded-lg bg-muted/50 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-muted-foreground/40" />
+              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                <Bot className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-[13px] text-muted-foreground/60">No active agents</p>
+              <p className="text-[13px] text-muted-foreground">No active agents</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
                 <Link
                   key={run.id}
                   href={`/agents/${run.id}`}
-                  className="flex items-center justify-between rounded-lg p-2.5 hover:bg-accent/40 transition-all duration-200 group"
+                  className="flex items-center justify-between rounded-lg p-2.5 hover:bg-accent transition-all duration-200 group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <StatusBadge status={run.status} />
@@ -131,7 +131,7 @@ export default function DashboardPage() {
                       {run.agentName}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono text-muted-foreground/50 shrink-0 ml-2">
+                  <span className="text-[11px] font-mono text-muted-foreground shrink-0 ml-2">
                     {formatRelativeTime(run.startedAt)}
                   </span>
                 </Link>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
         <SectionCard
           title="Recent Alerts"
           action={
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-400/80">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-amber-500 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3" />
               {stats?.recentFailed ?? 0} failures
             </span>
@@ -151,16 +151,16 @@ export default function DashboardPage() {
         >
           {(stats?.recentFailed ?? 0) === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 gap-2">
-              <div className="h-10 w-10 rounded-lg bg-emerald-400/5 border border-emerald-400/10 flex items-center justify-center">
-                <Activity className="h-5 w-5 text-emerald-400/40" />
+              <div className="h-10 w-10 rounded-lg bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
               </div>
-              <p className="text-[13px] text-muted-foreground/60">All systems healthy</p>
+              <p className="text-[13px] text-muted-foreground">All systems healthy</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="flex items-center gap-3 rounded-lg bg-rose-400/5 border border-rose-400/10 p-4">
-                <div className="h-8 w-8 rounded-lg bg-rose-400/10 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="h-4 w-4 text-rose-400" />
+              <div className="flex items-center gap-3 rounded-lg bg-rose-500/5 border border-rose-500/15 p-4">
+                <div className="h-8 w-8 rounded-lg bg-rose-500/10 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
                 </div>
                 <div>
                   <p className="text-[13px] font-medium">
@@ -185,7 +185,7 @@ export default function DashboardPage() {
 function EmptyChart({ message }: { message: string }) {
   return (
     <div className="flex h-60 items-center justify-center">
-      <p className="text-[13px] text-muted-foreground/50">{message}</p>
+      <p className="text-[13px] text-muted-foreground">{message}</p>
     </div>
   );
 }

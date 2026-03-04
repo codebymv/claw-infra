@@ -34,23 +34,24 @@ export function ResourceHistoryChart({ data, metric }: ResourceHistoryChartProps
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 14% / 0.5)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis
           dataKey="time"
-          tick={{ fontSize: 9, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }}
+          tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-jetbrains)' }}
           tickFormatter={(v: string) => {
             try { return format(parseISO(v), 'HH:mm'); } catch { return v; }
           }}
         />
-        <YAxis tick={{ fontSize: 9, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }} />
+        <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))', fontFamily: 'var(--font-jetbrains)' }} />
         <Tooltip
           contentStyle={{
-            background: 'hsl(222 47% 6%)',
-            border: '1px solid hsl(215 25% 14% / 0.5)',
+            background: 'hsl(var(--chart-tooltip-bg))',
+            border: '1px solid hsl(var(--chart-tooltip-border))',
             borderRadius: '10px',
             fontSize: '10px',
             fontFamily: 'var(--font-jetbrains)',
-            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
+            color: 'hsl(var(--foreground))',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.3)',
           }}
         />
         <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'var(--font-dm-sans)' }} />
@@ -61,7 +62,7 @@ export function ResourceHistoryChart({ data, metric }: ResourceHistoryChartProps
           stroke={color}
           strokeWidth={2}
           dot={false}
-          activeDot={{ r: 3, fill: color, stroke: 'hsl(222 47% 6%)', strokeWidth: 2 }}
+          activeDot={{ r: 3, fill: color, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
         />
         <Line
           type="monotone"
@@ -90,7 +91,7 @@ export function GaugeChart({ value, max = 100, label, unit = '%', color = '#00dc
   const pct = Math.min(value / max, 1);
   const data = [
     { value: pct, fill: color },
-    { value: 1 - pct, fill: 'hsl(215 28% 10%)' },
+    { value: 1 - pct, fill: 'hsl(var(--muted))' },
   ];
 
   return (
@@ -116,7 +117,7 @@ export function GaugeChart({ value, max = 100, label, unit = '%', color = '#00dc
         <p className="font-display text-xl font-bold tabular-nums">
           {value.toFixed(1)}{unit}
         </p>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
           {label}
         </p>
       </div>

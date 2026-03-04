@@ -13,19 +13,19 @@ interface StatCardProps {
 
 const accentConfig = {
   default: {
-    icon: 'text-primary bg-primary/10 ring-primary/20',
+    icon: 'text-primary bg-primary/10 ring-primary/25',
     glow: 'group-hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.2)]',
   },
   success: {
-    icon: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
+    icon: 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 ring-emerald-500/25',
     glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(52,211,153,0.2)]',
   },
   warning: {
-    icon: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
+    icon: 'text-amber-500 dark:text-amber-400 bg-amber-500/10 ring-amber-500/25',
     glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(251,191,36,0.2)]',
   },
   destructive: {
-    icon: 'text-rose-400 bg-rose-400/10 ring-rose-400/20',
+    icon: 'text-rose-500 dark:text-rose-400 bg-rose-500/10 ring-rose-500/25',
     glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(251,113,133,0.2)]',
   },
 };
@@ -44,27 +44,27 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border border-border/50 bg-card/80 p-5 transition-all duration-300 card-shine gradient-border',
+        'group relative rounded-xl border border-border bg-card p-5 transition-all duration-300 card-shine gradient-border',
         config.glow,
         className,
       )}
     >
       <div className="relative z-10 flex items-start justify-between">
         <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             {title}
           </p>
           <p className="font-display text-2xl font-bold tabular-nums tracking-tight">
             {value}
           </p>
           {subtext && (
-            <p className="text-[11px] text-muted-foreground/60">{subtext}</p>
+            <p className="text-[11px] text-muted-foreground">{subtext}</p>
           )}
           {trend && (
             <p
               className={cn(
                 'text-xs font-semibold',
-                trend.value >= 0 ? 'text-emerald-400' : 'text-rose-400',
+                trend.value >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400',
               )}
             >
               {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}

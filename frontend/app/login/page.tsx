@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { authApi } from '@/lib/api';
 
 export default function LoginPage() {
@@ -30,15 +31,32 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center">
-      <div className="w-full rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Sign in</h1>
+      <div className="w-full rounded-xl border border-border bg-card p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <Image
+            src="/clawinfra-icon.png"
+            alt="ClawInfra"
+            width={28}
+            height={28}
+            className="logo-adaptive"
+          />
+          <Image
+            src="/clawinfra-text.png"
+            alt="ClawInfra"
+            width={100}
+            height={20}
+            className="logo-adaptive"
+          />
+        </div>
+
+        <h1 className="font-display text-xl font-semibold">Sign in</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Login to access the ZeroClaw dashboard.
+          Login to access the ClawInfra dashboard.
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               Email
             </label>
             <input
@@ -46,12 +64,12 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               Password
             </label>
             <input
@@ -59,12 +77,12 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
             />
           </div>
 
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive font-medium">
               {error}
             </div>
           )}
@@ -72,7 +90,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="h-9 w-full rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="h-10 w-full rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all"
           >
             {loading ? 'Signing in...' : 'Sign in'}
           </button>

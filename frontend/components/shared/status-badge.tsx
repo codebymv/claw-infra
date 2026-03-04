@@ -5,31 +5,31 @@ type Status = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | stri
 const statusConfig: Record<string, { label: string; classes: string; dot?: string }> = {
   queued: {
     label: 'Queued',
-    classes: 'bg-sky-400/8 text-sky-400 border-sky-400/15',
+    classes: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
   },
   running: {
     label: 'Running',
-    classes: 'bg-primary/8 text-primary border-primary/15',
+    classes: 'bg-primary/10 text-primary border-primary/20',
     dot: 'bg-primary animate-pulse-slow',
   },
   completed: {
     label: 'Completed',
-    classes: 'bg-emerald-400/8 text-emerald-400 border-emerald-400/15',
+    classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   },
   failed: {
     label: 'Failed',
-    classes: 'bg-rose-400/8 text-rose-400 border-rose-400/15',
+    classes: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
   },
   cancelled: {
     label: 'Cancelled',
-    classes: 'bg-zinc-400/8 text-zinc-400 border-zinc-400/15',
+    classes: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
   },
 };
 
 export function StatusBadge({ status, className }: { status: Status; className?: string }) {
   const config = statusConfig[status] || {
     label: status,
-    classes: 'bg-zinc-400/8 text-zinc-400 border-zinc-400/15',
+    classes: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
   };
 
   return (
