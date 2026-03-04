@@ -104,19 +104,28 @@ export function generateConfig(): string {
 
   const toml = buildToml(cfg);
 
-  const configDir = join(homedir(), '.zeroclaw');
-  if (!existsSync(configDir)) {
-    mkdirSync(configDir, { recursive: true });
-  }
+  // ZeroClaw may resolve config relative to HOME or process cwd depending on runtime.
+  // Write to both common locations so container startups are deterministic.
+  const candidateDirs = [
+    join(homedir(), '.zeroclaw'),
+    '/app/.zeroclaw',
+  ];
 
-  const configPath = join(configDir, 'config.toml');
-  writeFileSync(configPath, toml, 'utf-8');
-  console.log(`[config-gen] Wrote ZeroClaw config to ${configPath}`);
+  let primaryPath = '';
+  for (const dir of candidateDirs) {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+    const path = join(dir, 'config.toml');
+    writeFileSync(path, toml, 'utf-8');
+    if (!primaryPath) primaryPath = path;
+    console.log(`[config-gen] Wrote ZeroClaw config to ${path}`);
+  }
   console.log(`[config-gen] Provider: ${cfg.provider}, Model: ${cfg.model}`);
   console.log(`[config-gen] Memory: ${cfg.memoryBackend}, Autonomy: ${cfg.autonomyLevel}`);
   console.log(`[config-gen] Telegram: ${cfg.telegramBotToken ? 'enabled' : 'disabled'}`);
 
-  return configPath;
+  return primaryPath;
 }
 
 if (require.main === module) {
