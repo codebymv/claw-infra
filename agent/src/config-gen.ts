@@ -52,6 +52,12 @@ function buildToml(cfg: ZeroClawConfig): string {
     `forbidden_paths = ["/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/root/.ssh", "/proc", "/sys", "/dev"]`,
 
     ``,
+    `[observability]`,
+    `backend = "log"`,
+    `runtime_trace_mode = "rolling"`,
+    `runtime_trace_max_entries = 200`,
+
+    ``,
     `[runtime]`,
     `kind = "native"`,
 

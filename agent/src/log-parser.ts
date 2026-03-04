@@ -6,6 +6,8 @@ export interface RunStartEvent {
   type: 'run_start';
   taskId?: string;
   message: string;
+  channel?: string;
+  sender?: string;
   timestamp: Date;
 }
 
@@ -15,6 +17,7 @@ export interface RunCompleteEvent {
   success: boolean;
   durationMs?: number;
   error?: string;
+  replySummary?: string;
   timestamp: Date;
 }
 
@@ -66,37 +69,40 @@ export type ZeroClawEvent =
   | LlmCallEvent
   | LogLineEvent;
 
-// ── Patterns for ZeroClaw's tracing output ──
+// ── Patterns for ZeroClaw's actual output ──
 
 const PATTERNS = {
   jsonLine: /^\{.*\}$/,
 
-  // Rust tracing plain-text patterns
-  levelPrefix: /^\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+):\s+(.*)$/,
-  levelSimple: /^\s*(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+):\s+(.*)$/,
-  nestLevel: /^\[?(\w+)\]?\s+(.*)$/,
+  // ZeroClaw channel output (emoji-prefixed)
+  channelMessage: /💬\s*\[(\w+)\]\s*from\s+(\S+):\s*(.*)/,
+  processing: /⏳\s*Processing/i,
+  reply: /🤖\s*Reply\s*\((\d+)ms\):\s*(.*)/,
+  replyError: /❌\s*(?:Error|Failed|Reply failed)(?:\s*\((\d+)ms\))?:\s*(.*)/i,
 
-  // Task lifecycle
-  taskStart: /(?:starting task|task started|begin(?:ning)? (?:task|run|execution))/i,
-  taskComplete: /(?:task (?:completed|finished|done)|run (?:completed|succeeded))/i,
-  taskFailed: /(?:task (?:failed|error|aborted)|run (?:failed|error))/i,
+  // ZeroClaw tracing (Rust structured logs)
+  tracingLine: /^\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+):\s+(.*)$/,
+  tracingSimple: /^\s*(TRACE|DEBUG|INFO|WARN|ERROR)\s+(\S+):\s+(.*)$/,
 
-  // Tool usage
-  toolCall: /(?:calling tool|tool invocation|executing tool|invoking)\s+[`"']?(\w+)[`"']?/i,
-  toolResult: /(?:tool (?:result|output|completed|finished|failed))\s*(?:for\s+)?[`"']?(\w+)?[`"']?/i,
-  toolDuration: /(?:duration|took|elapsed)[=:\s]+(\d+(?:\.\d+)?)\s*(ms|s|sec)/i,
+  // ZeroClaw tool-call tracing patterns (from runtime logs)
+  toolInvoke: /(?:tool[_\s](?:call|invoke|exec)|calling|invoking|executing)\s+[`"']?(\w+)[`"']?/i,
+  toolComplete: /(?:tool[_\s](?:result|output|done|completed|finished))\s*(?:for\s+)?[`"']?(\w+)?[`"']?/i,
+  toolFailed: /(?:tool[_\s](?:error|failed|failure))\s*(?:for\s+)?[`"']?(\w+)?[`"']?/i,
+  toolUse: /Tool\s+use:\s+(\w+)/,
+  toolResult: /Tool\s+result:\s+(\w+)/i,
 
-  // LLM API
-  llmCall: /(?:provider|llm|api)\s*(?:call|request|completion)/i,
+  // LLM / provider tracing
+  llmRequest: /(?:provider|llm|api)\s*(?:call|request|completion)|sending\s+(?:request|prompt)\s+to/i,
+  providerWarmup: /Warming up provider.*provider="(\w+)"/i,
   llmProvider: /provider[=:\s]+[`"']?(\w+)[`"']?/i,
   llmModel: /model[=:\s]+[`"']?([\w./-]+)[`"']?/i,
   llmTokensIn: /(?:input_tokens|tokens_in|prompt_tokens)[=:\s]+(\d+)/i,
   llmTokensOut: /(?:output_tokens|tokens_out|completion_tokens)[=:\s]+(\d+)/i,
   llmCost: /cost[=:\s]+\$?([\d.]+)/i,
-  llmDuration: /(?:latency|duration)[=:\s]+(\d+(?:\.\d+)?)\s*(ms|s)/i,
+  duration: /(?:duration|took|elapsed|latency)[=:\s]+(\d+(?:\.\d+)?)\s*(ms|s|sec)/i,
 
-  // Task ID extraction
-  taskId: /(?:task_id|run_id|id)[=:\s]+[`"']?([a-f0-9-]{8,36})[`"']?/i,
+  // Task ID
+  taskId: /(?:task_id|run_id|request_id|id)[=:\s]+[`"']?([a-f0-9-]{8,36})[`"']?/i,
 };
 
 function mapLevel(level: string): 'debug' | 'info' | 'warn' | 'error' {
@@ -144,18 +150,102 @@ export class ZeroClawLogParser extends EventEmitter {
   }
 
   private parseLine(line: string): void {
-    // Try JSON structured output first
+    // Try JSON structured output first (RUST_LOG_FORMAT=json)
     if (PATTERNS.jsonLine.test(line)) {
       try {
         const json = JSON.parse(line);
         this.handleJsonEvent(json, line);
         return;
       } catch {
-        // Not valid JSON, fall through to text parsing
+        // Not valid JSON, fall through
       }
     }
 
+    // Check for ZeroClaw channel emoji output
+    if (this.handleChannelLine(line)) return;
+
+    // Handle Rust tracing text lines
     this.handleTextLine(line);
+  }
+
+  private handleChannelLine(line: string): boolean {
+    // 💬 [telegram] from rusty_chain: List the files in the workspace
+    const msgMatch = PATTERNS.channelMessage.exec(line);
+    if (msgMatch) {
+      this.emitEvent({
+        type: 'run_start',
+        channel: msgMatch[1],
+        sender: msgMatch[2],
+        message: msgMatch[3],
+        timestamp: new Date(),
+      });
+      this.emitEvent({
+        type: 'log',
+        level: 'info',
+        message: line,
+        target: 'zeroclaw::channels',
+        timestamp: new Date(),
+        raw: line,
+      });
+      return true;
+    }
+
+    // 🤖 Reply (6068ms): The workspace currently contains...
+    const replyMatch = PATTERNS.reply.exec(line);
+    if (replyMatch) {
+      this.emitEvent({
+        type: 'run_complete',
+        success: true,
+        durationMs: parseInt(replyMatch[1], 10),
+        replySummary: replyMatch[2].substring(0, 500),
+        timestamp: new Date(),
+      });
+      this.emitEvent({
+        type: 'log',
+        level: 'info',
+        message: line,
+        target: 'zeroclaw::channels',
+        timestamp: new Date(),
+        raw: line,
+      });
+      return true;
+    }
+
+    // ❌ Error (Xms): ...
+    const errMatch = PATTERNS.replyError.exec(line);
+    if (errMatch) {
+      this.emitEvent({
+        type: 'run_complete',
+        success: false,
+        durationMs: errMatch[1] ? parseInt(errMatch[1], 10) : undefined,
+        error: errMatch[2],
+        timestamp: new Date(),
+      });
+      this.emitEvent({
+        type: 'log',
+        level: 'error',
+        message: line,
+        target: 'zeroclaw::channels',
+        timestamp: new Date(),
+        raw: line,
+      });
+      return true;
+    }
+
+    // ⏳ Processing message... (just log it)
+    if (PATTERNS.processing.test(line)) {
+      this.emitEvent({
+        type: 'log',
+        level: 'info',
+        message: line,
+        target: 'zeroclaw::channels',
+        timestamp: new Date(),
+        raw: line,
+      });
+      return true;
+    }
+
+    return false;
   }
 
   private handleJsonEvent(json: Record<string, unknown>, raw: string): void {
@@ -168,7 +258,6 @@ export class ZeroClawLogParser extends EventEmitter {
     const timestamp = json.timestamp ? new Date(String(json.timestamp)) : new Date();
     const taskId = String(json.task_id || json.run_id || span?.task_id || '');
 
-    // Always emit as log
     this.emitEvent({
       type: 'log',
       level,
@@ -178,7 +267,10 @@ export class ZeroClawLogParser extends EventEmitter {
       raw,
     });
 
-    this.matchSemanticEvents(message, level, taskId || undefined, timestamp, json);
+    // Check if JSON contains channel message data
+    if (this.handleChannelLine(message)) return;
+
+    this.matchTracingEvents(message, level, taskId || undefined, timestamp, json);
   }
 
   private handleTextLine(line: string): void {
@@ -187,27 +279,18 @@ export class ZeroClawLogParser extends EventEmitter {
     let message = line;
     let timestamp = new Date();
 
-    // Try structured tracing format: 2024-01-01T00:00:00Z INFO target: message
-    const fullMatch = PATTERNS.levelPrefix.exec(line);
+    const fullMatch = PATTERNS.tracingLine.exec(line);
     if (fullMatch) {
       timestamp = new Date(fullMatch[1]);
       level = mapLevel(fullMatch[2]);
       target = fullMatch[3];
       message = fullMatch[4];
     } else {
-      // Try simpler: INFO target: message
-      const simpleMatch = PATTERNS.levelSimple.exec(line);
+      const simpleMatch = PATTERNS.tracingSimple.exec(line);
       if (simpleMatch) {
         level = mapLevel(simpleMatch[1]);
         target = simpleMatch[2];
         message = simpleMatch[3];
-      } else {
-        // Try [LEVEL] message
-        const nestMatch = PATTERNS.nestLevel.exec(line);
-        if (nestMatch && ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR'].includes(nestMatch[1].toUpperCase())) {
-          level = mapLevel(nestMatch[1]);
-          message = nestMatch[2];
-        }
       }
     }
 
@@ -223,60 +306,35 @@ export class ZeroClawLogParser extends EventEmitter {
       raw: line,
     });
 
-    this.matchSemanticEvents(message, level, taskId, timestamp);
+    this.matchTracingEvents(message, level, taskId, timestamp);
   }
 
-  private matchSemanticEvents(
+  private matchTracingEvents(
     message: string,
     level: string,
     taskId: string | undefined,
     timestamp: Date,
     json?: Record<string, unknown>,
   ): void {
-    // Task lifecycle
-    if (PATTERNS.taskStart.test(message)) {
-      this.emitEvent({ type: 'run_start', taskId, message, timestamp });
-    }
-
-    if (PATTERNS.taskComplete.test(message)) {
-      const durationMatch = PATTERNS.toolDuration.exec(message);
-      this.emitEvent({
-        type: 'run_complete',
-        taskId,
-        success: true,
-        durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
-        timestamp,
-      });
-    }
-
-    if (PATTERNS.taskFailed.test(message)) {
-      this.emitEvent({
-        type: 'run_complete',
-        taskId,
-        success: false,
-        error: message,
-        timestamp,
-      });
-    }
-
-    // Tool calls
-    const toolCallMatch = PATTERNS.toolCall.exec(message);
-    if (toolCallMatch) {
+    // Tool invocation
+    const toolInvokeMatch = PATTERNS.toolInvoke.exec(message) || PATTERNS.toolUse.exec(message);
+    if (toolInvokeMatch) {
       this.emitEvent({
         type: 'tool_call',
-        toolName: toolCallMatch[1],
+        toolName: toolInvokeMatch[1],
         taskId,
         input: message,
         timestamp,
       });
     }
 
-    const toolResultMatch = PATTERNS.toolResult.exec(message);
-    if (toolResultMatch) {
-      const durationMatch = PATTERNS.toolDuration.exec(message);
+    // Tool result / completion
+    const toolCompleteMatch = PATTERNS.toolComplete.exec(message) || PATTERNS.toolResult.exec(message);
+    if (toolCompleteMatch) {
+      const durationMatch = PATTERNS.duration.exec(message);
       this.emitEvent({
         type: 'tool_result',
-        toolName: toolResultMatch[1] || 'unknown',
+        toolName: toolCompleteMatch[1] || 'unknown',
         taskId,
         success: level !== 'error',
         durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
@@ -285,14 +343,27 @@ export class ZeroClawLogParser extends EventEmitter {
       });
     }
 
+    // Tool failure
+    const toolFailMatch = PATTERNS.toolFailed.exec(message);
+    if (toolFailMatch) {
+      this.emitEvent({
+        type: 'tool_result',
+        toolName: toolFailMatch[1] || 'unknown',
+        taskId,
+        success: false,
+        error: message,
+        timestamp,
+      });
+    }
+
     // LLM API calls
-    if (PATTERNS.llmCall.test(message) || json?.tokens_in || json?.tokens_out) {
+    if (PATTERNS.llmRequest.test(message) || json?.tokens_in || json?.tokens_out) {
       const providerMatch = PATTERNS.llmProvider.exec(message);
       const modelMatch = PATTERNS.llmModel.exec(message);
       const tokensInMatch = PATTERNS.llmTokensIn.exec(message);
       const tokensOutMatch = PATTERNS.llmTokensOut.exec(message);
       const costMatch = PATTERNS.llmCost.exec(message);
-      const durationMatch = PATTERNS.llmDuration.exec(message);
+      const durationMatch = PATTERNS.duration.exec(message);
 
       const provider = providerMatch?.[1] || String(json?.provider || 'unknown');
       const model = modelMatch?.[1] || String(json?.model || 'unknown');

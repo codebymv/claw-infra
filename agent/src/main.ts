@@ -44,10 +44,16 @@ let logFlushTimer: NodeJS.Timeout | null = null;
 // ── Event handlers ──
 
 async function onRunStart(event: RunStartEvent): Promise<void> {
+  // Don't create a new run if one is already in progress
+  if (currentRun) return;
+
   try {
-    const result = await ingest.createRun(AGENT_NAME, 'manual', {
+    const trigger = event.channel ? 'channel' : 'manual';
+    const result = await ingest.createRun(AGENT_NAME, trigger, {
       taskId: event.taskId,
       message: event.message,
+      channel: event.channel,
+      sender: event.sender,
     });
     await ingest.startRun(result.id);
 
@@ -61,7 +67,7 @@ async function onRunStart(event: RunStartEvent): Promise<void> {
       totalCostUsd: 0,
     };
 
-    console.log(`[reporter] Run started: ${result.id}`);
+    console.log(`[reporter] Run started: ${result.id} (${event.channel || 'direct'}/${event.sender || 'unknown'})`);
   } catch (err) {
     console.error(`[reporter] Failed to create run:`, err);
   }
@@ -202,8 +208,7 @@ function startDaemon(): ChildProcess {
   const child = spawn(ZEROCLAW_BIN, [ZEROCLAW_CMD], {
     env: {
       ...process.env,
-      RUST_LOG: process.env.RUST_LOG || 'zeroclaw=info',
-      RUST_LOG_FORMAT: 'json',
+      RUST_LOG: process.env.RUST_LOG || 'zeroclaw=info,zeroclaw::tools=debug,zeroclaw::providers=debug',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
