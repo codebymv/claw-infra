@@ -48,6 +48,8 @@ function buildToml(cfg: ZeroClawConfig): string {
     `allowed_roots = ["${cfg.workspaceDir}", "/app/workspace", "/tmp"]`,
     `max_actions_per_hour = 200`,
     `max_cost_per_day_cents = 5000`,
+    `max_iterations = 100`,
+    `max_tool_calls = 100`,
     `require_approval_for_medium_risk = false`,
     `block_high_risk_commands = false`,
     `auto_approve = ["shell", "file_read", "file_write", "file_edit"]`,
