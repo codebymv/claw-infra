@@ -49,6 +49,7 @@ function buildToml(cfg: ZeroClawConfig): string {
   lines.push('workspace_only = true');
   const cmds = cfg.allowedCommands.map((c) => `"${c}"`).join(', ');
   lines.push(`allowed_commands = [${cmds}]`);
+  lines.push('max_actions_per_hour = 120');
   // Required by newer ZeroClaw config schema.
   lines.push('forbidden_paths = [');
   lines.push('  "/etc",');
