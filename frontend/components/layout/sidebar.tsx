@@ -20,11 +20,23 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobileOpen: boolean;
+  onCloseMobile: () => void;
+}
+
+export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-[260px] flex flex-col border-r border-border bg-card/80 glass">
+    <aside
+      className={cn(
+        'fixed inset-y-0 left-0 z-50 w-[260px] flex flex-col border-r border-border bg-card/80 glass transform transition-transform duration-300 ease-out',
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full',
+        'lg:translate-x-0',
+      )}
+      aria-label="Sidebar navigation"
+    >
       <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-primary/30 via-primary/10 to-transparent" />
 
       <div className="flex h-16 items-center gap-3 px-5">
@@ -57,6 +69,7 @@ export function Sidebar() {
               <li key={href}>
                 <Link
                   href={href}
+                  onClick={onCloseMobile}
                   className={cn(
                     'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-200',
                     active

@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Moon, Sun, Bell, RefreshCw, Signal } from 'lucide-react';
+import { Moon, Sun, Bell, RefreshCw, Signal, Menu } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 
@@ -14,7 +14,11 @@ const titles: Record<string, { label: string; description: string }> = {
   '/settings': { label: 'Settings', description: 'API keys, budgets & configuration' },
 };
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -31,6 +35,15 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/60 glass">
       <div className="flex h-14 items-center gap-4 px-6 lg:px-8">
+        <button
+          onClick={onMenuClick}
+          className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200 lg:hidden"
+          aria-label="Open navigation menu"
+          title="Menu"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
+
         <div className="flex-1 min-w-0">
           <h1 className="font-display text-base font-semibold tracking-tight truncate">
             {entry.label}

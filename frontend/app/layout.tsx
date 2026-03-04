@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Outfit, DM_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Header } from '@/components/layout/header';
+import { AppShell } from '@/components/layout/app-shell';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 
 const outfit = Outfit({
@@ -36,17 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <div className="noise">
-            <div className="flex h-screen overflow-hidden bg-gradient-mesh">
-              <Sidebar />
-              <div className="flex flex-1 flex-col overflow-hidden pl-[260px]">
-                <Header />
-                <main className="flex-1 overflow-y-auto dot-grid">
-                  <div className="p-6 lg:p-8">
-                    {children}
-                  </div>
-                </main>
-              </div>
-            </div>
+            <AppShell>{children}</AppShell>
           </div>
         </ThemeProvider>
       </body>
