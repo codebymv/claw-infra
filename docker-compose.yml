@@ -1,0 +1,94 @@
+version: '3.9'
+
+# Default mode: backend + frontend only, using Railway managed Postgres + Redis.
+#
+# To run with LOCAL databases instead:
+#   docker compose --profile local-db up
+#
+# In that case, change backend DATABASE_URL / REDIS_URL to:
+#   DATABASE_URL: postgresql://postgres:postgres@postgres:5432/claw_infra
+#   REDIS_URL: redis://redis:6379
+
+services:
+  # ── Local databases (only started with --profile local-db) ────────────────
+  postgres:
+    profiles: [local-db]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: claw_infra
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    profiles: [local-db]
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Application services ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      FRONTEND_URL: http://localhost:3001
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3000/api/health',(r)=>r.statusCode===200?process.exit(0):process.exit(1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_WS_URL: http://localhost:3000
+    depends_on:
+      - backend
+
+  # ── ZeroClaw Agent (only started explicitly) ────────────────────────────────
+  agent:
+    profiles: [agent]
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./agent/.env
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:3000
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

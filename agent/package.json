@@ -1,0 +1,19 @@
+{
+  "name": "claw-infra-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ZeroClaw agent runner with claw-infra telemetry reporter",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts"
+  },
+  "dependencies": {
+    "toml": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

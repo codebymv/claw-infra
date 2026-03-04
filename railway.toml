@@ -1,0 +1,19 @@
+# Railway deployment configuration for ZeroClaw Dashboard
+# Deploy each service (backend, frontend) separately in Railway
+# and configure env vars via Railway's dashboard or CLI.
+#
+# Recommended Railway setup:
+#   Project: claw-infra
+#   ├── Service: backend     (build from ./backend)
+#   ├── Service: frontend    (build from ./frontend)
+#   ├── Database: PostgreSQL (Railway managed)
+#   └── Database: Redis      (Railway managed)
+
+[deploy]
+startCommand = "node dist/main"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"

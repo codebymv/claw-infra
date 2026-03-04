@@ -1,0 +1,312 @@
+import { spawn, ChildProcess } from 'child_process';
+import { cpus, totalmem, freemem } from 'os';
+import { generateConfig } from './config-gen';
+import {
+  ZeroClawLogParser,
+  RunStartEvent,
+  RunCompleteEvent,
+  ToolCallEvent,
+  ToolResultEvent,
+  LlmCallEvent,
+  LogLineEvent,
+} from './log-parser';
+import * as ingest from './ingest-client';
+
+const AGENT_NAME = process.env.ZEROCLAW_AGENT_NAME || 'zeroclaw-primary';
+const METRICS_INTERVAL_MS = parseInt(process.env.METRICS_INTERVAL_MS || '15000', 10);
+const LOG_BATCH_INTERVAL_MS = parseInt(process.env.LOG_BATCH_INTERVAL_MS || '5000', 10);
+const ZEROCLAW_BIN = process.env.ZEROCLAW_BIN || 'zeroclaw';
+const ZEROCLAW_CMD = process.env.ZEROCLAW_CMD || 'daemon';
+
+// ── State tracking ──
+
+interface RunState {
+  runId: string;
+  stepIndex: number;
+  stepMap: Map<string, string>; // toolName → stepId
+  startedAt: number;
+  totalTokensIn: number;
+  totalTokensOut: number;
+  totalCostUsd: number;
+}
+
+let currentRun: RunState | null = null;
+let daemonProcess: ChildProcess | null = null;
+let logBuffer: Array<{
+  runId: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  metadata?: Record<string, unknown>;
+}> = [];
+let metricsTimer: NodeJS.Timeout | null = null;
+let logFlushTimer: NodeJS.Timeout | null = null;
+
+// ── Event handlers ──
+
+async function onRunStart(event: RunStartEvent): Promise<void> {
+  try {
+    const result = await ingest.createRun(AGENT_NAME, 'manual', {
+      taskId: event.taskId,
+      message: event.message,
+    });
+    await ingest.startRun(result.id);
+
+    currentRun = {
+      runId: result.id,
+      stepIndex: 0,
+      stepMap: new Map(),
+      startedAt: Date.now(),
+      totalTokensIn: 0,
+      totalTokensOut: 0,
+      totalCostUsd: 0,
+    };
+
+    console.log(`[reporter] Run started: ${result.id}`);
+  } catch (err) {
+    console.error(`[reporter] Failed to create run:`, err);
+  }
+}
+
+async function onRunComplete(event: RunCompleteEvent): Promise<void> {
+  if (!currentRun) return;
+
+  try {
+    await ingest.completeRun(currentRun.runId, {
+      status: event.success ? 'completed' : 'failed',
+      durationMs: event.durationMs ?? (Date.now() - currentRun.startedAt),
+      errorMessage: event.error,
+      totalTokensIn: currentRun.totalTokensIn,
+      totalTokensOut: currentRun.totalTokensOut,
+      totalCostUsd: currentRun.totalCostUsd.toFixed(6),
+    });
+
+    console.log(`[reporter] Run ${event.success ? 'completed' : 'failed'}: ${currentRun.runId}`);
+    currentRun = null;
+  } catch (err) {
+    console.error(`[reporter] Failed to complete run:`, err);
+  }
+}
+
+async function onToolCall(event: ToolCallEvent): Promise<void> {
+  if (!currentRun) return;
+
+  try {
+    const result = await ingest.createStep(currentRun.runId, currentRun.stepIndex, {
+      toolName: event.toolName,
+      stepName: `${event.toolName} invocation`,
+      inputSummary: event.input?.substring(0, 500),
+    });
+
+    currentRun.stepMap.set(event.toolName, result.id);
+    currentRun.stepIndex++;
+
+    console.log(`[reporter] Step created: ${event.toolName} (${result.id})`);
+  } catch (err) {
+    console.error(`[reporter] Failed to create step:`, err);
+  }
+}
+
+async function onToolResult(event: ToolResultEvent): Promise<void> {
+  if (!currentRun) return;
+
+  const stepId = currentRun.stepMap.get(event.toolName);
+  if (!stepId) return;
+
+  try {
+    await ingest.completeStep(stepId, {
+      status: event.success ? 'completed' : 'failed',
+      durationMs: event.durationMs,
+      outputSummary: event.output?.substring(0, 500),
+      errorMessage: event.error,
+    });
+
+    currentRun.stepMap.delete(event.toolName);
+  } catch (err) {
+    console.error(`[reporter] Failed to complete step:`, err);
+  }
+}
+
+async function onLlmCall(event: LlmCallEvent): Promise<void> {
+  if (!currentRun) return;
+
+  if (event.tokensIn) currentRun.totalTokensIn += event.tokensIn;
+  if (event.tokensOut) currentRun.totalTokensOut += event.tokensOut;
+  if (event.costUsd) currentRun.totalCostUsd += event.costUsd;
+
+  try {
+    await ingest.recordCost({
+      runId: currentRun.runId,
+      provider: event.provider,
+      model: event.model,
+      tokensIn: event.tokensIn ?? 0,
+      tokensOut: event.tokensOut ?? 0,
+      costUsd: (event.costUsd ?? 0).toFixed(6),
+    });
+  } catch (err) {
+    console.error(`[reporter] Failed to record cost:`, err);
+  }
+}
+
+function onLogLine(event: LogLineEvent): void {
+  if (!currentRun) return;
+
+  logBuffer.push({
+    runId: currentRun.runId,
+    level: event.level,
+    message: event.message,
+    metadata: event.target ? { target: event.target } : undefined,
+  });
+}
+
+// ── Log batching ──
+
+async function flushLogs(): Promise<void> {
+  if (logBuffer.length === 0) return;
+
+  const batch = logBuffer.splice(0, logBuffer.length);
+  try {
+    await ingest.sendLogBatch(batch);
+  } catch (err) {
+    console.error(`[reporter] Failed to flush ${batch.length} logs:`, err);
+  }
+}
+
+// ── Resource metrics ──
+
+async function collectMetrics(): Promise<void> {
+  const cpuCount = cpus().length;
+  const totalMem = totalmem();
+  const freeMem = freemem();
+  const usedMem = totalMem - freeMem;
+
+  const cpuUsage = process.cpuUsage();
+  const cpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000) * 100 / cpuCount;
+
+  try {
+    await ingest.sendMetrics({
+      runId: currentRun?.runId,
+      cpuPercent: Math.min(Math.round(cpuPercent * 100) / 100, 100),
+      memoryMb: Math.round(usedMem / 1024 / 1024),
+      memoryPercent: Math.round((usedMem / totalMem) * 10000) / 100,
+    });
+  } catch (err) {
+    console.error(`[reporter] Failed to send metrics:`, err);
+  }
+}
+
+// ── Daemon lifecycle ──
+
+function startDaemon(): ChildProcess {
+  console.log(`[reporter] Starting: ${ZEROCLAW_BIN} ${ZEROCLAW_CMD}`);
+
+  const child = spawn(ZEROCLAW_BIN, [ZEROCLAW_CMD], {
+    env: {
+      ...process.env,
+      RUST_LOG: process.env.RUST_LOG || 'zeroclaw=info',
+      RUST_LOG_FORMAT: 'json',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  const parser = new ZeroClawLogParser();
+
+  parser.on('run_start', (e: RunStartEvent) => onRunStart(e));
+  parser.on('run_complete', (e: RunCompleteEvent) => onRunComplete(e));
+  parser.on('tool_call', (e: ToolCallEvent) => onToolCall(e));
+  parser.on('tool_result', (e: ToolResultEvent) => onToolResult(e));
+  parser.on('llm_call', (e: LlmCallEvent) => onLlmCall(e));
+  parser.on('log', (e: LogLineEvent) => onLogLine(e));
+
+  child.stdout?.on('data', (chunk: Buffer) => {
+    const text = chunk.toString();
+    process.stdout.write(text);
+    parser.feed(text);
+  });
+
+  child.stderr?.on('data', (chunk: Buffer) => {
+    const text = chunk.toString();
+    process.stderr.write(text);
+    parser.feed(text);
+  });
+
+  child.on('exit', (code, signal) => {
+    console.log(`[reporter] ZeroClaw exited (code=${code}, signal=${signal})`);
+    parser.flush();
+
+    if (currentRun) {
+      onRunComplete({
+        type: 'run_complete',
+        success: code === 0,
+        error: code !== 0 ? `Process exited with code ${code}` : undefined,
+        timestamp: new Date(),
+      });
+    }
+
+    cleanup();
+
+    if (code !== 0 && code !== null) {
+      console.log(`[reporter] Restarting in 5s...`);
+      setTimeout(() => {
+        daemonProcess = startDaemon();
+      }, 5000);
+    }
+  });
+
+  return child;
+}
+
+function cleanup(): void {
+  if (metricsTimer) clearInterval(metricsTimer);
+  if (logFlushTimer) clearInterval(logFlushTimer);
+  flushLogs();
+}
+
+// ── Main ──
+
+async function main(): Promise<void> {
+  console.log('[reporter] claw-infra agent reporter starting');
+  console.log(`[reporter] Agent name: ${AGENT_NAME}`);
+  console.log(`[reporter] Backend: ${process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000'}`);
+
+  // Generate ZeroClaw config from env vars
+  generateConfig();
+
+  // Wait for backend to be reachable
+  console.log('[reporter] Waiting for claw-infra backend...');
+  let backendReady = false;
+  for (let i = 0; i < 30; i++) {
+    backendReady = await ingest.checkHealth();
+    if (backendReady) break;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  if (!backendReady) {
+    console.warn('[reporter] Backend not reachable after 60s — starting daemon anyway');
+  } else {
+    console.log('[reporter] Backend is healthy');
+  }
+
+  // Start periodic resource metrics
+  metricsTimer = setInterval(collectMetrics, METRICS_INTERVAL_MS);
+
+  // Start log batching
+  logFlushTimer = setInterval(flushLogs, LOG_BATCH_INTERVAL_MS);
+
+  // Start ZeroClaw daemon
+  daemonProcess = startDaemon();
+
+  // Graceful shutdown
+  for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(sig, () => {
+      console.log(`[reporter] Received ${sig}, shutting down...`);
+      daemonProcess?.kill(sig);
+      cleanup();
+      setTimeout(() => process.exit(0), 3000);
+    });
+  }
+}
+
+main().catch((err) => {
+  console.error('[reporter] Fatal error:', err);
+  process.exit(1);
+});
