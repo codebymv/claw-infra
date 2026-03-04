@@ -52,14 +52,13 @@ export default function ResourcesPage() {
   if (loading && !latest) return <PageLoader />;
 
   return (
-    <div className="space-y-6">
-      {/* Live Gauges */}
+    <div className="space-y-6 animate-fade-in">
       <SectionCard
         title="Live Metrics"
         description="Updated in real-time via WebSocket"
         action={
-          <span className="flex items-center gap-1.5 text-xs text-green-400">
-            <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse-slow" />
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-primary">
+            <span className="h-2 w-2 rounded-full bg-primary animate-pulse-slow" />
             Live
           </span>
         }
@@ -69,40 +68,48 @@ export default function ResourcesPage() {
             <GaugeChart
               value={displayLatest.cpuPercent}
               label="CPU Usage"
-              color="#60a5fa"
+              color="#00dc82"
             />
             <GaugeChart
               value={displayLatest.memoryPercent}
               label="Memory Usage"
-              color="#34d399"
+              color="#38bdf8"
             />
-            <div className="flex flex-col items-center justify-center space-y-1">
-              <p className="text-2xl font-bold">{formatBytes(displayLatest.memoryMb)}</p>
-              <p className="text-xs text-muted-foreground">Memory Used</p>
+            <div className="flex flex-col items-center justify-center space-y-1.5">
+              <p className="font-display text-2xl font-bold">{formatBytes(displayLatest.memoryMb)}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                Memory Used
+              </p>
             </div>
-            <div className="flex flex-col items-center justify-center space-y-1">
-              <p className="text-2xl font-bold">{displayLatest.activeConnections}</p>
-              <p className="text-xs text-muted-foreground">Active Connections</p>
+            <div className="flex flex-col items-center justify-center space-y-1.5">
+              <p className="font-display text-2xl font-bold">{displayLatest.activeConnections}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                Active Connections
+              </p>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-6">
-            No metrics data available — make sure agents are reporting resource snapshots
-          </p>
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <p className="text-[13px] text-muted-foreground/50">
+              No metrics data available
+            </p>
+            <p className="text-[11px] text-muted-foreground/30">
+              Make sure agents are reporting resource snapshots
+            </p>
+          </div>
         )}
       </SectionCard>
 
-      {/* Resolution Picker + History */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-1.5">
         {RESOLUTIONS.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => setResolution(value)}
             className={cn(
-              'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              'rounded-lg px-3 py-1.5 text-[11px] font-semibold tracking-wide transition-all duration-200',
               resolution === value
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card border border-border text-muted-foreground hover:text-foreground',
+                ? 'bg-primary/15 text-primary border border-primary/20'
+                : 'bg-card/60 border border-border/40 text-muted-foreground/60 hover:text-foreground hover:border-border',
             )}
           >
             {label}
@@ -127,30 +134,37 @@ export default function ResourcesPage() {
         </SectionCard>
       </div>
 
-      {/* Per-Agent Resource Breakdown */}
       <SectionCard title="Usage by Agent" description="Average resource consumption per agent">
         {byAgent.length === 0 ? (
           <EmptyState message="No per-agent data available" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-[13px]">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="pb-2 text-left text-xs font-medium text-muted-foreground">Agent</th>
-                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Avg CPU</th>
-                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Peak CPU</th>
-                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Avg Memory</th>
-                  <th className="pb-2 text-right text-xs font-medium text-muted-foreground">Peak Memory</th>
+                <tr className="border-b border-border/30">
+                  <th className="pb-3 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Agent</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Avg CPU</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Peak CPU</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Avg Memory</th>
+                  <th className="pb-3 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">Peak Memory</th>
                 </tr>
               </thead>
               <tbody>
                 {byAgent.map((a) => (
-                  <tr key={a.agentName} className="border-b border-border/40">
-                    <td className="py-2 font-medium">{a.agentName}</td>
-                    <td className="py-2 text-right tabular-nums">{parseFloat(a.avgCpu).toFixed(1)}%</td>
-                    <td className="py-2 text-right tabular-nums">{parseFloat(a.peakCpu).toFixed(1)}%</td>
-                    <td className="py-2 text-right tabular-nums">{formatBytes(parseFloat(a.avgMemoryMb))}</td>
-                    <td className="py-2 text-right tabular-nums">{formatBytes(parseFloat(a.peakMemoryMb))}</td>
+                  <tr key={a.agentName} className="border-b border-border/15">
+                    <td className="py-2.5 font-medium">{a.agentName}</td>
+                    <td className="py-2.5 text-right tabular-nums font-mono text-[12px]">
+                      {parseFloat(a.avgCpu).toFixed(1)}%
+                    </td>
+                    <td className="py-2.5 text-right tabular-nums font-mono text-[12px]">
+                      {parseFloat(a.peakCpu).toFixed(1)}%
+                    </td>
+                    <td className="py-2.5 text-right tabular-nums font-mono text-[12px]">
+                      {formatBytes(parseFloat(a.avgMemoryMb))}
+                    </td>
+                    <td className="py-2.5 text-right tabular-nums font-mono text-[12px]">
+                      {formatBytes(parseFloat(a.peakMemoryMb))}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -159,10 +173,9 @@ export default function ResourcesPage() {
         )}
       </SectionCard>
 
-      {/* I/O Stats */}
       {displayLatest && (
         <SectionCard title="Network & Disk I/O">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <MetricTile label="Network In" value={formatBytes(displayLatest.networkInMb)} />
             <MetricTile label="Network Out" value={formatBytes(displayLatest.networkOutMb)} />
             <MetricTile label="Disk Read" value={formatBytes(displayLatest.diskIoReadMb)} />
@@ -176,17 +189,19 @@ export default function ResourcesPage() {
 
 function MetricTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-muted/30 border border-border p-3 text-center">
-      <p className="text-lg font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="rounded-lg bg-muted/20 border border-border/30 p-4 text-center">
+      <p className="font-display text-lg font-bold">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50 mt-1">
+        {label}
+      </p>
     </div>
   );
 }
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-      {message}
+    <div className="flex h-48 items-center justify-center">
+      <p className="text-[13px] text-muted-foreground/40">{message}</p>
     </div>
   );
 }

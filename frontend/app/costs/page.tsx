@@ -72,18 +72,17 @@ export default function CostsPage() {
   if (loading && !summary) return <PageLoader />;
 
   return (
-    <div className="space-y-6">
-      {/* Period Selector */}
-      <div className="flex items-center gap-2">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-1.5">
         {PERIODS.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => setPeriod(value)}
             className={cn(
-              'rounded-md px-4 py-1.5 text-sm font-medium transition-colors',
+              'rounded-lg px-4 py-1.5 text-[12px] font-semibold tracking-wide transition-all duration-200',
               period === value
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-card border border-border text-muted-foreground hover:text-foreground',
+                ? 'bg-primary/15 text-primary border border-primary/20'
+                : 'bg-card/60 border border-border/40 text-muted-foreground/60 hover:text-foreground hover:border-border',
             )}
           >
             {label}
@@ -91,8 +90,7 @@ export default function CostsPage() {
         ))}
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 animate-stagger">
         <StatCard
           title="Total Spend"
           value={formatCost(summary?.totalCostUsd)}
@@ -120,29 +118,36 @@ export default function CostsPage() {
         />
       </div>
 
-      {/* Budget Status */}
       {budgetStatus.length > 0 && (
         <SectionCard title="Budget Status">
-          <div className="space-y-4">
+          <div className="space-y-5">
             {budgetStatus.map(({ budget, daySpend, monthSpend, dayPercent, monthPercent, dayAlert, monthAlert }) => (
               <div key={budget.id}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-semibold">
                     {budget.agentName || 'Global budget'}
                   </span>
                   {(dayAlert || monthAlert) && (
-                    <span className="text-xs text-yellow-400 font-medium">⚠ Alert threshold reached</span>
+                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse-slow" />
+                      Alert threshold reached
+                    </span>
                   )}
                 </div>
                 {budget.dailyLimitUsd && (
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Daily: {formatCost(daySpend)} / {formatCost(budget.dailyLimitUsd)}</span>
-                      <span>{dayPercent?.toFixed(0)}%</span>
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[11px] text-muted-foreground/60 mb-1.5">
+                      <span className="font-mono">Daily: {formatCost(daySpend)} / {formatCost(budget.dailyLimitUsd)}</span>
+                      <span className="font-mono">{dayPercent?.toFixed(0)}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
                       <div
-                        className={cn('h-full rounded-full transition-all', dayAlert ? 'bg-yellow-400' : 'bg-primary')}
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          dayAlert
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                            : 'bg-gradient-to-r from-primary/80 to-primary',
+                        )}
                         style={{ width: `${Math.min(dayPercent ?? 0, 100)}%` }}
                       />
                     </div>
@@ -150,13 +155,18 @@ export default function CostsPage() {
                 )}
                 {budget.monthlyLimitUsd && (
                   <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Monthly: {formatCost(monthSpend)} / {formatCost(budget.monthlyLimitUsd)}</span>
-                      <span>{monthPercent?.toFixed(0)}%</span>
+                    <div className="flex justify-between text-[11px] text-muted-foreground/60 mb-1.5">
+                      <span className="font-mono">Monthly: {formatCost(monthSpend)} / {formatCost(budget.monthlyLimitUsd)}</span>
+                      <span className="font-mono">{monthPercent?.toFixed(0)}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
                       <div
-                        className={cn('h-full rounded-full transition-all', monthAlert ? 'bg-yellow-400' : 'bg-primary')}
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          monthAlert
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                            : 'bg-gradient-to-r from-primary/80 to-primary',
+                        )}
                         style={{ width: `${Math.min(monthPercent ?? 0, 100)}%` }}
                       />
                     </div>
@@ -168,7 +178,6 @@ export default function CostsPage() {
         </SectionCard>
       )}
 
-      {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard title="Cost Trend" description="Last 30 days">
           <CostTrendChart data={trend} />
@@ -195,24 +204,31 @@ export default function CostsPage() {
           {topRuns.length === 0 ? (
             <EmptyState message="No run cost data" />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {topRuns.map((run, i) => (
-                <div key={run.runId} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
+                <div
+                  key={run.runId}
+                  className="flex items-center justify-between rounded-lg p-2.5 hover:bg-accent/20 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-[11px] font-mono text-muted-foreground/40 w-5 text-right">
+                      {i + 1}
+                    </span>
                     <div className="min-w-0">
                       <Link
                         href={`/agents/${run.runId}`}
-                        className="text-sm font-medium hover:text-primary truncate block"
+                        className="text-[13px] font-medium hover:text-primary truncate block transition-colors"
                       >
                         {run.agentName}
                       </Link>
-                      <p className="text-xs text-muted-foreground font-mono">{run.runId.slice(0, 8)}…</p>
+                      <p className="text-[10px] text-muted-foreground/40 font-mono">{run.runId.slice(0, 8)}…</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-3">
-                    <p className="text-sm font-semibold">{formatCost(run.totalCostUsd)}</p>
-                    <p className="text-xs text-muted-foreground">{formatTokens(parseInt(run.totalTokens))} tokens</p>
+                    <p className="text-[13px] font-semibold font-mono">{formatCost(run.totalCostUsd)}</p>
+                    <p className="text-[10px] text-muted-foreground/40 font-mono">
+                      {formatTokens(parseInt(run.totalTokens))} tok
+                    </p>
                   </div>
                 </div>
               ))}
@@ -226,8 +242,8 @@ export default function CostsPage() {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-      {message}
+    <div className="flex h-48 items-center justify-center">
+      <p className="text-[13px] text-muted-foreground/40">{message}</p>
     </div>
   );
 }

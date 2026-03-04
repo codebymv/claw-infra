@@ -29,29 +29,31 @@ export function ResourceHistoryChart({ data, metric }: ResourceHistoryChartProps
   }));
 
   const label = metric === 'cpu' ? 'CPU %' : 'Memory MB';
-  const color = metric === 'cpu' ? '#60a5fa' : '#34d399';
+  const color = metric === 'cpu' ? '#00dc82' : '#38bdf8';
 
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 14% / 0.5)" />
         <XAxis
           dataKey="time"
-          tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fontSize: 9, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }}
           tickFormatter={(v: string) => {
             try { return format(parseISO(v), 'HH:mm'); } catch { return v; }
           }}
         />
-        <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+        <YAxis tick={{ fontSize: 9, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }} />
         <Tooltip
           contentStyle={{
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '6px',
-            fontSize: '11px',
+            background: 'hsl(222 47% 6%)',
+            border: '1px solid hsl(215 25% 14% / 0.5)',
+            borderRadius: '10px',
+            fontSize: '10px',
+            fontFamily: 'var(--font-jetbrains)',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
           }}
         />
-        <Legend wrapperStyle={{ fontSize: '11px' }} />
+        <Legend wrapperStyle={{ fontSize: '10px', fontFamily: 'var(--font-dm-sans)' }} />
         <Line
           type="monotone"
           dataKey="avg"
@@ -59,6 +61,7 @@ export function ResourceHistoryChart({ data, metric }: ResourceHistoryChartProps
           stroke={color}
           strokeWidth={2}
           dot={false}
+          activeDot={{ r: 3, fill: color, stroke: 'hsl(222 47% 6%)', strokeWidth: 2 }}
         />
         <Line
           type="monotone"
@@ -68,6 +71,7 @@ export function ResourceHistoryChart({ data, metric }: ResourceHistoryChartProps
           strokeWidth={1}
           strokeDasharray="4 4"
           dot={false}
+          opacity={0.4}
         />
       </LineChart>
     </ResponsiveContainer>
@@ -82,13 +86,11 @@ interface GaugeProps {
   color?: string;
 }
 
-const RADIAN = Math.PI / 180;
-
-export function GaugeChart({ value, max = 100, label, unit = '%', color = '#60a5fa' }: GaugeProps) {
+export function GaugeChart({ value, max = 100, label, unit = '%', color = '#00dc82' }: GaugeProps) {
   const pct = Math.min(value / max, 1);
   const data = [
     { value: pct, fill: color },
-    { value: 1 - pct, fill: 'hsl(var(--muted))' },
+    { value: 1 - pct, fill: 'hsl(215 28% 10%)' },
   ];
 
   return (
@@ -111,10 +113,12 @@ export function GaugeChart({ value, max = 100, label, unit = '%', color = '#60a5
         </Pie>
       </PieChart>
       <div className="-mt-4 text-center">
-        <p className="text-xl font-bold tabular-nums">
+        <p className="font-display text-xl font-bold tabular-nums">
           {value.toFixed(1)}{unit}
         </p>
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+          {label}
+        </p>
       </div>
     </div>
   );

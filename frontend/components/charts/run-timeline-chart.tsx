@@ -18,10 +18,10 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: '#34d399',
-  failed: '#f87171',
-  cancelled: '#6b7280',
-  running: '#60a5fa',
+  completed: '#00dc82',
+  failed: '#ff4757',
+  cancelled: '#4b5563',
+  running: '#38bdf8',
   queued: '#a78bfa',
 };
 
@@ -42,34 +42,38 @@ export function RunTimelineChart({ data }: Props) {
   return (
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 14% / 0.5)" />
         <XAxis
           dataKey="day"
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }}
           tickFormatter={(v: string) => {
             try { return format(parseISO(v), 'MMM d'); } catch { return v; }
           }}
         />
-        <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+        <YAxis tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }} />
         <Tooltip
           contentStyle={{
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '6px',
-            fontSize: '12px',
+            background: 'hsl(222 47% 6%)',
+            border: '1px solid hsl(215 25% 14% / 0.5)',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontFamily: 'var(--font-jetbrains)',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
           }}
           labelFormatter={(v: string) => {
             try { return format(parseISO(v), 'MMM d, yyyy'); } catch { return v; }
           }}
         />
-        <Legend wrapperStyle={{ fontSize: '12px' }} />
+        <Legend
+          wrapperStyle={{ fontSize: '10px', fontFamily: 'var(--font-dm-sans)' }}
+        />
         {statuses.map((status) => (
           <Bar
             key={status}
             dataKey={status}
             stackId="runs"
             fill={STATUS_COLORS[status] || '#8884d8'}
-            radius={status === statuses[statuses.length - 1] ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+            radius={status === statuses[statuses.length - 1] ? [4, 4, 0, 0] : [0, 0, 0, 0]}
           />
         ))}
       </BarChart>

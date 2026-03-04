@@ -11,11 +11,23 @@ interface StatCardProps {
   accent?: 'default' | 'success' | 'warning' | 'destructive';
 }
 
-const accentClasses = {
-  default: 'text-primary bg-primary/10',
-  success: 'text-green-400 bg-green-400/10',
-  warning: 'text-yellow-400 bg-yellow-400/10',
-  destructive: 'text-red-400 bg-red-400/10',
+const accentConfig = {
+  default: {
+    icon: 'text-primary bg-primary/10 ring-primary/20',
+    glow: 'group-hover:shadow-[0_0_20px_-5px_hsl(var(--primary)/0.2)]',
+  },
+  success: {
+    icon: 'text-emerald-400 bg-emerald-400/10 ring-emerald-400/20',
+    glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(52,211,153,0.2)]',
+  },
+  warning: {
+    icon: 'text-amber-400 bg-amber-400/10 ring-amber-400/20',
+    glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(251,191,36,0.2)]',
+  },
+  destructive: {
+    icon: 'text-rose-400 bg-rose-400/10 ring-rose-400/20',
+    glow: 'group-hover:shadow-[0_0_20px_-5px_rgba(251,113,133,0.2)]',
+  },
 };
 
 export function StatCard({
@@ -27,18 +39,32 @@ export function StatCard({
   className,
   accent = 'default',
 }: StatCardProps) {
+  const config = accentConfig[accent];
+
   return (
-    <div className={cn('rounded-lg border border-border bg-card p-5', className)}>
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold tabular-nums">{value}</p>
-          {subtext && <p className="text-xs text-muted-foreground">{subtext}</p>}
+    <div
+      className={cn(
+        'group relative rounded-xl border border-border/50 bg-card/80 p-5 transition-all duration-300 card-shine gradient-border',
+        config.glow,
+        className,
+      )}
+    >
+      <div className="relative z-10 flex items-start justify-between">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
+            {title}
+          </p>
+          <p className="font-display text-2xl font-bold tabular-nums tracking-tight">
+            {value}
+          </p>
+          {subtext && (
+            <p className="text-[11px] text-muted-foreground/60">{subtext}</p>
+          )}
           {trend && (
             <p
               className={cn(
-                'text-xs font-medium',
-                trend.value >= 0 ? 'text-green-400' : 'text-red-400',
+                'text-xs font-semibold',
+                trend.value >= 0 ? 'text-emerald-400' : 'text-rose-400',
               )}
             >
               {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
@@ -46,7 +72,7 @@ export function StatCard({
           )}
         </div>
         {Icon && (
-          <div className={cn('rounded-md p-2', accentClasses[accent])}>
+          <div className={cn('rounded-lg p-2.5 ring-1 transition-all duration-300', config.icon)}>
             <Icon className="h-4 w-4" />
           </div>
         )}

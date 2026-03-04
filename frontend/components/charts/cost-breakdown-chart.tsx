@@ -11,11 +11,10 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Legend,
 } from 'recharts';
 import type { CostByModel, CostByAgent } from '@/lib/api';
 
-const COLORS = ['#60a5fa', '#34d399', '#f472b6', '#fb923c', '#a78bfa', '#facc15', '#2dd4bf'];
+const COLORS = ['#00dc82', '#38bdf8', '#f472b6', '#fbbf24', '#a78bfa', '#2dd4bf', '#fb923c'];
 
 interface CostByModelChartProps {
   data: CostByModel[];
@@ -36,11 +35,14 @@ export function CostByModelChart({ data }: CostByModelChartProps) {
           cx="50%"
           cy="50%"
           outerRadius={80}
+          innerRadius={40}
           dataKey="value"
           label={({ name, percent }: { name: string; percent: number }) =>
             `${name} (${(percent * 100).toFixed(0)}%)`
           }
-          labelLine={false}
+          labelLine={{ stroke: 'hsl(215 20% 50% / 0.3)' }}
+          stroke="hsl(222 47% 6%)"
+          strokeWidth={2}
         >
           {chartData.map((entry, index) => (
             <Cell key={index} fill={entry.color} />
@@ -48,10 +50,12 @@ export function CostByModelChart({ data }: CostByModelChartProps) {
         </Pie>
         <Tooltip
           contentStyle={{
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '6px',
-            fontSize: '12px',
+            background: 'hsl(222 47% 6%)',
+            border: '1px solid hsl(215 25% 14% / 0.5)',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontFamily: 'var(--font-jetbrains)',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
           }}
           formatter={(v: number) => [`$${v.toFixed(4)}`, 'Cost']}
         />
@@ -73,28 +77,30 @@ export function CostByAgentChart({ data }: CostByAgentChartProps) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
       <BarChart layout="vertical" data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 14% / 0.5)" />
         <XAxis
           type="number"
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-jetbrains)' }}
           tickFormatter={(v: number) => `$${v.toFixed(2)}`}
         />
         <YAxis
           type="category"
           dataKey="name"
-          tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+          tick={{ fontSize: 10, fill: 'hsl(215 20% 50% / 0.6)', fontFamily: 'var(--font-dm-sans)' }}
           width={100}
         />
         <Tooltip
           contentStyle={{
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '6px',
-            fontSize: '12px',
+            background: 'hsl(222 47% 6%)',
+            border: '1px solid hsl(215 25% 14% / 0.5)',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontFamily: 'var(--font-jetbrains)',
+            boxShadow: '0 8px 30px -10px rgba(0,0,0,0.5)',
           }}
           formatter={(v: number) => [`$${v.toFixed(4)}`, 'Cost']}
         />
-        <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+        <Bar dataKey="cost" fill="#00dc82" radius={[0, 6, 6, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
