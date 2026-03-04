@@ -70,6 +70,9 @@ function buildToml(cfg: ZeroClawConfig): string {
     sections.push(``, `[storage.provider.config]`, `provider = "postgres"`, `db_url = "${cfg.postgresUrl}"`);
   }
 
+  // channels_config.cli is a required field in the channels_config struct.
+  sections.push(``, `[channels_config]`, `cli = true`);
+
   if (cfg.telegramBotToken) {
     sections.push(``, `[channels_config.telegram]`, `bot_token = "${cfg.telegramBotToken}"`);
     if (cfg.telegramAllowedUsers?.length) {
