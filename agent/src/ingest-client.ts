@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000';
+const BACKEND_URL = (process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const AGENT_TOKEN = process.env.AGENT_API_KEY || '';
 
 interface RequestOptions {

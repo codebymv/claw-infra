@@ -112,7 +112,7 @@ The `agent/` directory contains a reporter sidecar that:
 4. Reports everything to the claw-infra backend via the ingest API
 5. Collects and reports container resource metrics every 15s
 
-On Railway, the agent talks to the backend over **private networking** (`backend.railway.internal`) — traffic never leaves the VPN. You control the agent remotely via **Telegram** (ZeroClaw's native channel support).
+On Railway, the agent talks to the backend via `BACKEND_INTERNAL_URL`. Use your backend's **public URL** (e.g. `https://backend-production-xxx.up.railway.app`) if internal hostnames (`backend`, `backend.railway.internal`) fail to resolve. You control the agent remotely via **Telegram** (ZeroClaw's native channel support).
 
 ### Local testing (requires ZeroClaw installed)
 
@@ -162,7 +162,8 @@ NEXT_PUBLIC_WS_URL=https://your-backend.up.railway.app
 
 ### Agent env vars
 ```
-BACKEND_INTERNAL_URL=http://backend.railway.internal:${{backend.PORT}}
+# Use backend's public URL if internal hostname doesn't resolve
+BACKEND_INTERNAL_URL=https://your-backend.up.railway.app
 AGENT_API_KEY=<agent key from dashboard settings>
 ZEROCLAW_AGENT_NAME=zeroclaw-primary
 ZEROCLAW_API_KEY=<your OpenRouter key>
@@ -171,6 +172,8 @@ ZEROCLAW_MODEL=anthropic/claude-sonnet-4-6
 ZEROCLAW_TELEGRAM_BOT_TOKEN=<agent bot token>
 ZEROCLAW_TELEGRAM_ALLOWED_USERS=<your telegram user id>
 ZEROCLAW_AUTONOMY=supervised
+# Prebuilt binary only supports sqlite (not postgres)
+ZEROCLAW_MEMORY_BACKEND=sqlite
 ```
 
 ## Pages
