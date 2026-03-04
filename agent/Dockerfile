@@ -8,10 +8,11 @@ COPY src/ ./src/
 RUN npm run build
 
 # ── Stage 2: Runtime ──
-FROM node:20-slim
+# Use a newer glibc runtime so prebuilt ZeroClaw binaries can start.
+FROM debian:trixie-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && apt-get install -y --no-install-recommends curl ca-certificates nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ZeroClaw binary from GitHub releases
