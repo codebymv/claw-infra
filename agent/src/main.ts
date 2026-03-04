@@ -1,5 +1,7 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, spawnSync, ChildProcess } from 'child_process';
 import { cpus, totalmem, freemem } from 'os';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { generateConfig } from './config-gen';
 import {
   ZeroClawLogParser,
@@ -266,6 +268,47 @@ function cleanup(): void {
   flushLogs();
 }
 
+// ── Workspace setup ──
+
+function setupWorkspace(): void {
+  const githubToken = process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN;
+  const reposEnv = process.env.GITHUB_REPOS || '';
+  const workspaceDir = process.env.ZEROCLAW_WORKSPACE || '/app/workspace';
+
+  if (!reposEnv) return;
+
+  const repos = reposEnv.split(',').map((r) => r.trim()).filter(Boolean);
+  if (!repos.length) return;
+
+  for (const repo of repos) {
+    const repoName = repo.split('/').pop() || repo.replace('/', '-');
+    const dest = join(workspaceDir, repoName);
+    const cloneUrl = githubToken
+      ? `https://x-access-token:${githubToken}@github.com/${repo}.git`
+      : `https://github.com/${repo}.git`;
+
+    if (existsSync(join(dest, '.git'))) {
+      // Repo exists — pull latest
+      console.log(`[workspace] Pulling latest: ${repo}`);
+      const result = spawnSync('git', ['-C', dest, 'pull', '--ff-only'], { stdio: 'pipe' });
+      if (result.status === 0) {
+        console.log(`[workspace] Pulled: ${repo}`);
+      } else {
+        console.warn(`[workspace] Pull failed for ${repo}: ${result.stderr?.toString().trim()}`);
+      }
+    } else {
+      // Fresh clone
+      console.log(`[workspace] Cloning: ${repo} → ${dest}`);
+      const result = spawnSync('git', ['clone', '--depth=1', cloneUrl, dest], { stdio: 'pipe' });
+      if (result.status === 0) {
+        console.log(`[workspace] Cloned: ${repo}`);
+      } else {
+        console.warn(`[workspace] Clone failed for ${repo}: ${result.stderr?.toString().trim()}`);
+      }
+    }
+  }
+}
+
 // ── Main ──
 
 async function main(): Promise<void> {
@@ -275,6 +318,9 @@ async function main(): Promise<void> {
 
   // Generate ZeroClaw config from env vars
   generateConfig();
+
+  // Pre-clone workspace repos before ZeroClaw starts
+  setupWorkspace();
 
   // Wait for backend to be reachable
   console.log('[reporter] Waiting for claw-infra backend...');
