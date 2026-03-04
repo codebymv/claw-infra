@@ -48,7 +48,7 @@ async function onRunStart(event: RunStartEvent): Promise<void> {
   if (currentRun) return;
 
   try {
-    const trigger = event.channel ? 'channel' : 'manual';
+    const trigger = event.channel ? 'api' : 'manual';
     const result = await ingest.createRun(AGENT_NAME, trigger, {
       taskId: event.taskId,
       message: event.message,
