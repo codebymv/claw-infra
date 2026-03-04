@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, chmodSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -49,6 +49,18 @@ function buildToml(cfg: ZeroClawConfig): string {
   lines.push('workspace_only = true');
   const cmds = cfg.allowedCommands.map((c) => `"${c}"`).join(', ');
   lines.push(`allowed_commands = [${cmds}]`);
+  // Required by newer ZeroClaw config schema.
+  lines.push('forbidden_paths = [');
+  lines.push('  "/etc",');
+  lines.push('  "/bin",');
+  lines.push('  "/sbin",');
+  lines.push('  "/usr/bin",');
+  lines.push('  "/usr/sbin",');
+  lines.push('  "/root/.ssh",');
+  lines.push('  "/proc",');
+  lines.push('  "/sys",');
+  lines.push('  "/dev"');
+  lines.push(']');
 
   lines.push('');
   lines.push('[runtime]');
@@ -118,6 +130,8 @@ export function generateConfig(): string {
     }
     const path = join(dir, 'config.toml');
     writeFileSync(path, toml, 'utf-8');
+    // Avoid noisy warning from ZeroClaw about world-readable config.
+    chmodSync(path, 0o600);
     if (!primaryPath) primaryPath = path;
     console.log(`[config-gen] Wrote ZeroClaw config to ${path}`);
   }
