@@ -44,17 +44,17 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border border-border bg-card p-5 transition-all duration-300 card-shine gradient-border',
+        'group relative rounded-xl border border-border bg-card p-4 sm:p-5 transition-all duration-300 card-shine gradient-border overflow-hidden',
         config.glow,
         className,
       )}
     >
-      <div className="relative z-10 flex items-start justify-between">
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="relative z-10 flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground truncate">
             {title}
           </p>
-          <p className="font-display text-2xl font-bold tabular-nums tracking-tight">
+          <p className="font-display text-xl sm:text-2xl font-bold tabular-nums tracking-tight truncate">
             {value}
           </p>
           {subtext && (

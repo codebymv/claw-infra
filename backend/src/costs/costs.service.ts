@@ -133,16 +133,14 @@ export class CostsService {
 
     const results = await Promise.all(
       budgets.map(async (budget) => {
-        const whereBase = budget.agentName
-          ? `run.agent_name = '${budget.agentName}'`
-          : 'TRUE';
-
         const daySpend = await this.costRepo
           .createQueryBuilder('c')
           .leftJoin('c.run', 'run')
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
           .where(`c.recorded_at >= :start`, { start: dayStart })
-          .andWhere(whereBase)
+          .$if(!!budget.agentName, (qb) =>
+            qb.andWhere('run.agent_name = :agentName', { agentName: budget.agentName }),
+          )
           .getRawOne<{ total: string }>();
 
         const monthSpend = await this.costRepo
@@ -150,7 +148,9 @@ export class CostsService {
           .leftJoin('c.run', 'run')
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
           .where(`c.recorded_at >= :start`, { start: monthStart })
-          .andWhere(whereBase)
+          .$if(!!budget.agentName, (qb) =>
+            qb.andWhere('run.agent_name = :agentName', { agentName: budget.agentName }),
+          )
           .getRawOne<{ total: string }>();
 
         const dayTotal = parseFloat(daySpend?.total || '0');
