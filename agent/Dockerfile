@@ -22,6 +22,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Railway CLI
+RUN curl -fsSL https://railway.com/install.sh | sh
+
 # Install ZeroClaw binary from GitHub releases
 ARG ZEROCLAW_VERSION=latest
 RUN ARCH=$(dpkg --print-architecture) && \
