@@ -110,7 +110,7 @@ export function generateConfig(): string {
     memoryBackend: process.env.ZEROCLAW_MEMORY_BACKEND || 'sqlite',
     postgresUrl: process.env.DATABASE_URL,
     autonomyLevel: process.env.ZEROCLAW_AUTONOMY || 'supervised',
-    allowedCommands: (process.env.ZEROCLAW_ALLOWED_COMMANDS || 'git,npm,npx,cargo,ls,cat,grep,curl,wget,find,head,tail,wc,diff,sort,uniq,mkdir,cp,mv,rm,touch,echo,sed,awk,tar,unzip,python3,node,sh,bash').split(',').map((s) => s.trim()),
+    allowedCommands: (process.env.ZEROCLAW_ALLOWED_COMMANDS || 'git,gh,jq,npm,npx,cargo,ls,cat,grep,curl,wget,find,head,tail,wc,diff,sort,uniq,mkdir,cp,mv,rm,touch,echo,sed,awk,tar,unzip,python3,node,sh,bash').split(',').map((s) => s.trim()),
     gatewayPort: parseInt(process.env.ZEROCLAW_GATEWAY_PORT || '3002', 10),
     workspaceDir: process.env.ZEROCLAW_WORKSPACE || '/app/workspace',
     githubToken: process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN,
@@ -169,6 +169,18 @@ export function generateConfig(): string {
       execSync(`git config --global user.email "${gitEmail}"`, { stdio: 'pipe' });
 
       console.log('[config-gen] GitHub credential helper configured (GITHUB_TOKEN)');
+
+      // Authenticate gh CLI so the agent can run `gh pr create`, `gh issue list`, etc.
+      try {
+        execSync(`gh auth login --with-token`, {
+          input: cfg.githubToken,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        } as any);
+        execSync('gh auth setup-git', { stdio: 'pipe' });
+        console.log('[config-gen] gh CLI authenticated (GITHUB_TOKEN)');
+      } catch {
+        console.warn('[config-gen] WARNING: Failed to authenticate gh CLI — PR creation may not work');
+      }
     } catch (err) {
       console.warn('[config-gen] WARNING: Failed to configure GitHub credential helper:', err);
     }
