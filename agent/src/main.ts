@@ -465,6 +465,8 @@ class TelegramOrchestrator {
 
   private parseFunctionCalls(response: string): ToolCall[] {
     const calls: ToolCall[] = [];
+
+    // ── Format 1: <function_calls><invoke name="...">...</invoke></function_calls> ──
     const blockRegex = /<function_calls>([\s\S]*?)<\/function_calls>/g;
     let blockMatch;
 
@@ -474,6 +476,7 @@ class TelegramOrchestrator {
       let invokeMatch;
 
       while ((invokeMatch = invokeRegex.exec(block)) !== null) {
+        const invokeName = invokeMatch[1]; // e.g. "toolkit", "shell", "computer"
         const body = invokeMatch[2];
         const params: Record<string, string> = {};
         const paramRegex = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g;
@@ -483,17 +486,81 @@ class TelegramOrchestrator {
           params[paramMatch[1]] = paramMatch[2].trim();
         }
 
-        // Handle two formats we've seen:
-        // Format 1: <parameter name="name">shell</parameter> + <parameter name="arguments">{"command":"..."}</parameter>
-        // Format 2: <parameter name="command">shell</parameter> + <parameter name="input">...</parameter>
-        const toolName = params['name'] || params['command'] || invokeMatch[1];
-        const args = params['arguments'] || params['input'] || JSON.stringify(params);
+        // Resolve the actual tool name:
+        // 1. If <parameter name="name">shell</parameter> exists, use it
+        // 2. Otherwise use the invoke name attribute
+        // 3. Map aliases to our supported tools
+        let toolName = params['name'] || invokeName;
+        toolName = this.normalizeToolName(toolName, params['action']);
+
+        // Resolve arguments:
+        // - params['arguments'] → JSON string of args (Format 1)
+        // - params['command'] → shell command string
+        // - params['input'] → raw input string
+        let args: string;
+        if (params['arguments']) {
+          args = params['arguments'];
+        } else if (params['command']) {
+          args = JSON.stringify({ command: params['command'] });
+        } else if (params['input']) {
+          args = JSON.stringify({ command: params['input'] });
+        } else if (params['path']) {
+          args = JSON.stringify({ path: params['path'], content: params['content'] || '' });
+        } else {
+          args = JSON.stringify(params);
+        }
 
         calls.push({ toolName, arguments: args });
       }
     }
 
+    // ── Format 2: <tool_call>{"name":"shell","parameters":{...}}</tool_call> ──
+    const toolCallRegex = /<tool_call>\s*(\{[\s\S]*?\})\s*<\/tool_call>/g;
+    let toolCallMatch;
+
+    while ((toolCallMatch = toolCallRegex.exec(response)) !== null) {
+      try {
+        const parsed = JSON.parse(toolCallMatch[1]) as Record<string, unknown>;
+        let toolName = (parsed['name'] as string) || 'shell';
+        toolName = this.normalizeToolName(toolName);
+        const params = (parsed['parameters'] || parsed['arguments'] || {}) as Record<string, unknown>;
+        calls.push({ toolName, arguments: JSON.stringify(params) });
+      } catch {
+        console.warn(`[orchestrator] Failed to parse <tool_call> JSON`);
+      }
+    }
+
     return calls;
+  }
+
+  /** Map various LLM tool name variations to our supported set */
+  private normalizeToolName(name: string, action?: string): string {
+    const lower = name.toLowerCase();
+
+    // Direct matches
+    if (lower === 'shell' || lower === 'bash' || lower === 'sh') return 'shell';
+    if (lower === 'file_read' || lower === 'read_file') return 'file_read';
+    if (lower === 'file_write' || lower === 'write_file') return 'file_write';
+    if (lower === 'file_edit' || lower === 'edit_file') return 'file_edit';
+
+    // "toolkit" and "computer" are wrapper names — check action param
+    if (lower === 'toolkit' || lower === 'computer' || lower === 'tools') {
+      if (action) {
+        const actionLower = action.toLowerCase();
+        if (actionLower.includes('command') || actionLower === 'bash' || actionLower === 'shell' || actionLower === 'execute') {
+          return 'shell';
+        }
+        if (actionLower.includes('read') || actionLower === 'list_directory' || actionLower === 'view') {
+          return 'shell'; // delegate to shell — ls, cat, etc.
+        }
+        if (actionLower.includes('write') || actionLower.includes('create')) {
+          return 'file_write';
+        }
+      }
+      return 'shell'; // default: treat as shell
+    }
+
+    return name; // unknown — will produce "not supported" message
   }
 
   private async executeTool(call: ToolCall): Promise<string> {
@@ -589,6 +656,7 @@ class TelegramOrchestrator {
     return text
       .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')
       .replace(/<function_results>[\s\S]*?<\/function_results>/g, '')
+      .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '')
       .trim();
   }
 
