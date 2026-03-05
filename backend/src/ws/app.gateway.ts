@@ -34,17 +34,21 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly pubSub: PubSubService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   afterInit(server: Server) {
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-    server.engine.on('headers', (_headers: unknown, req: { headers: { origin?: string } }) => {
-      const origin = req.headers.origin;
-      if (origin === frontendUrl) {
-        (_headers as Record<string, string>)['Access-Control-Allow-Origin'] = origin;
-        (_headers as Record<string, string>)['Access-Control-Allow-Credentials'] = 'true';
-      }
-    });
+    if (server.engine) {
+      server.engine.on('headers', (_headers: unknown, req: { headers: { origin?: string } }) => {
+        const origin = req.headers.origin;
+        if (origin === frontendUrl) {
+          (_headers as Record<string, string>)['Access-Control-Allow-Origin'] = origin;
+          (_headers as Record<string, string>)['Access-Control-Allow-Credentials'] = 'true';
+        }
+      });
+    } else {
+      this.logger.warn('server.engine not available in afterInit — CORS header hook skipped');
+    }
 
     this.pubSub.subscribe('global:status', (data) => {
       server.to('global:status').emit('global:status', data);
