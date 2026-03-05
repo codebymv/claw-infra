@@ -2,6 +2,7 @@ import { spawn, spawnSync, ChildProcess } from 'child_process';
 import { cpus, totalmem, freemem } from 'os';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import WebSocket from 'ws';
 import { generateConfig } from './config-gen';
 import {
   ZeroClawLogParser,
@@ -406,21 +407,64 @@ class TelegramOrchestrator {
   }
 
   private async callWebhook(message: string): Promise<string> {
-    const res = await fetch(`${this.gatewayUrl}/webhook`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-      // ZeroClaw webhook can take up to 120s for complex phases
-      signal: AbortSignal.timeout(120000),
+    // Use /ws/chat (WebSocket agent interface) — has full tool execution.
+    // The HTTP /webhook endpoint is LLM-only with no tool calls.
+    const wsUrl = this.gatewayUrl.replace(/^http/, 'ws') + '/ws/chat';
+
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(wsUrl);
+      let reply = '';
+      let resolved = false;
+
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          ws.terminate();
+          reject(new Error('WebSocket agent timeout after 120s'));
+        }
+      }, 120000);
+
+      ws.once('open', () => {
+        ws.send(JSON.stringify({ message }));
+      });
+
+      ws.on('message', (raw: WebSocket.RawData) => {
+        try {
+          const payload = JSON.parse(raw.toString()) as Record<string, unknown>;
+          // ZeroClaw ws/chat emits various event types — capture the final reply
+          if (typeof payload['reply'] === 'string') reply = payload['reply'];
+          else if (typeof payload['content'] === 'string') reply = payload['content'];
+          else if (typeof payload['message'] === 'string' && payload['type'] !== 'ping') reply = payload['message'];
+
+          // done / end signal
+          if (payload['done'] === true || payload['type'] === 'done' || payload['type'] === 'reply_complete') {
+            clearTimeout(timer);
+            resolved = true;
+            ws.close();
+            resolve(reply || '(no reply)');
+          }
+        } catch {
+          // Plain text frame
+          reply += raw.toString();
+        }
+      });
+
+      ws.on('close', () => {
+        clearTimeout(timer);
+        if (!resolved) {
+          resolved = true;
+          resolve(reply || '(connection closed without reply)');
+        }
+      });
+
+      ws.on('error', (err: Error) => {
+        clearTimeout(timer);
+        if (!resolved) {
+          resolved = true;
+          reject(err);
+        }
+      });
     });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Gateway ${res.status}: ${body}`);
-    }
-
-    const data = (await res.json()) as WebhookResponse;
-    return data.reply || data.response || data.message || JSON.stringify(data);
   }
 
   private async sendTelegram(chatId: number, text: string): Promise<void> {
