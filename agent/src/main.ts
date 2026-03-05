@@ -714,10 +714,14 @@ async function main(): Promise<void> {
 
   daemonProcess = startDaemon();
 
-  // Start the Telegram orchestrator after daemon boots
-  // (waitForGateway handles the readiness check internally)
-  const orchestrator = new TelegramOrchestrator();
-  orchestrator.start().catch((err) => console.error('[orchestrator] Fatal:', err));
+  // NOTE: TelegramOrchestrator is disabled. ZeroClaw's native Telegram channel
+  // is enabled in config-gen.ts for tool execution. The custom orchestrator's
+  // WebSocket approach does not work (/ws/chat returns 0 frames when channel
+  // supervisor is disabled). If a future ZeroClaw version fixes /ws/chat,
+  // the orchestrator can be re-enabled to bypass the 10-iteration cap.
+  //
+  // const orchestrator = new TelegramOrchestrator();
+  // orchestrator.start().catch((err) => console.error('[orchestrator] Fatal:', err));
 
   for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     process.on(sig, () => {
