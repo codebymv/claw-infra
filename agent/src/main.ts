@@ -342,7 +342,7 @@ class TelegramOrchestrator {
 
     let planResponse: string;
     try {
-      planResponse = await this.callWebhook(planPrompt);
+      planResponse = await this.callWebhook(planPrompt, 'plan');
     } catch (err) {
       await this.sendTelegram(chatId, `❌ Failed to reach ZeroClaw gateway: ${err}`);
       return;
@@ -356,7 +356,7 @@ class TelegramOrchestrator {
       // Single phase — run directly
       await this.sendTelegram(chatId, '⏳ Working...');
       try {
-        const result = await this.callWebhook(text);
+        const result = await this.callWebhook(text, 'execute');
         await this.sendTelegram(chatId, result);
       } catch (err) {
         await this.sendTelegram(chatId, `❌ Error: ${err}`);
@@ -385,7 +385,7 @@ class TelegramOrchestrator {
 
       let result: string;
       try {
-        result = await this.callWebhook(phasePrompt);
+        result = await this.callWebhook(phasePrompt, 'execute');
       } catch (err) {
         await this.sendTelegram(chatId, `❌ ${phaseLabel} failed: ${err}`);
         return;
@@ -398,23 +398,30 @@ class TelegramOrchestrator {
       }
     }
 
-    // Final summary
+    // Final summary (LLM-only is fine for summarization)
     const summaryPrompt =
       `Summarize what was accomplished in this task in 3-5 bullet points:\n` +
       `Original task: ${text}\n\nPhase results:\n${context}`;
-    const summary = await this.callWebhook(summaryPrompt).catch(() => context);
+    const summary = await this.callWebhook(summaryPrompt, 'plan').catch(() => context);
     await this.sendTelegram(chatId, `✅ All ${phases.length} phases complete!\n\n${summary}`);
   }
 
-  private async callWebhook(message: string): Promise<string> {
-    // Strategy: Try HTTP POST /webhook first (simple, documented).
-    // If it fails or returns an error, fall back to WebSocket /ws/chat.
+  private async callWebhook(message: string, mode: 'plan' | 'execute' = 'execute'): Promise<string> {
+    // 'plan' mode → HTTP (LLM-only, fast, reliable — perfect for planning/summarization)
+    // 'execute' mode → WebSocket first (has tool execution), HTTP fallback
+    if (mode === 'plan') {
+      console.log(`[orchestrator] Using HTTP for planning/summary`);
+      return this.callHttpWebhook(message);
+    }
+
+    // Execution mode: try WebSocket first (tool execution), fall back to HTTP
+    console.log(`[orchestrator] Using WebSocket for execution (tool calls enabled)`);
     try {
-      const result = await this.callHttpWebhook(message);
+      const result = await this.callWsChat(message);
       return result;
-    } catch (httpErr) {
-      console.warn(`[orchestrator] HTTP webhook failed, falling back to WebSocket:`, httpErr);
-      return this.callWsChat(message);
+    } catch (wsErr) {
+      console.warn(`[orchestrator] WebSocket failed, falling back to HTTP:`, wsErr);
+      return this.callHttpWebhook(message);
     }
   }
 
