@@ -1,45 +1,67 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { RefreshCw, ChevronLeft, ChevronRight, X, Search } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, X, Search, Loader2 } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { PageLoader } from '@/components/shared/loading-spinner';
+import { LastUpdated } from '@/components/shared/last-updated';
 import { agentsApi, type AgentRunsResponse } from '@/lib/api';
 import { formatRelativeTime, formatDuration, formatCost, formatTokens } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 
 const STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'];
 
 function AgentsPageContent() {
+  useDynamicTitle('Agent Runs | ClawInfra');
+
+  const toast = useAppToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [data, setData] = useState<AgentRunsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const isFirstLoad = useRef(true);
 
   const status = searchParams.get('status') || '';
   const agentName = searchParams.get('agentName') || '';
   const page = parseInt(searchParams.get('page') || '1');
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isManual = false) => {
+    // First load: show full PageLoader. Subsequent: show table overlay.
+    if (isFirstLoad.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     const params: Record<string, string> = { page: String(page), limit: '20' };
     if (status) params.status = status;
     if (agentName) params.agentName = agentName;
     try {
       const res = await agentsApi.list(params);
       setData(res);
-    } catch {
-      /* ignore */
+      setLastRefreshed(new Date());
+      isFirstLoad.current = false;
+    } catch (err) {
+      if (isManual) {
+        toast.error((err as Error).message || 'Failed to load agent runs');
+      } else if (isFirstLoad.current) {
+        toast.error((err as Error).message || 'Failed to load agent runs');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [status, agentName, page]);
+  }, [status, agentName, page]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    isFirstLoad.current = true;
     load();
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(() => load(), 15000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -94,12 +116,16 @@ function AgentsPageContent() {
           </button>
         )}
 
-        <button
-          onClick={load}
-          className="ml-auto flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <LastUpdated at={lastRefreshed} />
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-all"
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden card-shine gradient-border">
@@ -107,8 +133,16 @@ function AgentsPageContent() {
           <PageLoader />
         ) : (
           <>
-            {/* overflow-x-auto + min-width table ensures columns never collapse on narrow screens */}
-            <div className="overflow-x-auto">
+            {/* Table wrapper — relative so the overlay can be positioned inside it */}
+            <div className="relative overflow-x-auto">
+              {/* Refresh overlay — keeps the table mounted, no jarring remount */}
+              {refreshing && data && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              )}
+
+              {/* overflow-x-auto + min-width table ensures columns never collapse on narrow screens */}
               <table className="w-full min-w-[640px] text-[13px]">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">

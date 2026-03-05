@@ -3,23 +3,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash, StopCircle, Loader2 } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
 import { agentsApi, logsApi, type AgentRun, type AgentStep, type AgentLog } from '@/lib/api';
 import { formatDateTime, formatDuration, formatCost, formatTokens, cn } from '@/lib/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
+  const toast = useAppToast();
   const [run, setRun] = useState<AgentRun | null>(null);
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [historicLogs, setHistoricLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const { logs: streamLogs, runUpdate } = useAgentStream({ runId });
+
+  useDynamicTitle(run ? `${run.agentName} | ClawInfra` : 'Run Detail | ClawInfra');
 
   useEffect(() => {
     async function load() {
@@ -32,14 +38,14 @@ export default function RunDetailPage() {
         setRun(runData);
         setSteps(stepsData);
         setHistoricLogs(logsData.items);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to load run details');
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [runId]);
+  }, [runId]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (runUpdate) {
@@ -50,6 +56,20 @@ export default function RunDetailPage() {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [streamLogs]);
+
+  async function handleCancel() {
+    if (!run) return;
+    setCancelling(true);
+    try {
+      await agentsApi.cancel(run.id);
+      setRun((prev) => prev ? { ...prev, status: 'cancelled' } : prev);
+      toast.success('Run cancelled successfully');
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to cancel run');
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   const allLogs = [...historicLogs, ...streamLogs];
   const isActive = run?.status === 'running' || run?.status === 'queued';
@@ -67,11 +87,25 @@ export default function RunDetailPage() {
           <ArrowLeft className="h-3 w-3" /> Back to runs
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="font-display text-lg font-bold tracking-tight truncate sm:text-xl">{run.agentName}</h2>
             <p className="text-[11px] text-muted-foreground font-mono mt-1 truncate">{run.id}</p>
           </div>
           <StatusBadge status={run.status} />
+          {isActive && (
+            <button
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[12px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 disabled:opacity-50 transition-all"
+            >
+              {cancelling ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <StopCircle className="h-3.5 w-3.5" />
+              )}
+              {cancelling ? 'Cancelling…' : 'Cancel Run'}
+            </button>
+          )}
         </div>
       </div>
 
