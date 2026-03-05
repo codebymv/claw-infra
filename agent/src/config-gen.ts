@@ -82,20 +82,10 @@ function buildToml(cfg: ZeroClawConfig): string {
   sections.push(``, `[channels_config]`, `cli = true`);
 
   if (cfg.telegramBotToken) {
-    // Re-enable ZeroClaw's native Telegram channel for tool execution.
-    // The custom orchestrator's WebSocket approach does not work (channel supervisor
-    // is disabled, /ws/chat returns 0 frames). Native Telegram has a 10-iteration cap
-    // per run but actually executes tools (git, gh, shell, etc.).
-    sections.push(
-      ``,
-      `[channels_config.telegram]`,
-      `bot_token = "${cfg.telegramBotToken}"`,
-    );
-    if (cfg.telegramAllowedUsers && cfg.telegramAllowedUsers.length > 0) {
-      const users = cfg.telegramAllowedUsers.map((u) => `"${u}"`).join(', ');
-      sections.push(`allowed_users = [${users}]`);
-    }
-    console.log('[config-gen] Telegram: native ZeroClaw channel (tool execution enabled)');
+    // Telegram is handled by the orchestrator in main.ts (TelegramOrchestrator),
+    // which runs its own tool execution loop via HTTP webhook + local exec.
+    // Omitting [channels_config.telegram] prevents ZeroClaw from double-handling messages.
+    console.log('[config-gen] Telegram: orchestrator-managed (custom tool execution loop)');
   }
 
   sections.push(``);
