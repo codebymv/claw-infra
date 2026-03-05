@@ -407,49 +407,129 @@ class TelegramOrchestrator {
   }
 
   private async callWebhook(message: string): Promise<string> {
-    // Use /ws/chat (WebSocket agent interface) — has full tool execution.
-    // The HTTP /webhook endpoint is LLM-only with no tool calls.
+    // Strategy: Try HTTP POST /webhook first (simple, documented).
+    // If it fails or returns an error, fall back to WebSocket /ws/chat.
+    try {
+      const result = await this.callHttpWebhook(message);
+      return result;
+    } catch (httpErr) {
+      console.warn(`[orchestrator] HTTP webhook failed, falling back to WebSocket:`, httpErr);
+      return this.callWsChat(message);
+    }
+  }
+
+  private async callHttpWebhook(message: string): Promise<string> {
+    const url = `${this.gatewayUrl}/webhook`;
+    console.log(`[orchestrator] POST ${url} (${message.length} chars)`);
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(300000), // 5 min for complex tasks
+    });
+
+    const body = await res.text();
+    console.log(`[orchestrator] HTTP webhook status=${res.status} body=${body.substring(0, 200)}`);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${body.substring(0, 300)}`);
+    }
+
+    // Try to parse as JSON and extract reply
+    try {
+      const json = JSON.parse(body) as Record<string, unknown>;
+      const reply =
+        (typeof json['reply'] === 'string' && json['reply']) ||
+        (typeof json['response'] === 'string' && json['response']) ||
+        (typeof json['content'] === 'string' && json['content']) ||
+        (typeof json['message'] === 'string' && json['message']) ||
+        (typeof json['text'] === 'string' && json['text']) ||
+        '';
+      if (reply) return reply;
+      // If no known field, return the entire JSON as a string
+      return body;
+    } catch {
+      // Not JSON — return raw body
+      return body || '(empty response)';
+    }
+  }
+
+  private async callWsChat(message: string): Promise<string> {
     const wsUrl = this.gatewayUrl.replace(/^http/, 'ws') + '/ws/chat';
+    console.log(`[orchestrator] WS connecting to ${wsUrl}`);
 
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(wsUrl);
       let reply = '';
       let resolved = false;
+      let frameCount = 0;
 
       const timer = setTimeout(() => {
         if (!resolved) {
           resolved = true;
+          console.warn(`[orchestrator] WS timeout after 300s (${frameCount} frames received, reply=${reply.substring(0, 100)})`);
           ws.terminate();
-          reject(new Error('WebSocket agent timeout after 120s'));
+          // If we received some reply content, resolve with it instead of rejecting
+          if (reply) {
+            resolve(reply);
+          } else {
+            reject(new Error(`WebSocket agent timeout after 300s (${frameCount} frames received)`));
+          }
         }
-      }, 120000);
+      }, 300000);
 
       ws.once('open', () => {
+        console.log(`[orchestrator] WS connected, sending message`);
         ws.send(JSON.stringify({ message }));
       });
 
       ws.on('message', (raw: WebSocket.RawData) => {
+        frameCount++;
+        const text = raw.toString();
+
+        // Debug: log every frame (truncated)
+        console.log(`[orchestrator] WS frame #${frameCount}: ${text.substring(0, 300)}`);
+
         try {
-          const payload = JSON.parse(raw.toString()) as Record<string, unknown>;
-          // ZeroClaw ws/chat emits various event types — capture the final reply
+          const payload = JSON.parse(text) as Record<string, unknown>;
+
+          // Capture any reply-like content from the frame
           if (typeof payload['reply'] === 'string') reply = payload['reply'];
           else if (typeof payload['content'] === 'string') reply = payload['content'];
+          else if (typeof payload['response'] === 'string') reply = payload['response'];
+          else if (typeof payload['text'] === 'string') reply = payload['text'];
           else if (typeof payload['message'] === 'string' && payload['type'] !== 'ping') reply = payload['message'];
 
-          // done / end signal
-          if (payload['done'] === true || payload['type'] === 'done' || payload['type'] === 'reply_complete') {
+          // Expanded done-signal detection
+          const isDone =
+            payload['done'] === true ||
+            payload['type'] === 'done' ||
+            payload['type'] === 'complete' ||
+            payload['type'] === 'end' ||
+            payload['type'] === 'reply_complete' ||
+            payload['type'] === 'response_complete' ||
+            payload['status'] === 'complete' ||
+            payload['status'] === 'done' ||
+            payload['event'] === 'done' ||
+            payload['event'] === 'complete' ||
+            payload['finished'] === true;
+
+          if (isDone) {
+            console.log(`[orchestrator] WS done signal received at frame #${frameCount}`);
             clearTimeout(timer);
             resolved = true;
             ws.close();
             resolve(reply || '(no reply)');
           }
         } catch {
-          // Plain text frame
-          reply += raw.toString();
+          // Plain text frame — accumulate
+          reply += text;
         }
       });
 
-      ws.on('close', () => {
+      ws.on('close', (code: number, reason: Buffer) => {
+        console.log(`[orchestrator] WS closed (code=${code}, reason=${reason?.toString()}, frames=${frameCount})`);
         clearTimeout(timer);
         if (!resolved) {
           resolved = true;
@@ -458,6 +538,7 @@ class TelegramOrchestrator {
       });
 
       ws.on('error', (err: Error) => {
+        console.error(`[orchestrator] WS error:`, err.message);
         clearTimeout(timer);
         if (!resolved) {
           resolved = true;
