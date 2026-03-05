@@ -280,7 +280,13 @@ function setupWorkspace(): void {
   const repos = reposEnv.split(',').map((r) => r.trim()).filter(Boolean);
   if (!repos.length) return;
 
-  for (const repo of repos) {
+  for (let repo of repos) {
+    // Accept full GitHub URLs or bare org/repo slugs
+    repo = repo
+      .replace(/^https?:\/\/github\.com\//, '')
+      .replace(/\.git$/, '')
+      .trim();
+
     const repoName = repo.split('/').pop() || repo.replace('/', '-');
     const dest = join(workspaceDir, repoName);
     const cloneUrl = githubToken
