@@ -27,6 +27,7 @@ function buildToml(cfg: ZeroClawConfig): string {
     `default_provider = "${cfg.provider}"`,
     `default_model = "${cfg.model}"`,
     `default_temperature = 0.7`,
+    `max_tool_iterations = ${parseInt(process.env.ZEROCLAW_MAX_TOOL_ITERATIONS || '200', 10)}`,
 
     ``,
     `[memory]`,
@@ -48,7 +49,6 @@ function buildToml(cfg: ZeroClawConfig): string {
     `allowed_roots = ["${cfg.workspaceDir}", "/app/workspace", "/tmp"]`,
     `max_actions_per_hour = 200`,
     `max_cost_per_day_cents = 5000`,
-    `max_tool_iterations = ${parseInt(process.env.ZEROCLAW_MAX_TOOL_ITERATIONS || '200', 10)}`,
     `require_approval_for_medium_risk = false`,
     `block_high_risk_commands = false`,
     `auto_approve = ["shell", "file_read", "file_write", "file_edit"]`,
@@ -170,16 +170,13 @@ export function generateConfig(): string {
 
       console.log('[config-gen] GitHub credential helper configured (GITHUB_TOKEN)');
 
-      // Authenticate gh CLI so the agent can run `gh pr create`, `gh issue list`, etc.
+      // gh CLI picks up GH_TOKEN env var automatically — no login command needed
+      process.env.GH_TOKEN = cfg.githubToken;
       try {
-        execSync(`gh auth login --with-token`, {
-          input: cfg.githubToken,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        } as any);
-        execSync('gh auth setup-git', { stdio: 'pipe' });
-        console.log('[config-gen] gh CLI authenticated (GITHUB_TOKEN)');
+        execSync('gh auth setup-git', { stdio: 'pipe', env: { ...process.env, GH_TOKEN: cfg.githubToken } });
+        console.log('[config-gen] gh CLI ready (GH_TOKEN set)');
       } catch {
-        console.warn('[config-gen] WARNING: Failed to authenticate gh CLI — PR creation may not work');
+        console.warn('[config-gen] WARNING: gh auth setup-git failed — gh pr create may still work via GH_TOKEN env var');
       }
     } catch (err) {
       console.warn('[config-gen] WARNING: Failed to configure GitHub credential helper:', err);

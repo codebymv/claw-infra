@@ -207,10 +207,15 @@ async function collectMetrics(): Promise<void> {
 function startDaemon(): ChildProcess {
   console.log(`[reporter] Starting: ${ZEROCLAW_BIN} ${ZEROCLAW_CMD}`);
 
+  const maxIter = process.env.ZEROCLAW_MAX_TOOL_ITERATIONS || '200';
   const child = spawn(ZEROCLAW_BIN, [ZEROCLAW_CMD], {
     env: {
       ...process.env,
       RUST_LOG: process.env.RUST_LOG || 'zeroclaw=info,zeroclaw::tools=debug,zeroclaw::providers=debug',
+      // Expose GH_TOKEN so gh CLI calls inside the agent's shell tool work
+      GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '',
+      // Some ZeroClaw versions read this env var directly
+      ZEROCLAW_MAX_TOOL_ITERATIONS: maxIter,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
