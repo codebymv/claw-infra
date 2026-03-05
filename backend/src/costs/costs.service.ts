@@ -20,7 +20,7 @@ export class CostsService {
   constructor(
     @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
     @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
-  ) {}
+  ) { }
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
     const record = this.costRepo.create({
@@ -133,25 +133,25 @@ export class CostsService {
 
     const results = await Promise.all(
       budgets.map(async (budget) => {
-        const daySpend = await this.costRepo
+        let dayQuery = this.costRepo
           .createQueryBuilder('c')
           .leftJoin('c.run', 'run')
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
-          .where(`c.recorded_at >= :start`, { start: dayStart })
-          .$if(!!budget.agentName, (qb) =>
-            qb.andWhere('run.agent_name = :agentName', { agentName: budget.agentName }),
-          )
-          .getRawOne<{ total: string }>();
+          .where(`c.recorded_at >= :start`, { start: dayStart });
+        if (budget.agentName) {
+          dayQuery = dayQuery.andWhere('run.agent_name = :agentName', { agentName: budget.agentName });
+        }
+        const daySpend = await dayQuery.getRawOne<{ total: string }>();
 
-        const monthSpend = await this.costRepo
+        let monthQuery = this.costRepo
           .createQueryBuilder('c')
           .leftJoin('c.run', 'run')
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
-          .where(`c.recorded_at >= :start`, { start: monthStart })
-          .$if(!!budget.agentName, (qb) =>
-            qb.andWhere('run.agent_name = :agentName', { agentName: budget.agentName }),
-          )
-          .getRawOne<{ total: string }>();
+          .where(`c.recorded_at >= :start`, { start: monthStart });
+        if (budget.agentName) {
+          monthQuery = monthQuery.andWhere('run.agent_name = :agentName', { agentName: budget.agentName });
+        }
+        const monthSpend = await monthQuery.getRawOne<{ total: string }>();
 
         const dayTotal = parseFloat(daySpend?.total || '0');
         const monthTotal = parseFloat(monthSpend?.total || '0');
