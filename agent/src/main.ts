@@ -46,7 +46,6 @@ let logFlushTimer: NodeJS.Timeout | null = null;
 // ── Event handlers ──
 
 async function onRunStart(event: RunStartEvent): Promise<void> {
-  // Don't create a new run if one is already in progress
   if (currentRun) return;
 
   try {
@@ -202,6 +201,289 @@ async function collectMetrics(): Promise<void> {
   }
 }
 
+// ── Telegram Orchestrator ──
+// Replaces ZeroClaw's native Telegram channel to bypass the hardcoded
+// 10-iteration-per-run cap that cannot be overridden via config.
+
+interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
+}
+
+interface TelegramMessage {
+  message_id: number;
+  from?: { id: number; username?: string; first_name?: string };
+  chat: { id: number };
+  text?: string;
+}
+
+interface WebhookResponse {
+  reply?: string;
+  response?: string;
+  message?: string;
+  error?: string;
+}
+
+class TelegramOrchestrator {
+  private offset = 0;
+  private botToken: string;
+  private gatewayUrl: string;
+  private maxPhases: number;
+  private allowedUsers: Set<string>;
+  private ready = false;
+
+  constructor() {
+    this.botToken = process.env.ZEROCLAW_TELEGRAM_BOT_TOKEN || '';
+    // Use the actual port ZeroClaw daemon listens on (8080 by default in the binary)
+    const gatewayPort = process.env.ZEROCLAW_GATEWAY_PORT || '8080';
+    this.gatewayUrl = process.env.ZEROCLAW_GATEWAY_URL || `http://localhost:${gatewayPort}`;
+    this.maxPhases = parseInt(process.env.ORCHESTRATOR_MAX_PHASES || '8', 10);
+    this.allowedUsers = new Set(
+      (process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+
+  get isEnabled(): boolean {
+    return !!this.botToken;
+  }
+
+  /** Wait for ZeroClaw gateway to be ready before polling */
+  async waitForGateway(maxWaitMs = 60000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      try {
+        const res = await fetch(`${this.gatewayUrl}/health`, { signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          console.log(`[orchestrator] ZeroClaw gateway ready at ${this.gatewayUrl}`);
+          this.ready = true;
+          return;
+        }
+      } catch {
+        // not ready yet
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    console.warn('[orchestrator] Gateway not ready after 60s — polling anyway');
+    this.ready = true;
+  }
+
+  async start(): Promise<void> {
+    if (!this.isEnabled) {
+      console.log('[orchestrator] No ZEROCLAW_TELEGRAM_BOT_TOKEN — Telegram orchestrator disabled');
+      return;
+    }
+
+    await this.waitForGateway();
+    console.log('[orchestrator] Telegram polling started');
+    console.log(`[orchestrator] Allowed users: ${this.allowedUsers.size > 0 ? [...this.allowedUsers].join(', ') : 'all'}`);
+
+    while (true) {
+      try {
+        await this.poll();
+      } catch (err) {
+        console.error('[orchestrator] Poll error:', err);
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+  }
+
+  private async poll(): Promise<void> {
+    const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?offset=${this.offset}&timeout=55`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(65000) });
+    const data = (await res.json()) as { ok: boolean; result: TelegramUpdate[] };
+    if (!data.ok || !data.result?.length) return;
+
+    for (const update of data.result) {
+      this.offset = update.update_id + 1;
+      if (update.message?.text) {
+        // Fire and forget — don't await so next poll can start immediately
+        this.handleMessage(update.message).catch((err) =>
+          console.error('[orchestrator] Message error:', err),
+        );
+      }
+    }
+  }
+
+  private isAllowed(msg: TelegramMessage): boolean {
+    if (this.allowedUsers.size === 0) return true;
+    const username = msg.from?.username || '';
+    const userId = String(msg.from?.id || '');
+    return this.allowedUsers.has(username) || this.allowedUsers.has(userId);
+  }
+
+  private async handleMessage(msg: TelegramMessage): Promise<void> {
+    const chatId = msg.chat.id;
+    const text = (msg.text || '').trim();
+
+    if (!this.isAllowed(msg)) {
+      console.log(`[orchestrator] Ignored message from unauthorized user: ${msg.from?.username || msg.from?.id}`);
+      return;
+    }
+
+    console.log(`[orchestrator] Message from ${msg.from?.username || msg.from?.id}: ${text.substring(0, 80)}`);
+
+    // Step 1: Ask ZeroClaw to plan whether this needs multiple phases
+    const planPrompt =
+      `ORCHESTRATOR PLANNING MODE — do not perform any actions yet, only plan.\n` +
+      `User request: "${text}"\n\n` +
+      `Determine if this needs multiple phases (each phase ≤ 8 tool calls) or is a single simple task.\n\n` +
+      `If it fits in ONE phase: reply with exactly "SINGLE" on the first line, then describe the approach.\n` +
+      `If it needs MULTIPLE phases: reply with exactly these lines (no other text before them):\n` +
+      `PHASE 1: [specific action — what to do, on which files/repos]\n` +
+      `PHASE 2: [next action]\n` +
+      `(up to ${this.maxPhases} phases max)\n\n` +
+      `Be concrete and specific. Each phase must be independently executable.`;
+
+    await this.sendTelegram(chatId, '⏳ Planning...');
+
+    let planResponse: string;
+    try {
+      planResponse = await this.callWebhook(planPrompt);
+    } catch (err) {
+      await this.sendTelegram(chatId, `❌ Failed to reach ZeroClaw gateway: ${err}`);
+      return;
+    }
+
+    // Check if single-phase
+    const isSingle = planResponse.trimStart().toUpperCase().startsWith('SINGLE');
+    const phases = (planResponse.match(/^PHASE \d+:.+$/gim) || []).slice(0, this.maxPhases);
+
+    if (isSingle || phases.length === 0) {
+      // Single phase — run directly
+      await this.sendTelegram(chatId, '⏳ Working...');
+      try {
+        const result = await this.callWebhook(text);
+        await this.sendTelegram(chatId, result);
+      } catch (err) {
+        await this.sendTelegram(chatId, `❌ Error: ${err}`);
+      }
+      return;
+    }
+
+    // Multi-phase execution
+    await this.sendTelegram(
+      chatId,
+      `📋 Breaking into ${phases.length} phases:\n${phases.map((p, i) => `${i + 1}. ${p.replace(/^PHASE \d+: /i, '')}`).join('\n')}`,
+    );
+
+    let context = `Original task: ${text}\n\nCompleted phases:\n`;
+
+    for (let i = 0; i < phases.length; i++) {
+      const phase = phases[i];
+      const phaseLabel = `Phase ${i + 1}/${phases.length}`;
+      await this.sendTelegram(chatId, `⚙️ ${phaseLabel}: ${phase.replace(/^PHASE \d+: /i, '')}`);
+
+      const phasePrompt =
+        `You are executing phase ${i + 1} of ${phases.length} for this task: "${text}"\n\n` +
+        `Context from completed phases:\n${context}\n\n` +
+        `NOW EXECUTE ONLY THIS PHASE (do not attempt other phases):\n${phase}\n\n` +
+        `When done, summarize what you did in 2-3 sentences.`;
+
+      let result: string;
+      try {
+        result = await this.callWebhook(phasePrompt);
+      } catch (err) {
+        await this.sendTelegram(chatId, `❌ ${phaseLabel} failed: ${err}`);
+        return;
+      }
+
+      context += `\n${phase}: ${result.substring(0, 600)}\n`;
+
+      if (i < phases.length - 1) {
+        await this.sendTelegram(chatId, `✅ ${phaseLabel} done.`);
+      }
+    }
+
+    // Final summary
+    const summaryPrompt =
+      `Summarize what was accomplished in this task in 3-5 bullet points:\n` +
+      `Original task: ${text}\n\nPhase results:\n${context}`;
+    const summary = await this.callWebhook(summaryPrompt).catch(() => context);
+    await this.sendTelegram(chatId, `✅ All ${phases.length} phases complete!\n\n${summary}`);
+  }
+
+  private async callWebhook(message: string): Promise<string> {
+    const res = await fetch(`${this.gatewayUrl}/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+      // ZeroClaw webhook can take up to 120s for complex phases
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Gateway ${res.status}: ${body}`);
+    }
+
+    const data = (await res.json()) as WebhookResponse;
+    return data.reply || data.response || data.message || JSON.stringify(data);
+  }
+
+  private async sendTelegram(chatId: number, text: string): Promise<void> {
+    // Telegram message limit is 4096 chars; truncate gracefully
+    const truncated = text.length > 4000 ? text.substring(0, 3990) + '\n…(truncated)' : text;
+    try {
+      await fetch(`https://api.telegram.org/bot${this.botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: truncated }),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (err) {
+      console.error(`[orchestrator] Failed to send Telegram message:`, err);
+    }
+  }
+}
+
+// ── Workspace setup ──
+
+function setupWorkspace(): void {
+  const githubToken = process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN;
+  const reposEnv = process.env.GITHUB_REPOS || '';
+  const workspaceDir = process.env.ZEROCLAW_WORKSPACE || '/app/workspace';
+
+  if (!reposEnv) return;
+
+  const repos = reposEnv.split(',').map((r) => r.trim()).filter(Boolean);
+  if (!repos.length) return;
+
+  for (let repo of repos) {
+    // Accept full GitHub URLs or bare org/repo slugs
+    repo = repo
+      .replace(/^https?:\/\/github\.com\//, '')
+      .replace(/\.git$/, '')
+      .trim();
+
+    const repoName = repo.split('/').pop() || repo.replace('/', '-');
+    const dest = join(workspaceDir, repoName);
+    const cloneUrl = githubToken
+      ? `https://x-access-token:${githubToken}@github.com/${repo}.git`
+      : `https://github.com/${repo}.git`;
+
+    if (existsSync(join(dest, '.git'))) {
+      console.log(`[workspace] Pulling latest: ${repo}`);
+      const result = spawnSync('git', ['-C', dest, 'pull', '--ff-only'], { stdio: 'pipe' });
+      if (result.status === 0) {
+        console.log(`[workspace] Pulled: ${repo}`);
+      } else {
+        console.warn(`[workspace] Pull failed for ${repo}: ${result.stderr?.toString().trim()}`);
+      }
+    } else {
+      console.log(`[workspace] Cloning: ${repo} → ${dest}`);
+      const result = spawnSync('git', ['clone', '--depth=1', cloneUrl, dest], { stdio: 'pipe' });
+      if (result.status === 0) {
+        console.log(`[workspace] Cloned: ${repo}`);
+      } else {
+        console.warn(`[workspace] Clone failed for ${repo}: ${result.stderr?.toString().trim()}`);
+      }
+    }
+  }
+}
+
 // ── Daemon lifecycle ──
 
 function startDaemon(): ChildProcess {
@@ -212,9 +494,7 @@ function startDaemon(): ChildProcess {
     env: {
       ...process.env,
       RUST_LOG: process.env.RUST_LOG || 'zeroclaw=info,zeroclaw::tools=debug,zeroclaw::providers=debug',
-      // Expose GH_TOKEN so gh CLI calls inside the agent's shell tool work
       GH_TOKEN: process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '',
-      // Some ZeroClaw versions read this env var directly
       ZEROCLAW_MAX_TOOL_ITERATIONS: maxIter,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -273,53 +553,6 @@ function cleanup(): void {
   flushLogs();
 }
 
-// ── Workspace setup ──
-
-function setupWorkspace(): void {
-  const githubToken = process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN;
-  const reposEnv = process.env.GITHUB_REPOS || '';
-  const workspaceDir = process.env.ZEROCLAW_WORKSPACE || '/app/workspace';
-
-  if (!reposEnv) return;
-
-  const repos = reposEnv.split(',').map((r) => r.trim()).filter(Boolean);
-  if (!repos.length) return;
-
-  for (let repo of repos) {
-    // Accept full GitHub URLs or bare org/repo slugs
-    repo = repo
-      .replace(/^https?:\/\/github\.com\//, '')
-      .replace(/\.git$/, '')
-      .trim();
-
-    const repoName = repo.split('/').pop() || repo.replace('/', '-');
-    const dest = join(workspaceDir, repoName);
-    const cloneUrl = githubToken
-      ? `https://x-access-token:${githubToken}@github.com/${repo}.git`
-      : `https://github.com/${repo}.git`;
-
-    if (existsSync(join(dest, '.git'))) {
-      // Repo exists — pull latest
-      console.log(`[workspace] Pulling latest: ${repo}`);
-      const result = spawnSync('git', ['-C', dest, 'pull', '--ff-only'], { stdio: 'pipe' });
-      if (result.status === 0) {
-        console.log(`[workspace] Pulled: ${repo}`);
-      } else {
-        console.warn(`[workspace] Pull failed for ${repo}: ${result.stderr?.toString().trim()}`);
-      }
-    } else {
-      // Fresh clone
-      console.log(`[workspace] Cloning: ${repo} → ${dest}`);
-      const result = spawnSync('git', ['clone', '--depth=1', cloneUrl, dest], { stdio: 'pipe' });
-      if (result.status === 0) {
-        console.log(`[workspace] Cloned: ${repo}`);
-      } else {
-        console.warn(`[workspace] Clone failed for ${repo}: ${result.stderr?.toString().trim()}`);
-      }
-    }
-  }
-}
-
 // ── Main ──
 
 async function main(): Promise<void> {
@@ -327,13 +560,9 @@ async function main(): Promise<void> {
   console.log(`[reporter] Agent name: ${AGENT_NAME}`);
   console.log(`[reporter] Backend: ${process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000'}`);
 
-  // Generate ZeroClaw config from env vars
   generateConfig();
-
-  // Pre-clone workspace repos before ZeroClaw starts
   setupWorkspace();
 
-  // Wait for backend to be reachable
   console.log('[reporter] Waiting for claw-infra backend...');
   let backendReady = false;
   for (let i = 0; i < 30; i++) {
@@ -348,16 +577,16 @@ async function main(): Promise<void> {
     console.log('[reporter] Backend is healthy');
   }
 
-  // Start periodic resource metrics
   metricsTimer = setInterval(collectMetrics, METRICS_INTERVAL_MS);
-
-  // Start log batching
   logFlushTimer = setInterval(flushLogs, LOG_BATCH_INTERVAL_MS);
 
-  // Start ZeroClaw daemon
   daemonProcess = startDaemon();
 
-  // Graceful shutdown
+  // Start the Telegram orchestrator after daemon boots
+  // (waitForGateway handles the readiness check internally)
+  const orchestrator = new TelegramOrchestrator();
+  orchestrator.start().catch((err) => console.error('[orchestrator] Fatal:', err));
+
   for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     process.on(sig, () => {
       console.log(`[reporter] Received ${sig}, shutting down...`);

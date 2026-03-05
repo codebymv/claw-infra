@@ -82,13 +82,9 @@ function buildToml(cfg: ZeroClawConfig): string {
   sections.push(``, `[channels_config]`, `cli = true`);
 
   if (cfg.telegramBotToken) {
-    sections.push(``, `[channels_config.telegram]`, `bot_token = "${cfg.telegramBotToken}"`);
-    if (cfg.telegramAllowedUsers?.length) {
-      const users = cfg.telegramAllowedUsers.map((u) => `"${u}"`).join(', ');
-      sections.push(`allowed_users = [${users}]`);
-    } else {
-      sections.push(`allowed_users = []`);
-    }
+    // Telegram is now handled by the reporter orchestrator (TelegramOrchestrator in main.ts),
+    // NOT by ZeroClaw natively. Omitting [channels_config.telegram] prevents double-handling.
+    console.log('[config-gen] Telegram: orchestrator-managed (bypasses ZeroClaw 10-iteration cap)');
   }
 
   sections.push(``);
