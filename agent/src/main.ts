@@ -42,6 +42,8 @@ let logBuffer: Array<{
 }> = [];
 let metricsTimer: NodeJS.Timeout | null = null;
 let logFlushTimer: NodeJS.Timeout | null = null;
+let lastCpuUsage: NodeJS.CpuUsage = process.cpuUsage();
+let lastCpuTime: number = Date.now();
 
 // ── Event handlers ──
 
@@ -186,8 +188,14 @@ async function collectMetrics(): Promise<void> {
   const freeMem = freemem();
   const usedMem = totalMem - freeMem;
 
-  const cpuUsage = process.cpuUsage();
-  const cpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000) * 100 / cpuCount;
+  // Compute CPU% as a delta since the last sample to avoid cumulative drift
+  const nowCpu = process.cpuUsage();
+  const nowTime = Date.now();
+  const elapsedUs = (nowTime - lastCpuTime) * 1000; // ms → µs
+  const usedUs = (nowCpu.user - lastCpuUsage.user) + (nowCpu.system - lastCpuUsage.system);
+  const cpuPercent = elapsedUs > 0 ? (usedUs / (elapsedUs * cpuCount)) * 100 : 0;
+  lastCpuUsage = nowCpu;
+  lastCpuTime = nowTime;
 
   try {
     await ingest.sendMetrics({
@@ -201,8 +209,6 @@ async function collectMetrics(): Promise<void> {
   }
 }
 
-
-// ── Workspace setup ──
 
 // ── Workspace setup ──
 

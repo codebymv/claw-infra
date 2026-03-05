@@ -66,16 +66,16 @@ export default function RunDetailPage() {
         >
           <ArrowLeft className="h-3 w-3" /> Back to runs
         </Link>
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="font-display text-xl font-bold tracking-tight">{run.agentName}</h2>
-            <p className="text-[11px] text-muted-foreground font-mono mt-1">{run.id}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-bold tracking-tight truncate sm:text-xl">{run.agentName}</h2>
+            <p className="text-[11px] text-muted-foreground font-mono mt-1 truncate">{run.id}</p>
           </div>
           <StatusBadge status={run.status} />
         </div>
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 animate-stagger">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 animate-stagger">
         <MetaCard icon={Clock} label="Duration" value={formatDuration(run.durationMs)} />
         <MetaCard icon={DollarSign} label="Total Cost" value={formatCost(run.totalCostUsd)} />
         <MetaCard icon={Hash} label="Tokens Used" value={formatTokens(run.totalTokensIn + run.totalTokensOut)} />
@@ -145,7 +145,7 @@ export default function RunDetailPage() {
             ) : undefined
           }
         >
-          <div className="h-80 overflow-y-auto font-mono text-[11px] rounded-lg bg-muted/30 border border-border p-4 space-y-0.5">
+          <div className="h-64 sm:h-80 overflow-y-auto font-mono text-[11px] rounded-lg bg-muted/30 border border-border p-4 space-y-0.5">
             {allLogs.length === 0 ? (
               <p className="text-muted-foreground text-center py-6">No logs yet</p>
             ) : (
@@ -168,7 +168,7 @@ export default function RunDetailPage() {
 
       <SectionCard title="Step Cost Breakdown">
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="w-full min-w-[480px] text-[13px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="pb-3 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Step</th>

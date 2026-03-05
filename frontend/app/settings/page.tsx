@@ -170,7 +170,7 @@ export default function SettingsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-3 mt-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                     <span className="text-[11px] text-muted-foreground font-mono">{key.keyPrefix}…</span>
                     <span className="text-[11px] text-muted-foreground capitalize">{key.type}</span>
                     {key.lastUsedAt && (
@@ -178,7 +178,7 @@ export default function SettingsPage() {
                         Used {formatRelativeTime(key.lastUsedAt)}
                       </span>
                     )}
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline">
                       Created {formatDateTime(key.createdAt)}
                     </span>
                   </div>
@@ -207,10 +207,10 @@ export default function SettingsPage() {
               {budgets.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-4 text-[13px]"
+                  className="flex flex-col gap-1 rounded-lg border border-border bg-muted/20 p-4 text-[13px] sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span className="font-medium">{b.agentName || 'Global'}</span>
-                  <div className="flex gap-4 text-muted-foreground text-[11px] font-mono">
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground text-[11px] font-mono">
                     {b.dailyLimitUsd && <span>Daily: ${b.dailyLimitUsd}</span>}
                     {b.monthlyLimitUsd && <span>Monthly: ${b.monthlyLimitUsd}</span>}
                     <span>Alert at {b.alertThresholdPercent}%</span>

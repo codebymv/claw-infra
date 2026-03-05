@@ -64,7 +64,7 @@ export default function ResourcesPage() {
         }
       >
         {displayLatest ? (
-          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
             <GaugeChart
               value={displayLatest.cpuPercent}
               label="CPU Usage"
@@ -139,7 +139,7 @@ export default function ResourcesPage() {
           <EmptyState message="No per-agent data available" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
+            <table className="w-full min-w-[480px] text-[13px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="pb-3 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Agent</th>
@@ -175,7 +175,7 @@ export default function ResourcesPage() {
 
       {displayLatest && (
         <SectionCard title="Network & Disk I/O">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <MetricTile label="Network In" value={formatBytes(displayLatest.networkInMb)} />
             <MetricTile label="Network Out" value={formatBytes(displayLatest.networkOutMb)} />
             <MetricTile label="Disk Read" value={formatBytes(displayLatest.diskIoReadMb)} />

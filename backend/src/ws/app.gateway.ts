@@ -19,10 +19,9 @@ interface SubscribePayload {
 }
 
 @WebSocketGateway({
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
-    credentials: true,
-  },
+  // CORS origin is applied dynamically in afterInit via server.engine options
+  // to avoid reading process.env before the NestJS ConfigService is ready.
+  cors: { credentials: true },
   namespace: '/',
 })
 export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
@@ -38,6 +37,15 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   ) {}
 
   afterInit(server: Server) {
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    server.engine.on('headers', (_headers: unknown, req: { headers: { origin?: string } }) => {
+      const origin = req.headers.origin;
+      if (origin === frontendUrl) {
+        (_headers as Record<string, string>)['Access-Control-Allow-Origin'] = origin;
+        (_headers as Record<string, string>)['Access-Control-Allow-Credentials'] = 'true';
+      }
+    });
+
     this.pubSub.subscribe('global:status', (data) => {
       server.to('global:status').emit('global:status', data);
     });
@@ -46,7 +54,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       server.to('resources:live').emit('resources:live', data);
     });
 
-    this.logger.log('WebSocket gateway initialized');
+    this.logger.log(`WebSocket gateway initialized (CORS origin: ${frontendUrl})`);
   }
 
   handleConnection(client: Socket) {

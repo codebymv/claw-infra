@@ -53,25 +53,28 @@ function AgentsPageContent() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
+      {/* Filter bar — stacks vertically on mobile, single row on sm+ */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        {/* Search input — full width on mobile */}
+        <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             placeholder="Filter by agent name..."
             value={agentName}
             onChange={(e) => setParam('agentName', e.target.value)}
-            className="h-9 rounded-lg border border-border bg-card pl-9 pr-3 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all"
+            className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-[13px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all sm:w-52"
           />
         </div>
 
-        <div className="flex gap-1">
+        {/* Status filters — horizontally scrollable on mobile so they never wrap to 2 rows */}
+        <div className="flex gap-1 overflow-x-auto pb-0.5 sm:overflow-visible sm:pb-0">
           {STATUSES.map((s) => (
             <button
               key={s}
               onClick={() => setParam('status', status === s ? '' : s)}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-[11px] font-semibold tracking-wide capitalize transition-all duration-200',
+                'shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-semibold tracking-wide capitalize transition-all duration-200',
                 status === s
                   ? 'bg-primary/15 text-primary border border-primary/25'
                   : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20',
@@ -104,17 +107,18 @@ function AgentsPageContent() {
           <PageLoader />
         ) : (
           <>
+            {/* overflow-x-auto + min-width table ensures columns never collapse on narrow screens */}
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
+              <table className="w-full min-w-[640px] text-[13px]">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    <th className="px-5 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Agent</th>
-                    <th className="px-5 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Status</th>
-                    <th className="px-5 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Duration</th>
-                    <th className="px-5 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Cost</th>
-                    <th className="px-5 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Tokens</th>
-                    <th className="px-5 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Started</th>
-                    <th className="px-5 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">Trigger</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Agent</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Status</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Duration</th>
+                    <th className="px-4 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Cost</th>
+                    <th className="px-4 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Tokens</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Started</th>
+                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Trigger</th>
                   </tr>
                 </thead>
                 <tbody>

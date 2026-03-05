@@ -73,13 +73,14 @@ export default function CostsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-1.5">
+      {/* Period selector — scrollable on very narrow screens */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
         {PERIODS.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => setPeriod(value)}
             className={cn(
-              'rounded-lg px-4 py-1.5 text-[12px] font-semibold tracking-wide transition-all duration-200',
+              'shrink-0 rounded-lg px-4 py-1.5 text-[12px] font-semibold tracking-wide transition-all duration-200',
               period === value
                 ? 'bg-primary/15 text-primary border border-primary/25'
                 : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20',
