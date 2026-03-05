@@ -31,7 +31,9 @@ export function Sidebar({ isMobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-50 w-[260px] flex flex-col border-r border-border bg-card/80 glass transform transition-transform duration-300 ease-out',
+        'fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-border bg-card/80 glass',
+        'transform transition-transform duration-300 ease-out',
+        // Hidden off-screen on mobile unless open; always visible on lg+
         isMobileOpen ? 'translate-x-0' : '-translate-x-full',
         'lg:translate-x-0',
       )}
