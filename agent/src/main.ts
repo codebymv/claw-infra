@@ -1,6 +1,6 @@
-import { spawn, spawnSync, ChildProcess } from 'child_process';
+import { spawn, spawnSync, execSync, ChildProcess } from 'child_process';
 import { cpus, totalmem, freemem } from 'os';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import WebSocket from 'ws';
 import { generateConfig } from './config-gen';
@@ -225,11 +225,18 @@ interface WebhookResponse {
   error?: string;
 }
 
+interface ToolCall {
+  toolName: string;       // e.g. 'shell', 'file_read', 'file_write'
+  arguments: string;      // raw JSON string of arguments
+}
+
 class TelegramOrchestrator {
   private offset = 0;
   private botToken: string;
   private gatewayUrl: string;
   private maxPhases: number;
+  private maxIterations: number;
+  private workspaceDir: string;
   private allowedUsers: Set<string>;
   private ready = false;
 
@@ -239,6 +246,8 @@ class TelegramOrchestrator {
     const gatewayPort = process.env.ZEROCLAW_GATEWAY_PORT || '8080';
     this.gatewayUrl = process.env.ZEROCLAW_GATEWAY_URL || `http://localhost:${gatewayPort}`;
     this.maxPhases = parseInt(process.env.ORCHESTRATOR_MAX_PHASES || '8', 10);
+    this.maxIterations = parseInt(process.env.ORCHESTRATOR_MAX_ITERATIONS || '50', 10);
+    this.workspaceDir = process.env.ZEROCLAW_WORKSPACE || '/app/workspace';
     this.allowedUsers = new Set(
       (process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS || '')
         .split(',')
@@ -342,7 +351,7 @@ class TelegramOrchestrator {
 
     let planResponse: string;
     try {
-      planResponse = await this.callWebhook(planPrompt, 'plan');
+      planResponse = await this.callHttpWebhook(planPrompt);
     } catch (err) {
       await this.sendTelegram(chatId, `❌ Failed to reach ZeroClaw gateway: ${err}`);
       return;
@@ -353,10 +362,10 @@ class TelegramOrchestrator {
     const phases = (planResponse.match(/^PHASE \d+:.+$/gim) || []).slice(0, this.maxPhases);
 
     if (isSingle || phases.length === 0) {
-      // Single phase — run directly
+      // Single phase — run directly with tool execution loop
       await this.sendTelegram(chatId, '⏳ Working...');
       try {
-        const result = await this.callWebhook(text, 'execute');
+        const result = await this.executeWithTools(text, chatId);
         await this.sendTelegram(chatId, result);
       } catch (err) {
         await this.sendTelegram(chatId, `❌ Error: ${err}`);
@@ -385,7 +394,7 @@ class TelegramOrchestrator {
 
       let result: string;
       try {
-        result = await this.callWebhook(phasePrompt, 'execute');
+        result = await this.executeWithTools(phasePrompt, chatId);
       } catch (err) {
         await this.sendTelegram(chatId, `❌ ${phaseLabel} failed: ${err}`);
         return;
@@ -402,28 +411,213 @@ class TelegramOrchestrator {
     const summaryPrompt =
       `Summarize what was accomplished in this task in 3-5 bullet points:\n` +
       `Original task: ${text}\n\nPhase results:\n${context}`;
-    const summary = await this.callWebhook(summaryPrompt, 'plan').catch(() => context);
+    const summary = await this.callHttpWebhook(summaryPrompt).catch(() => context);
     await this.sendTelegram(chatId, `✅ All ${phases.length} phases complete!\n\n${summary}`);
   }
 
-  private async callWebhook(message: string, mode: 'plan' | 'execute' = 'execute'): Promise<string> {
-    // 'plan' mode → HTTP (LLM-only, fast, reliable — perfect for planning/summarization)
-    // 'execute' mode → WebSocket first (has tool execution), HTTP fallback
-    if (mode === 'plan') {
-      console.log(`[orchestrator] Using HTTP for planning/summary`);
-      return this.callHttpWebhook(message);
+  // ── Tool Execution Loop ──
+  // Sends prompt to HTTP /webhook, parses <function_calls> from response,
+  // executes tools locally, feeds results back, and loops until done.
+
+  private async executeWithTools(prompt: string, chatId?: number): Promise<string> {
+    let conversationContext = prompt;
+    let lastAssistantText = '';
+
+    for (let i = 0; i < this.maxIterations; i++) {
+      console.log(`[orchestrator] Tool loop iteration ${i + 1}/${this.maxIterations}`);
+
+      const response = await this.callHttpWebhook(conversationContext);
+      const toolCalls = this.parseFunctionCalls(response);
+
+      if (toolCalls.length === 0) {
+        // No tool calls — this is the final response
+        const finalText = this.stripFunctionCalls(response).trim();
+        console.log(`[orchestrator] Tool loop complete after ${i + 1} iterations`);
+        return finalText || lastAssistantText || '(completed)';
+      }
+
+      console.log(`[orchestrator] Found ${toolCalls.length} tool call(s) in response`);
+
+      // Send progress update every 5 iterations
+      if (chatId && i > 0 && i % 5 === 0) {
+        await this.sendTelegram(chatId, `⚙️ Still working... (${i} tool calls executed)`);
+      }
+
+      // Execute each tool call
+      const results: Array<{ call: ToolCall; output: string }> = [];
+      for (const call of toolCalls) {
+        console.log(`[orchestrator] Executing: ${call.toolName}(${call.arguments.substring(0, 120)})`);
+        const output = await this.executeTool(call);
+        console.log(`[orchestrator] Result: ${output.substring(0, 200)}`);
+        results.push({ call, output });
+      }
+
+      // Save the non-tool-call text from this response
+      lastAssistantText = this.stripFunctionCalls(response).trim();
+
+      // Build follow-up prompt with tool results
+      conversationContext = this.buildFollowUpPrompt(prompt, response, results);
     }
 
-    // Execution mode: try WebSocket first (tool execution), fall back to HTTP
-    console.log(`[orchestrator] Using WebSocket for execution (tool calls enabled)`);
+    console.warn(`[orchestrator] Max iterations (${this.maxIterations}) reached`);
+    return lastAssistantText || '(max iterations reached — task may be incomplete)';
+  }
+
+  private parseFunctionCalls(response: string): ToolCall[] {
+    const calls: ToolCall[] = [];
+    const blockRegex = /<function_calls>([\s\S]*?)<\/function_calls>/g;
+    let blockMatch;
+
+    while ((blockMatch = blockRegex.exec(response)) !== null) {
+      const block = blockMatch[1];
+      const invokeRegex = /<invoke\s+name="([^"]+)">([\s\S]*?)<\/invoke>/g;
+      let invokeMatch;
+
+      while ((invokeMatch = invokeRegex.exec(block)) !== null) {
+        const body = invokeMatch[2];
+        const params: Record<string, string> = {};
+        const paramRegex = /<parameter\s+name="([^"]+)">([\s\S]*?)<\/parameter>/g;
+        let paramMatch;
+
+        while ((paramMatch = paramRegex.exec(body)) !== null) {
+          params[paramMatch[1]] = paramMatch[2].trim();
+        }
+
+        // Handle two formats we've seen:
+        // Format 1: <parameter name="name">shell</parameter> + <parameter name="arguments">{"command":"..."}</parameter>
+        // Format 2: <parameter name="command">shell</parameter> + <parameter name="input">...</parameter>
+        const toolName = params['name'] || params['command'] || invokeMatch[1];
+        const args = params['arguments'] || params['input'] || JSON.stringify(params);
+
+        calls.push({ toolName, arguments: args });
+      }
+    }
+
+    return calls;
+  }
+
+  private async executeTool(call: ToolCall): Promise<string> {
     try {
-      const result = await this.callWsChat(message);
-      return result;
-    } catch (wsErr) {
-      console.warn(`[orchestrator] WebSocket failed, falling back to HTTP:`, wsErr);
-      return this.callHttpWebhook(message);
+      if (call.toolName === 'shell') {
+        return this.executeShell(call.arguments);
+      } else if (call.toolName === 'file_read') {
+        return this.executeFileRead(call.arguments);
+      } else if (call.toolName === 'file_write') {
+        return this.executeFileWrite(call.arguments);
+      } else if (call.toolName === 'file_edit') {
+        return this.executeFileEdit(call.arguments);
+      } else {
+        return `[Tool "${call.toolName}" is not supported by the orchestrator. Supported: shell, file_read, file_write, file_edit]`;
+      }
+    } catch (err) {
+      return `[Tool execution error: ${err}]`;
     }
   }
+
+  private executeShell(args: string): string {
+    let command: string;
+    try {
+      const parsed = JSON.parse(args);
+      command = parsed.command || parsed.cmd || args;
+    } catch {
+      command = args;
+    }
+
+    console.log(`[orchestrator] shell> ${command}`);
+
+    try {
+      const result = execSync(command, {
+        timeout: 60000,
+        maxBuffer: 1024 * 1024,
+        cwd: this.workspaceDir,
+        env: { ...process.env },
+        encoding: 'utf-8',
+      });
+      return result || '(no output)';
+    } catch (err: unknown) {
+      const execErr = err as { stderr?: string; stdout?: string; message?: string; status?: number };
+      const stderr = execErr.stderr || '';
+      const stdout = execErr.stdout || '';
+      return `Exit code ${execErr.status || 1}\nstdout: ${stdout}\nstderr: ${stderr}`;
+    }
+  }
+
+  private executeFileRead(args: string): string {
+    let filePath: string;
+    try {
+      const parsed = JSON.parse(args);
+      filePath = parsed.path || parsed.file || args;
+    } catch {
+      filePath = args;
+    }
+
+    try {
+      return readFileSync(filePath, 'utf-8');
+    } catch (err) {
+      return `[Error reading file: ${err}]`;
+    }
+  }
+
+  private executeFileWrite(args: string): string {
+    let filePath: string;
+    let content: string;
+    try {
+      const parsed = JSON.parse(args);
+      filePath = parsed.path || parsed.file || '';
+      content = parsed.content || parsed.data || '';
+    } catch {
+      return '[Error: could not parse file_write arguments]';
+    }
+
+    try {
+      const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+      if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
+      writeFileSync(filePath, content, 'utf-8');
+      return `File written: ${filePath} (${content.length} bytes)`;
+    } catch (err) {
+      return `[Error writing file: ${err}]`;
+    }
+  }
+
+  private executeFileEdit(args: string): string {
+    // For file_edit, delegate to shell with sed or similar
+    // The LLM will likely use shell commands for edits anyway
+    return '[file_edit: use shell tool with sed/echo/tee instead]';
+  }
+
+  private stripFunctionCalls(text: string): string {
+    return text
+      .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')
+      .replace(/<function_results>[\s\S]*?<\/function_results>/g, '')
+      .trim();
+  }
+
+  private buildFollowUpPrompt(
+    originalPrompt: string,
+    lastResponse: string,
+    results: Array<{ call: ToolCall; output: string }>,
+  ): string {
+    // Format tool results in a way the LLM understands
+    const toolResultsBlock = results
+      .map((r, i) => {
+        const output = r.output.length > 2000 ? r.output.substring(0, 2000) + '\n...(truncated)' : r.output;
+        return `Tool ${i + 1}: ${r.call.toolName}\nInput: ${r.call.arguments.substring(0, 300)}\nOutput:\n${output}`;
+      })
+      .join('\n\n');
+
+    // Keep conversation compact to avoid context bloat
+    const assistantText = this.stripFunctionCalls(lastResponse).substring(0, 500);
+
+    return (
+      `You are continuing a task. Original request: "${originalPrompt.substring(0, 500)}"\n\n` +
+      (assistantText ? `Your previous reasoning: ${assistantText}\n\n` : '') +
+      `You made tool calls and here are the results:\n\n${toolResultsBlock}\n\n` +
+      `Based on these results, continue executing the task. ` +
+      `If the task is complete, provide a final summary. ` +
+      `Do not repeat tool calls that have already succeeded.`
+    );
+  }
+
 
   private async callHttpWebhook(message: string): Promise<string> {
     const url = `${this.gatewayUrl}/webhook`;
@@ -714,14 +908,10 @@ async function main(): Promise<void> {
 
   daemonProcess = startDaemon();
 
-  // NOTE: TelegramOrchestrator is disabled. ZeroClaw's native Telegram channel
-  // is enabled in config-gen.ts for tool execution. The custom orchestrator's
-  // WebSocket approach does not work (/ws/chat returns 0 frames when channel
-  // supervisor is disabled). If a future ZeroClaw version fixes /ws/chat,
-  // the orchestrator can be re-enabled to bypass the 10-iteration cap.
-  //
-  // const orchestrator = new TelegramOrchestrator();
-  // orchestrator.start().catch((err) => console.error('[orchestrator] Fatal:', err));
+  // Start the Telegram orchestrator with custom tool execution loop.
+  // This bypasses ZeroClaw's 10-iteration cap by executing tools locally.
+  const orchestrator = new TelegramOrchestrator();
+  orchestrator.start().catch((err) => console.error('[orchestrator] Fatal:', err));
 
   for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     process.on(sig, () => {
