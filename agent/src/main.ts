@@ -138,18 +138,27 @@ async function onToolResult(event: ToolResultEvent): Promise<void> {
 async function onLlmCall(event: LlmCallEvent): Promise<void> {
   if (!currentRun) return;
 
-  if (event.tokensIn) currentRun.totalTokensIn += event.tokensIn;
-  if (event.tokensOut) currentRun.totalTokensOut += event.tokensOut;
-  if (event.costUsd) currentRun.totalCostUsd += event.costUsd;
+  const tokensIn = event.tokensIn ?? 0;
+  const tokensOut = event.tokensOut ?? 0;
+  const costUsd = event.costUsd ?? 0;
+
+  // Skip telemetry rows that carry no usage or cost signal.
+  if (tokensIn <= 0 && tokensOut <= 0 && costUsd <= 0) {
+    return;
+  }
+
+  currentRun.totalTokensIn += tokensIn;
+  currentRun.totalTokensOut += tokensOut;
+  currentRun.totalCostUsd += costUsd;
 
   try {
     await ingest.recordCost({
       runId: currentRun.runId,
       provider: event.provider,
       model: event.model,
-      tokensIn: event.tokensIn ?? 0,
-      tokensOut: event.tokensOut ?? 0,
-      costUsd: (event.costUsd ?? 0).toFixed(6),
+      tokensIn,
+      tokensOut,
+      costUsd: costUsd.toFixed(6),
     });
   } catch (err) {
     console.error(`[reporter] Failed to record cost:`, err);

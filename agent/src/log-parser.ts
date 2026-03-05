@@ -357,7 +357,41 @@ export class ZeroClawLogParser extends EventEmitter {
     }
 
     // LLM API calls
-    if (PATTERNS.llmRequest.test(message) || json?.tokens_in || json?.tokens_out) {
+    const j = json as any;
+    const jsonTokensIn =
+      (typeof j?.tokens_in === 'number' ? j.tokens_in : undefined) ??
+      (typeof j?.input_tokens === 'number' ? j.input_tokens : undefined) ??
+      (typeof j?.prompt_tokens === 'number' ? j.prompt_tokens : undefined) ??
+      (typeof j?.usage?.input_tokens === 'number' ? j.usage.input_tokens : undefined) ??
+      (typeof j?.usage?.prompt_tokens === 'number' ? j.usage.prompt_tokens : undefined) ??
+      (typeof j?.payload?.input_tokens === 'number' ? j.payload.input_tokens : undefined) ??
+      (typeof j?.payload?.prompt_tokens === 'number' ? j.payload.prompt_tokens : undefined);
+
+    const jsonTokensOut =
+      (typeof j?.tokens_out === 'number' ? j.tokens_out : undefined) ??
+      (typeof j?.output_tokens === 'number' ? j.output_tokens : undefined) ??
+      (typeof j?.completion_tokens === 'number' ? j.completion_tokens : undefined) ??
+      (typeof j?.usage?.output_tokens === 'number' ? j.usage.output_tokens : undefined) ??
+      (typeof j?.usage?.completion_tokens === 'number' ? j.usage.completion_tokens : undefined) ??
+      (typeof j?.payload?.output_tokens === 'number' ? j.payload.output_tokens : undefined) ??
+      (typeof j?.payload?.completion_tokens === 'number' ? j.payload.completion_tokens : undefined);
+
+    const jsonCost =
+      (typeof j?.cost === 'number' ? j.cost : undefined) ??
+      (typeof j?.cost_usd === 'number' ? j.cost_usd : undefined) ??
+      (typeof j?.payload?.cost === 'number' ? j.payload.cost : undefined) ??
+      (typeof j?.payload?.cost_usd === 'number' ? j.payload.cost_usd : undefined);
+
+    if (
+      PATTERNS.llmRequest.test(message) ||
+      jsonTokensIn !== undefined ||
+      jsonTokensOut !== undefined ||
+      jsonCost !== undefined ||
+      !!j?.provider ||
+      !!j?.model ||
+      !!j?.payload?.provider ||
+      !!j?.payload?.model
+    ) {
       const providerMatch = PATTERNS.llmProvider.exec(message);
       const modelMatch = PATTERNS.llmModel.exec(message);
       const tokensInMatch = PATTERNS.llmTokensIn.exec(message);
@@ -365,10 +399,14 @@ export class ZeroClawLogParser extends EventEmitter {
       const costMatch = PATTERNS.llmCost.exec(message);
       const durationMatch = PATTERNS.duration.exec(message);
 
-      const provider = providerMatch?.[1] || String(json?.provider || 'unknown');
-      const model = modelMatch?.[1] || String(json?.model || 'unknown');
-      const tokensIn = tokensInMatch ? parseInt(tokensInMatch[1]) : (json?.tokens_in as number | undefined);
-      const tokensOut = tokensOutMatch ? parseInt(tokensOutMatch[1]) : (json?.tokens_out as number | undefined);
+      const provider =
+        providerMatch?.[1] ||
+        String(j?.provider || j?.fields?.provider || j?.payload?.provider || 'unknown');
+      const model =
+        modelMatch?.[1] ||
+        String(j?.model || j?.fields?.model || j?.payload?.model || 'unknown');
+      const tokensIn = tokensInMatch ? parseInt(tokensInMatch[1]) : jsonTokensIn;
+      const tokensOut = tokensOutMatch ? parseInt(tokensOutMatch[1]) : jsonTokensOut;
 
       if (provider !== 'unknown' || model !== 'unknown' || tokensIn || tokensOut) {
         this.emitEvent({
@@ -377,7 +415,7 @@ export class ZeroClawLogParser extends EventEmitter {
           model,
           tokensIn,
           tokensOut,
-          costUsd: costMatch ? parseFloat(costMatch[1]) : (json?.cost as number | undefined),
+          costUsd: costMatch ? parseFloat(costMatch[1]) : jsonCost,
           durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
           taskId,
           timestamp,

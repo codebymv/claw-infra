@@ -25,6 +25,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'ClawInfra Dashboard',
   description: 'Monitor ClawInfra agent processes, costs, and resources',
+  icons: {
+    icon: '/clawinfra-icon.png',
+    shortcut: '/clawinfra-icon.png',
+    apple: '/clawinfra-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
