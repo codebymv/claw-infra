@@ -7,6 +7,8 @@ import { ResourceHistoryChart, GaugeChart } from '@/components/charts/resource-c
 import { metricsApi, type ResourceSnapshot, type MetricsHistory, type AgentMetrics } from '@/lib/api';
 import { formatBytes, cn } from '@/lib/utils';
 import { useGlobalStatus } from '@/hooks/useGlobalStatus';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 
 type Resolution = '1h' | '6h' | '24h' | '7d';
 const RESOLUTIONS: { value: Resolution; label: string }[] = [
@@ -17,6 +19,9 @@ const RESOLUTIONS: { value: Resolution; label: string }[] = [
 ];
 
 export default function ResourcesPage() {
+  useDynamicTitle('Resources | ClawInfra');
+
+  const toast = useAppToast();
   const [resolution, setResolution] = useState<Resolution>('1h');
   const [latest, setLatest] = useState<ResourceSnapshot | null>(null);
   const [history, setHistory] = useState<MetricsHistory[]>([]);
@@ -34,12 +39,12 @@ export default function ResourcesPage() {
       setLatest(l);
       setHistory(h);
       setByAgent(a);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to load resource metrics');
     } finally {
       setLoading(false);
     }
-  }, [resolution]);
+  }, [resolution]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();

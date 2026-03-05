@@ -18,6 +18,8 @@ import {
   type TopRun,
 } from '@/lib/api';
 import { formatCost, formatTokens, cn } from '@/lib/utils';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 import Link from 'next/link';
 
 type Period = '1d' | '7d' | '30d';
@@ -28,6 +30,9 @@ const PERIODS: { value: Period; label: string }[] = [
 ];
 
 export default function CostsPage() {
+  useDynamicTitle('Cost Analytics | ClawInfra');
+
+  const toast = useAppToast();
   const [period, setPeriod] = useState<Period>('7d');
   const [summary, setSummary] = useState<CostSummary | null>(null);
   const [byModel, setByModel] = useState<CostByModel[]>([]);
@@ -58,12 +63,12 @@ export default function CostsPage() {
       setBudgetStatus(bs);
       setProjected(pr);
       setTopRuns(tr);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to load cost data');
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load();

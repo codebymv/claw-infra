@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Copy, Trash2, Plus, Eye, EyeOff, Shield, Terminal } from 'lucide-react';
+import { Copy, Trash2, Plus, Eye, EyeOff, Shield, Terminal, Check, X } from 'lucide-react';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
 import { apiKeysApi, costsApi, type ApiKeyEntry, type CostBudget } from '@/lib/api';
 import { formatRelativeTime, formatDateTime, cn } from '@/lib/utils';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 
 export default function SettingsPage() {
+  useDynamicTitle('Settings | ClawInfra');
+
+  const toast = useAppToast();
   const [apiKeys, setApiKeys] = useState<ApiKeyEntry[]>([]);
   const [budgets, setBudgets] = useState<CostBudget[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +20,10 @@ export default function SettingsPage() {
   const [createdKey, setCreatedKey] = useState<{ key: string; name: string } | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Inline revoke confirmation state — holds the id of the key pending confirmation
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokeLoading, setRevokeLoading] = useState(false);
 
   const [budgetForm, setBudgetForm] = useState({
     agentName: '',
@@ -33,14 +42,14 @@ export default function SettingsPage() {
         ]);
         setApiKeys(keys);
         setBudgets(bgt);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to load settings');
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createKey() {
     if (!newKeyName.trim()) return;
@@ -51,17 +60,26 @@ export default function SettingsPage() {
       setNewKeyName('');
       const keys = await apiKeysApi.list();
       setApiKeys(keys);
-    } catch {
-      /* ignore */
+      toast.success(`API key "${result.name}" created`);
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to create API key');
     } finally {
       setCreating(false);
     }
   }
 
-  async function revokeKey(id: string) {
-    if (!confirm('Revoke this API key? This cannot be undone.')) return;
-    await apiKeysApi.revoke(id);
-    setApiKeys((prev) => prev.map((k) => k.id === id ? { ...k, isActive: false } : k));
+  async function confirmRevoke(id: string) {
+    setRevokeLoading(true);
+    try {
+      await apiKeysApi.revoke(id);
+      setApiKeys((prev) => prev.map((k) => k.id === id ? { ...k, isActive: false } : k));
+      toast.success('API key revoked');
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to revoke API key');
+    } finally {
+      setRevokeLoading(false);
+      setRevokingId(null);
+    }
   }
 
   async function saveBudget() {
@@ -76,8 +94,9 @@ export default function SettingsPage() {
       const bgt = await costsApi.getBudgets();
       setBudgets(bgt);
       setBudgetForm({ agentName: '', dailyLimitUsd: '', monthlyLimitUsd: '', alertThresholdPercent: '80' });
-    } catch {
-      /* ignore */
+      toast.success('Budget saved');
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to save budget');
     } finally {
       setSavingBudget(false);
     }
@@ -98,7 +117,7 @@ export default function SettingsPage() {
         }
       >
         {createdKey && (
-          <div className="mb-5 rounded-lg bg-primary/8 border border-primary/20 p-5">
+          <div className="mb-5 rounded-lg bg-primary/10 border border-primary/20 p-5">
             <p className="text-[13px] font-semibold text-primary mb-3">
               New key created for <strong>{createdKey.name}</strong> — copy it now, it won&apos;t be shown again.
             </p>
@@ -113,7 +132,10 @@ export default function SettingsPage() {
                 {showKey ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </button>
               <button
-                onClick={() => navigator.clipboard.writeText(createdKey.key)}
+                onClick={() => {
+                  navigator.clipboard.writeText(createdKey.key);
+                  toast.success('API key copied to clipboard');
+                }}
                 className="p-2 hover:bg-accent rounded-lg transition-colors"
               >
                 <Copy className="h-4 w-4 text-muted-foreground" />
@@ -155,42 +177,69 @@ export default function SettingsPage() {
               <div
                 key={key.id}
                 className={cn(
-                  'flex items-center justify-between rounded-lg border p-4 transition-all',
+                  'rounded-lg border p-4 transition-all',
                   key.isActive
                     ? 'border-border bg-muted/20 hover:bg-muted/30'
                     : 'border-border/50 bg-muted/10 opacity-50',
                 )}
               >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-medium">{key.name}</span>
-                    {!key.isActive && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-500 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
-                        revoked
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium">{key.name}</span>
+                      {!key.isActive && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-500 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
+                          revoked
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                      <span className="text-[11px] text-muted-foreground font-mono">{key.keyPrefix}…</span>
+                      <span className="text-[11px] text-muted-foreground capitalize">{key.type}</span>
+                      {key.lastUsedAt && (
+                        <span className="text-[11px] text-muted-foreground">
+                          Used {formatRelativeTime(key.lastUsedAt)}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                        Created {formatDateTime(key.createdAt)}
                       </span>
-                    )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                    <span className="text-[11px] text-muted-foreground font-mono">{key.keyPrefix}…</span>
-                    <span className="text-[11px] text-muted-foreground capitalize">{key.type}</span>
-                    {key.lastUsedAt && (
-                      <span className="text-[11px] text-muted-foreground">
-                        Used {formatRelativeTime(key.lastUsedAt)}
-                      </span>
-                    )}
-                    <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                      Created {formatDateTime(key.createdAt)}
-                    </span>
-                  </div>
+
+                  {key.isActive && (
+                    revokingId === key.id ? (
+                      /* Inline confirmation row */
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-muted-foreground hidden sm:inline">Revoke?</span>
+                        <button
+                          onClick={() => confirmRevoke(key.id)}
+                          disabled={revokeLoading}
+                          className="flex items-center gap-1 rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 disabled:opacity-50 transition-all"
+                        >
+                          <Check className="h-3 w-3" />
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setRevokingId(null)}
+                          disabled={revokeLoading}
+                          className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setRevokingId(key.id)}
+                        className="p-2 text-muted-foreground hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all shrink-0"
+                        title="Revoke key"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )
+                  )}
                 </div>
-                {key.isActive && (
-                  <button
-                    onClick={() => revokeKey(key.id)}
-                    className="p-2 text-muted-foreground hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
               </div>
             ))
           )}

@@ -6,19 +6,26 @@ import { StatCard } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { PageLoader } from '@/components/shared/loading-spinner';
+import { LastUpdated } from '@/components/shared/last-updated';
 import { RunTimelineChart } from '@/components/charts/run-timeline-chart';
 import { CostTrendChart } from '@/components/charts/cost-trend-chart';
 import { agentsApi, costsApi, type AgentRun, type DashboardStats, type TimelinePoint, type CostTrendPoint } from '@/lib/api';
 import { formatRelativeTime, formatDuration, formatCost } from '@/lib/utils';
+import { useAppToast } from '@/components/layout/app-shell';
+import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 import Link from 'next/link';
 
 export default function DashboardPage() {
+  useDynamicTitle('Dashboard | ClawInfra');
+
+  const toast = useAppToast();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
   const [costTrend, setCostTrend] = useState<CostTrendPoint[]>([]);
   const [activeRuns, setActiveRuns] = useState<AgentRun[]>([]);
   const [costSummary, setCostSummary] = useState<{ totalCostUsd: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -35,8 +42,9 @@ export default function DashboardPage() {
         setCostTrend(trendData);
         setActiveRuns(activeData);
         setCostSummary(costData);
-      } catch {
-        // data loads silently; show zeros
+        setLastRefreshed(new Date());
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
@@ -44,7 +52,7 @@ export default function DashboardPage() {
     load();
     const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <PageLoader />;
 
@@ -80,7 +88,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Run Timeline" description="Last 7 days by status">
+        <SectionCard
+          title="Run Timeline"
+          description="Last 7 days by status"
+          action={<LastUpdated at={lastRefreshed} />}
+        >
           {timeline.length > 0 ? (
             <RunTimelineChart data={timeline} />
           ) : (
