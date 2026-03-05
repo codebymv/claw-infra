@@ -44,10 +44,11 @@ RUN mkdir -p /app/workspace /root/.zeroclaw
 
 WORKDIR /app
 
-# Copy built reporter and install production deps fresh for the runtime node version
+# Copy built reporter and production node_modules from builder
+# (debian:trixie-slim has nodejs but not npm, so we reuse the builder's node_modules)
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
-RUN npm install --omit=dev --ignore-scripts
 
 ENV NODE_ENV=production
 ENV ZEROCLAW_BIN=/usr/local/bin/zeroclaw
