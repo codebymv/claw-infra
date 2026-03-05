@@ -1,5 +1,5 @@
 # ── Stage 1: Build the reporter sidecar ──
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 COPY package.json tsconfig.json ./
@@ -44,10 +44,10 @@ RUN mkdir -p /app/workspace /root/.zeroclaw
 
 WORKDIR /app
 
-# Copy built reporter
+# Copy built reporter and install production deps fresh for the runtime node version
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
+RUN npm install --omit=dev --ignore-scripts
 
 ENV NODE_ENV=production
 ENV ZEROCLAW_BIN=/usr/local/bin/zeroclaw
