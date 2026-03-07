@@ -10,7 +10,7 @@
 #   └── Database: Redis      (Railway managed)
 
 [deploy]
-startCommand = "node dist/main"
+startCommand = "node dist/src/main"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 
