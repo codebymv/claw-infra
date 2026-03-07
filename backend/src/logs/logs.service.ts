@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AgentLog, LogLevel } from '../database/entities/agent-log.entity';
+import { AppGateway } from '../ws/app.gateway';
 
 export interface IngestLogDto {
   runId: string;
@@ -16,16 +17,21 @@ export class LogsService {
   constructor(
     @InjectRepository(AgentLog)
     private readonly logRepo: Repository<AgentLog>,
+    private readonly gateway: AppGateway,
   ) {}
 
   async ingest(dto: IngestLogDto): Promise<AgentLog> {
     const log = this.logRepo.create(dto);
-    return this.logRepo.save(log);
+    const saved = await this.logRepo.save(log);
+    this.gateway.broadcastLog(saved.runId, saved);
+    return saved;
   }
 
   async ingestBatch(dtos: IngestLogDto[]): Promise<AgentLog[]> {
     const logs = this.logRepo.create(dtos);
-    return this.logRepo.save(logs);
+    const saved = await this.logRepo.save(logs);
+    saved.forEach((entry) => this.gateway.broadcastLog(entry.runId, entry));
+    return saved;
   }
 
   async getRunLogs(

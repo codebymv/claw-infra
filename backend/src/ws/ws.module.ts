@@ -10,6 +10,6 @@ import { HealthController } from './health.controller';
   imports: [ConfigModule, AuthModule, TypeOrmModule],
   controllers: [HealthController],
   providers: [AppGateway, PubSubService],
-  exports: [PubSubService],
+  exports: [PubSubService, AppGateway],
 })
 export class WsModule {}

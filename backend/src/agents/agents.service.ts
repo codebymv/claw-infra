@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindManyOptions, Between, In } from 'typeorm';
 import { AgentRun, AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
 import { AgentStep, StepStatus } from '../database/entities/agent-step.entity';
+import { AppGateway } from '../ws/app.gateway';
+import { AlertsService } from '../alerts/alerts.service';
 
 export interface CreateRunDto {
   agentName: string;
@@ -55,11 +57,41 @@ export interface ListRunsQuery {
   limit?: number;
 }
 
+const TERMINAL_RUN_STATUSES = new Set<AgentRunStatus>([
+  AgentRunStatus.COMPLETED,
+  AgentRunStatus.FAILED,
+  AgentRunStatus.CANCELLED,
+]);
+
+const TERMINAL_STEP_STATUSES = new Set<StepStatus>([
+  StepStatus.COMPLETED,
+  StepStatus.FAILED,
+  StepStatus.SKIPPED,
+]);
+
+const ALLOWED_RUN_TRANSITIONS: Record<AgentRunStatus, AgentRunStatus[]> = {
+  [AgentRunStatus.QUEUED]: [AgentRunStatus.RUNNING, AgentRunStatus.CANCELLED],
+  [AgentRunStatus.RUNNING]: [AgentRunStatus.COMPLETED, AgentRunStatus.FAILED, AgentRunStatus.CANCELLED],
+  [AgentRunStatus.COMPLETED]: [],
+  [AgentRunStatus.FAILED]: [],
+  [AgentRunStatus.CANCELLED]: [],
+};
+
+const ALLOWED_STEP_TRANSITIONS: Record<StepStatus, StepStatus[]> = {
+  [StepStatus.PENDING]: [StepStatus.RUNNING, StepStatus.SKIPPED],
+  [StepStatus.RUNNING]: [StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED],
+  [StepStatus.COMPLETED]: [],
+  [StepStatus.FAILED]: [],
+  [StepStatus.SKIPPED]: [],
+};
+
 @Injectable()
 export class AgentsService {
   constructor(
     @InjectRepository(AgentRun) private readonly runRepo: Repository<AgentRun>,
     @InjectRepository(AgentStep) private readonly stepRepo: Repository<AgentStep>,
+    private readonly gateway: AppGateway,
+    private readonly alerts: AlertsService,
   ) {}
 
   async createRun(dto: CreateRunDto): Promise<AgentRun> {
@@ -68,21 +100,87 @@ export class AgentsService {
       status: AgentRunStatus.QUEUED,
       startedAt: null,
     });
-    return this.runRepo.save(run);
+    const saved = await this.runRepo.save(run);
+    this.gateway.broadcastRunUpdate(saved.id, { type: 'run.created', run: saved });
+    return saved;
   }
 
   async startRun(id: string): Promise<AgentRun> {
+    const run = await this.getRunById(id);
+
+    if (!ALLOWED_RUN_TRANSITIONS[run.status].includes(AgentRunStatus.RUNNING)) {
+      throw new BadRequestException(`Illegal run transition: ${run.status} -> running`);
+    }
+
+    const startedAt = run.startedAt || new Date();
     await this.runRepo.update(id, {
       status: AgentRunStatus.RUNNING,
-      startedAt: new Date(),
+      startedAt,
+      completedAt: null,
+      durationMs: null,
+      errorMessage: null,
     });
-    return this.getRunById(id);
+
+    const updated = await this.getRunById(id);
+    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.started', run: updated });
+    return updated;
   }
 
   async updateRun(id: string, dto: UpdateRunDto): Promise<AgentRun> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.runRepo.update(id, dto as any);
-    return this.getRunById(id);
+    const existing = await this.getRunById(id);
+
+    if (TERMINAL_RUN_STATUSES.has(existing.status) && dto.status && dto.status !== existing.status) {
+      throw new BadRequestException(`Run ${id} is terminal (${existing.status}) and cannot transition to ${dto.status}`);
+    }
+
+    if (dto.status && dto.status !== existing.status && !ALLOWED_RUN_TRANSITIONS[existing.status].includes(dto.status)) {
+      throw new BadRequestException(`Illegal run transition: ${existing.status} -> ${dto.status}`);
+    }
+
+    const nextStatus = dto.status || existing.status;
+    const patch: Partial<AgentRun> = { ...dto };
+
+    if (nextStatus === AgentRunStatus.RUNNING) {
+      patch.startedAt = existing.startedAt || new Date();
+      patch.completedAt = null;
+      patch.durationMs = null;
+    }
+
+    if (TERMINAL_RUN_STATUSES.has(nextStatus)) {
+      const completedAt = dto.completedAt || existing.completedAt || new Date();
+      patch.completedAt = completedAt;
+
+      const startedAt = existing.startedAt || patch.startedAt;
+      if (startedAt) {
+        const computed = completedAt.getTime() - startedAt.getTime();
+        if (computed < 0) {
+          throw new BadRequestException('completedAt cannot be earlier than startedAt');
+        }
+        patch.durationMs = dto.durationMs ?? computed;
+      } else if (dto.durationMs !== undefined && dto.durationMs < 0) {
+        throw new BadRequestException('durationMs cannot be negative');
+      }
+    } else {
+      if (dto.completedAt) {
+        throw new BadRequestException('completedAt is only valid for terminal statuses');
+      }
+      if (dto.durationMs !== undefined && dto.durationMs < 0) {
+        throw new BadRequestException('durationMs cannot be negative');
+      }
+    }
+
+    await this.runRepo.update(id, patch);
+    const updated = await this.getRunById(id);
+
+    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.updated', run: updated });
+
+    if (existing.status !== AgentRunStatus.FAILED && updated.status === AgentRunStatus.FAILED) {
+      this.alerts
+        .runFailed(updated.agentName, updated.id, updated.errorMessage || undefined)
+        .catch(() => undefined);
+    }
+
+    return updated;
   }
 
   async getRunById(id: string): Promise<AgentRun> {
@@ -125,13 +223,21 @@ export class AgentsService {
   async cancelRun(id: string): Promise<AgentRun> {
     const run = await this.getRunById(id);
     if (![AgentRunStatus.QUEUED, AgentRunStatus.RUNNING].includes(run.status)) {
-      throw new NotFoundException('Run is not in a cancellable state');
+      throw new BadRequestException('Run is not in a cancellable state');
     }
+
+    const completedAt = new Date();
+    const durationMs = run.startedAt ? Math.max(0, completedAt.getTime() - run.startedAt.getTime()) : null;
+
     await this.runRepo.update(id, {
       status: AgentRunStatus.CANCELLED,
-      completedAt: new Date(),
+      completedAt,
+      durationMs,
     });
-    return this.getRunById(id);
+
+    const updated = await this.getRunById(id);
+    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.cancelled', run: updated });
+    return updated;
   }
 
   async getActiveRuns(): Promise<AgentRun[]> {
@@ -181,19 +287,80 @@ export class AgentsService {
   }
 
   async createStep(dto: CreateStepDto): Promise<AgentStep> {
+    const run = await this.getRunById(dto.runId);
+    if (TERMINAL_RUN_STATUSES.has(run.status)) {
+      throw new BadRequestException(`Cannot create step for terminal run ${run.id} (${run.status})`);
+    }
+
     const step = this.stepRepo.create({
       ...dto,
       status: StepStatus.PENDING,
+      startedAt: null,
+      completedAt: null,
+      durationMs: null,
     });
-    return this.stepRepo.save(step);
+
+    const saved = await this.stepRepo.save(step);
+    this.gateway.broadcastRunUpdate(run.id, { type: 'step.created', runId: run.id, step: saved });
+    return saved;
   }
 
   async updateStep(id: string, dto: UpdateStepDto): Promise<AgentStep> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.stepRepo.update(id, dto as any);
     const step = await this.stepRepo.findOne({ where: { id } });
     if (!step) throw new NotFoundException(`Step ${id} not found`);
-    return step;
+
+    const run = await this.getRunById(step.runId);
+    if (TERMINAL_RUN_STATUSES.has(run.status)) {
+      throw new BadRequestException(`Cannot update step for terminal run ${run.id} (${run.status})`);
+    }
+
+    if (TERMINAL_STEP_STATUSES.has(step.status) && dto.status && dto.status !== step.status) {
+      throw new BadRequestException(`Step ${id} is terminal (${step.status}) and cannot transition to ${dto.status}`);
+    }
+
+    if (dto.status && dto.status !== step.status && !ALLOWED_STEP_TRANSITIONS[step.status].includes(dto.status)) {
+      throw new BadRequestException(`Illegal step transition: ${step.status} -> ${dto.status}`);
+    }
+
+    const nextStatus = dto.status || step.status;
+    const patch: Partial<AgentStep> = { ...dto };
+
+    if (nextStatus === StepStatus.RUNNING) {
+      patch.startedAt = step.startedAt || new Date();
+      patch.completedAt = null;
+      patch.durationMs = null;
+    }
+
+    if (TERMINAL_STEP_STATUSES.has(nextStatus)) {
+      const completedAt = dto.completedAt || step.completedAt || new Date();
+      patch.completedAt = completedAt;
+
+      const startedAt = step.startedAt || patch.startedAt;
+      if (startedAt) {
+        const computed = completedAt.getTime() - startedAt.getTime();
+        if (computed < 0) {
+          throw new BadRequestException('step.completedAt cannot be earlier than step.startedAt');
+        }
+        patch.durationMs = dto.durationMs ?? computed;
+      } else if (dto.durationMs !== undefined && dto.durationMs < 0) {
+        throw new BadRequestException('step.durationMs cannot be negative');
+      }
+    } else {
+      if (dto.completedAt) {
+        throw new BadRequestException('step.completedAt is only valid for terminal statuses');
+      }
+      if (dto.durationMs !== undefined && dto.durationMs < 0) {
+        throw new BadRequestException('step.durationMs cannot be negative');
+      }
+    }
+
+    await this.stepRepo.update(id, patch);
+
+    const updated = await this.stepRepo.findOne({ where: { id } });
+    if (!updated) throw new NotFoundException(`Step ${id} not found`);
+
+    this.gateway.broadcastRunUpdate(run.id, { type: 'step.updated', runId: run.id, step: updated });
+    return updated;
   }
 
   async getRunSteps(runId: string): Promise<AgentStep[]> {

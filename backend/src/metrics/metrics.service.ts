@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ResourceSnapshot } from '../database/entities/resource-snapshot.entity';
+import { AppGateway } from '../ws/app.gateway';
 
 export interface IngestSnapshotDto {
   runId?: string;
@@ -23,6 +24,7 @@ export class MetricsService {
   constructor(
     @InjectRepository(ResourceSnapshot)
     private readonly snapshotRepo: Repository<ResourceSnapshot>,
+    private readonly gateway: AppGateway,
   ) {}
 
   async ingest(dto: IngestSnapshotDto): Promise<ResourceSnapshot> {
@@ -30,7 +32,9 @@ export class MetricsService {
       ...dto,
       recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
     });
-    return this.snapshotRepo.save(snapshot);
+    const saved = await this.snapshotRepo.save(snapshot);
+    this.gateway.broadcastResourceUpdate(saved);
+    return saved;
   }
 
   async getLatest(): Promise<ResourceSnapshot | null> {

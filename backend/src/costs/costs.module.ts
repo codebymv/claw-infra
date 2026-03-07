@@ -6,9 +6,10 @@ import { ApiKey } from '../database/entities/api-key.entity';
 import { CostsController } from './costs.controller';
 import { CostsService } from './costs.service';
 import { CostIngestController } from './cost-ingest.controller';
+import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CostRecord, CostBudget, ApiKey])],
+  imports: [TypeOrmModule.forFeature([CostRecord, CostBudget, ApiKey]), CommonModule],
   controllers: [CostsController, CostIngestController],
   providers: [CostsService],
   exports: [CostsService],

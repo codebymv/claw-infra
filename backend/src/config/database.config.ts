@@ -14,6 +14,7 @@ import { CodePrReview } from '../database/entities/code-pr-review.entity';
 import { CodeCommit } from '../database/entities/code-commit.entity';
 import { CodeSyncState } from '../database/entities/code-sync-state.entity';
 import { CodeDailyMetric } from '../database/entities/code-daily-metric.entity';
+import { IdempotencyRecord } from '../database/entities/idempotency-record.entity';
 
 export const DATABASE_ENTITIES = [
   AgentRun,
@@ -30,6 +31,7 @@ export const DATABASE_ENTITIES = [
   CodeCommit,
   CodeSyncState,
   CodeDailyMetric,
+  IdempotencyRecord,
 ];
 
 export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions {
