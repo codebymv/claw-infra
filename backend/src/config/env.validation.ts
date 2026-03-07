@@ -9,6 +9,16 @@ const WEAK_JWT_SECRETS = new Set([
   'password',
 ]);
 
+function assertMinInt(config: ConfigService, name: string, min: number) {
+  const raw = config.get<string>(name);
+  if (raw === undefined || raw === null || raw === '') return;
+
+  const value = parseInt(raw, 10);
+  if (Number.isNaN(value) || value < min) {
+    throw new Error(`${name} must be an integer >= ${min} when set`);
+  }
+}
+
 export function validateStartupEnv(config: ConfigService, logger = new Logger('StartupValidation')) {
   const nodeEnv = config.get<string>('NODE_ENV') || 'development';
   const isProd = nodeEnv === 'production';
@@ -39,4 +49,11 @@ export function validateStartupEnv(config: ConfigService, logger = new Logger('S
       throw new Error('GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).');
     }
   }
+
+  assertMinInt(config, 'RETENTION_SWEEP_INTERVAL_MINUTES', 15);
+  assertMinInt(config, 'RETENTION_LOGS_DAYS', 1);
+  assertMinInt(config, 'RETENTION_METRICS_RAW_DAYS', 1);
+  assertMinInt(config, 'RETENTION_COSTS_DAYS', 30);
+  assertMinInt(config, 'RETENTION_CODE_DAILY_DAYS', 90);
+  assertMinInt(config, 'INGEST_IDEMPOTENCY_TTL_HOURS', 1);
 }

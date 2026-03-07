@@ -75,7 +75,7 @@ describe('validateStartupEnv', () => {
           NODE_ENV: 'production',
           JWT_SECRET: '12345678901234567890123456789012',
           CODE_WEBHOOKS_ENABLED: 'true',
-          GITHUB_WEBHOOK_SECRET: 'short-secret',
+          GITHUB_WEBHOOK_SECRET: 'shortsecret',
         }),
         logger,
       ),
@@ -89,10 +89,52 @@ describe('validateStartupEnv', () => {
           NODE_ENV: 'production',
           JWT_SECRET: '12345678901234567890123456789012',
           CODE_WEBHOOKS_ENABLED: 'true',
-          GITHUB_WEBHOOK_SECRET: '1234567890abcdef1234',
+          GITHUB_WEBHOOK_SECRET: '1234567890123456',
         }),
         logger,
       ),
     ).not.toThrow();
+  });
+
+  it('throws when retention windows are invalid', () => {
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'development',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'false',
+          RETENTION_LOGS_DAYS: '0',
+        }),
+        logger,
+      ),
+    ).toThrow('RETENTION_LOGS_DAYS must be an integer >= 1 when set');
+  });
+
+  it('throws when retention sweep interval is invalid', () => {
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'development',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'false',
+          RETENTION_SWEEP_INTERVAL_MINUTES: '5',
+        }),
+        logger,
+      ),
+    ).toThrow('RETENTION_SWEEP_INTERVAL_MINUTES must be an integer >= 15 when set');
+  });
+
+  it('throws when idempotency ttl is invalid', () => {
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'development',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'false',
+          INGEST_IDEMPOTENCY_TTL_HOURS: '0',
+        }),
+        logger,
+      ),
+    ).toThrow('INGEST_IDEMPOTENCY_TTL_HOURS must be an integer >= 1 when set');
   });
 });
