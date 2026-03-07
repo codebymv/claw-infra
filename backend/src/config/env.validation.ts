@@ -27,4 +27,16 @@ export function validateStartupEnv(config: ConfigService, logger = new Logger('S
   if (!isProd && isWeakSecret) {
     logger.warn('JWT_SECRET is weak for non-production. Use a strong random value to mirror production security.');
   }
+
+  const codeWebhooksEnabled = config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
+  if (codeWebhooksEnabled) {
+    const webhookSecret = config.get<string>('GITHUB_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      throw new Error('Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)');
+    }
+
+    if (isProd && webhookSecret.length < 16) {
+      throw new Error('GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).');
+    }
+  }
 }

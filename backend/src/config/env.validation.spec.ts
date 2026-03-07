@@ -16,26 +16,81 @@ describe('validateStartupEnv', () => {
   }
 
   it('throws when JWT_SECRET is missing', () => {
-    expect(() => validateStartupEnv(config({ NODE_ENV: 'development', JWT_SECRET: undefined }), logger)).toThrow(
-      'Missing required environment variable: JWT_SECRET',
-    );
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'development',
+          JWT_SECRET: undefined,
+          CODE_WEBHOOKS_ENABLED: 'false',
+        }),
+        logger,
+      ),
+    ).toThrow('Missing required environment variable: JWT_SECRET');
   });
 
   it('throws in production when JWT secret is weak', () => {
     expect(() =>
-      validateStartupEnv(config({ NODE_ENV: 'production', JWT_SECRET: 'changeme-in-production' }), logger),
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'production',
+          JWT_SECRET: 'changeme-in-production',
+          CODE_WEBHOOKS_ENABLED: 'false',
+        }),
+        logger,
+      ),
     ).toThrow('JWT_SECRET is too weak for production. Use a strong random value (>= 32 chars).');
   });
 
   it('warns in non-production when JWT secret is weak', () => {
-    validateStartupEnv(config({ NODE_ENV: 'development', JWT_SECRET: 'short' }), logger);
+    validateStartupEnv(
+      config({
+        NODE_ENV: 'development',
+        JWT_SECRET: 'short',
+        CODE_WEBHOOKS_ENABLED: 'false',
+      }),
+      logger,
+    );
+
     expect((logger.warn as unknown as jest.Mock).mock.calls.length).toBe(1);
   });
 
-  it('passes with strong secret', () => {
+  it('throws when webhooks are enabled but webhook secret is missing', () => {
     expect(() =>
       validateStartupEnv(
-        config({ NODE_ENV: 'production', JWT_SECRET: '12345678901234567890123456789012' }),
+        config({
+          NODE_ENV: 'development',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'true',
+          GITHUB_WEBHOOK_SECRET: undefined,
+        }),
+        logger,
+      ),
+    ).toThrow('Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)');
+  });
+
+  it('throws in production when webhook secret is weak', () => {
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'production',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'true',
+          GITHUB_WEBHOOK_SECRET: 'short-secret',
+        }),
+        logger,
+      ),
+    ).toThrow('GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).');
+  });
+
+  it('passes with strong secrets', () => {
+    expect(() =>
+      validateStartupEnv(
+        config({
+          NODE_ENV: 'production',
+          JWT_SECRET: '12345678901234567890123456789012',
+          CODE_WEBHOOKS_ENABLED: 'true',
+          GITHUB_WEBHOOK_SECRET: '1234567890abcdef1234',
+        }),
         logger,
       ),
     ).not.toThrow();
