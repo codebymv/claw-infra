@@ -30,6 +30,13 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   private readonly logger = new Logger(AppGateway.name);
 
+  // Track per-client channel memberships so we can cleanup on disconnect
+  private readonly clientChannels = new Map<string, Set<string>>();
+
+  // Track dynamic channel subscribers to avoid duplicate Redis handlers / leaks
+  private readonly dynamicChannelRefCounts = new Map<string, number>();
+  private readonly dynamicChannelHandlers = new Map<string, (data: unknown) => void>();
+
   constructor(
     private readonly pubSub: PubSubService,
     private readonly jwtService: JwtService,
@@ -72,8 +79,9 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     }
 
     try {
-      const secret = this.config.getOrThrow<string>('JWT_SECRET');
+      const secret = this.config.get<string>('JWT_SECRET');
       this.jwtService.verify(token, { secret });
+      this.clientChannels.set(client.id, new Set());
       this.logger.log(`Client authenticated: ${client.id}`);
     } catch {
       this.logger.warn(`WS auth rejected: invalid token (${client.id})`);
@@ -83,21 +91,29 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   handleDisconnect(client: Socket) {
+    this.cleanupClientSubscriptions(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('subscribe')
   handleSubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
-    const { channel } = payload;
+    const channel = payload?.channel;
 
-    if (!this.isValidChannel(channel)) return;
+    if (!channel || !this.isValidChannel(channel)) {
+      return { status: 'error', message: 'Invalid channel' };
+    }
+
+    const channels = this.clientChannels.get(client.id) || new Set<string>();
+    if (channels.has(channel)) {
+      return { status: 'ok', channel };
+    }
 
     client.join(channel);
+    channels.add(channel);
+    this.clientChannels.set(client.id, channels);
 
-    if (channel.startsWith('run:') || channel.startsWith('logs:')) {
-      this.pubSub.subscribe(channel, (data) => {
-        this.server.to(channel).emit(channel, data);
-      });
+    if (this.isDynamicChannel(channel)) {
+      this.addDynamicChannelSubscription(channel);
     }
 
     this.logger.log(`Client ${client.id} subscribed to ${channel}`);
@@ -106,8 +122,22 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   @SubscribeMessage('unsubscribe')
   handleUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
-    const { channel } = payload;
+    const channel = payload?.channel;
+
+    if (!channel || !this.isValidChannel(channel)) {
+      return { status: 'error', message: 'Invalid channel' };
+    }
+
     client.leave(channel);
+
+    const channels = this.clientChannels.get(client.id);
+    if (channels?.has(channel)) {
+      channels.delete(channel);
+      if (this.isDynamicChannel(channel)) {
+        this.removeDynamicChannelSubscription(channel);
+      }
+    }
+
     return { status: 'ok', channel };
   }
 
@@ -118,6 +148,52 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       /^run:[a-f0-9-]{36}$/.test(channel) ||
       /^logs:[a-f0-9-]{36}$/.test(channel)
     );
+  }
+
+  private isDynamicChannel(channel: string): boolean {
+    return channel.startsWith('run:') || channel.startsWith('logs:');
+  }
+
+  private addDynamicChannelSubscription(channel: string): void {
+    const current = this.dynamicChannelRefCounts.get(channel) || 0;
+    const next = current + 1;
+    this.dynamicChannelRefCounts.set(channel, next);
+
+    if (current === 0) {
+      const handler = (data: unknown) => {
+        this.server.to(channel).emit(channel, data);
+      };
+      this.dynamicChannelHandlers.set(channel, handler);
+      this.pubSub.subscribe(channel, handler);
+    }
+  }
+
+  private removeDynamicChannelSubscription(channel: string): void {
+    const current = this.dynamicChannelRefCounts.get(channel) || 0;
+    if (current <= 1) {
+      this.dynamicChannelRefCounts.delete(channel);
+      const handler = this.dynamicChannelHandlers.get(channel);
+      if (handler) {
+        this.pubSub.unsubscribe(channel, handler);
+        this.dynamicChannelHandlers.delete(channel);
+      }
+      return;
+    }
+
+    this.dynamicChannelRefCounts.set(channel, current - 1);
+  }
+
+  private cleanupClientSubscriptions(clientId: string): void {
+    const channels = this.clientChannels.get(clientId);
+    if (!channels) return;
+
+    for (const channel of channels) {
+      if (this.isDynamicChannel(channel)) {
+        this.removeDynamicChannelSubscription(channel);
+      }
+    }
+
+    this.clientChannels.delete(clientId);
   }
 
   broadcastRunUpdate(runId: string, data: unknown) {

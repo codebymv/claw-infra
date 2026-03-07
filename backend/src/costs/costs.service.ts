@@ -1,7 +1,7 @@
 // costs.service — budget tracking & spend aggregation
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { AlertsService } from '../alerts/alerts.service';
 import { CostRecord } from '../database/entities/cost-record.entity';
 import { CostBudget } from '../database/entities/cost-budget.entity';
@@ -19,18 +19,31 @@ export interface IngestCostDto {
 
 @Injectable()
 export class CostsService {
+  private readonly logger = new Logger(CostsService.name);
+
+  // In-memory dedup for a personal/single-instance app:
+  // prevent repeating the same threshold alert on every polling call.
+  private readonly budgetAlertState = new Map<string, boolean>();
+
   constructor(
     @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
     @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
     private readonly alerts: AlertsService,
-  ) { }
+  ) {}
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
     const record = this.costRepo.create({
       ...dto,
       recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
     });
-    return this.costRepo.save(record);
+    const saved = await this.costRepo.save(record);
+
+    // Trigger budget checks after new cost ingestion instead of read endpoints.
+    this.evaluateAndNotifyBudgetThresholds().catch((err: Error) => {
+      this.logger.warn(`Budget threshold evaluation failed: ${err.message}`);
+    });
+
+    return saved;
   }
 
   async getSummary(from: Date, to: Date) {
@@ -50,9 +63,9 @@ export class CostsService {
 
     return {
       totalCostUsd: parseFloat(result?.totalCostUsd || '0'),
-      totalTokensIn: parseInt(result?.totalTokensIn || '0'),
-      totalTokensOut: parseInt(result?.totalTokensOut || '0'),
-      callCount: parseInt(result?.callCount || '0'),
+      totalTokensIn: parseInt(result?.totalTokensIn || '0', 10),
+      totalTokensOut: parseInt(result?.totalTokensOut || '0', 10),
+      callCount: parseInt(result?.callCount || '0', 10),
     };
   }
 
@@ -129,6 +142,82 @@ export class CostsService {
   }
 
   async getBudgetStatus() {
+    return this.computeBudgetStatus();
+  }
+
+  async getRunCosts(runId: string) {
+    return this.costRepo.find({ where: { runId }, order: { recordedAt: 'ASC' } });
+  }
+
+  async notifyBudgetThreshold(agentName: string, spent: number, limit: string): Promise<void> {
+    await this.alerts.budgetExceeded(agentName, spent.toFixed(2), limit);
+  }
+
+  async getProjectedSpend() {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const daysElapsed = (now.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000);
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+    const spent = await this.costRepo
+      .createQueryBuilder('c')
+      .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
+      .where('c.recorded_at >= :start', { start: monthStart })
+      .getRawOne<{ total: string }>();
+
+    const monthSpend = parseFloat(spent?.total || '0');
+    const dailyRate = daysElapsed > 0 ? monthSpend / daysElapsed : 0;
+    const projected = dailyRate * daysInMonth;
+
+    return {
+      monthToDate: monthSpend,
+      dailyRate,
+      projected,
+      daysElapsed: Math.floor(daysElapsed),
+      daysInMonth,
+    };
+  }
+
+  private async evaluateAndNotifyBudgetThresholds(): Promise<void> {
+    const status = await this.computeBudgetStatus();
+
+    for (const item of status) {
+      const budget = item.budget;
+      const agent = budget.agentName || 'global';
+
+      const dayKey = `${agent}:day`;
+      const monthKey = `${agent}:month`;
+
+      await this.handleThreshold(dayKey, item.dayAlert, agent, item.daySpend, budget.dailyLimitUsd);
+      await this.handleThreshold(monthKey, item.monthAlert, agent, item.monthSpend, budget.monthlyLimitUsd);
+    }
+  }
+
+  private async handleThreshold(
+    key: string,
+    isTriggered: boolean,
+    agent: string,
+    spent: number,
+    limit: string | null,
+  ): Promise<void> {
+    if (!limit) return;
+
+    const wasTriggered = this.budgetAlertState.get(key) ?? false;
+
+    // reset latch when threshold recovers (e.g., new day/month window)
+    if (!isTriggered) {
+      if (wasTriggered) this.budgetAlertState.set(key, false);
+      return;
+    }
+
+    // already alerted for this triggered window
+    if (wasTriggered) return;
+
+    this.budgetAlertState.set(key, true);
+    await this.notifyBudgetThreshold(agent, spent, limit);
+  }
+
+  private async computeBudgetStatus() {
     const budgets = await this.getBudgets();
     const now = new Date();
     const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -174,38 +263,5 @@ export class CostsService {
     );
 
     return results;
-  }
-
-  async getRunCosts(runId: string) {
-    return this.costRepo.find({ where: { runId }, order: { recordedAt: 'ASC' } });
-  }
-
-  async notifyBudgetThreshold(agentName: string, spent: number, limit: string): Promise<void> {
-    await this.alerts.budgetExceeded(agentName, spent.toFixed(2), limit);
-  }
-
-  async getProjectedSpend() {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysElapsed = (now.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-
-    const spent = await this.costRepo
-      .createQueryBuilder('c')
-      .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
-      .where('c.recorded_at >= :start', { start: monthStart })
-      .getRawOne<{ total: string }>();
-
-    const monthSpend = parseFloat(spent?.total || '0');
-    const dailyRate = daysElapsed > 0 ? monthSpend / daysElapsed : 0;
-    const projected = dailyRate * daysInMonth;
-
-    return {
-      monthToDate: monthSpend,
-      dailyRate,
-      projected,
-      daysElapsed: Math.floor(daysElapsed),
-      daysInMonth,
-    };
   }
 }
