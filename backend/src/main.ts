@@ -6,11 +6,14 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IpAllowlistGuard } from './common/guards/ip-allowlist.guard';
+import { validateStartupEnv } from './config/env.validation';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
   const isProd = config.get<string>('NODE_ENV') === 'production';
+
+  validateStartupEnv(config);
 
   app.use(
     helmet({

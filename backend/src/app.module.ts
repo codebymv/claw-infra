@@ -9,14 +9,7 @@ import { CostsModule } from './costs/costs.module';
 import { LogsModule } from './logs/logs.module';
 import { WsModule } from './ws/ws.module';
 import { AlertsModule } from './alerts/alerts.module';
-import { AgentRun } from './database/entities/agent-run.entity';
-import { AgentStep } from './database/entities/agent-step.entity';
-import { CostRecord } from './database/entities/cost-record.entity';
-import { ResourceSnapshot } from './database/entities/resource-snapshot.entity';
-import { AgentLog } from './database/entities/agent-log.entity';
-import { CostBudget } from './database/entities/cost-budget.entity';
-import { User } from './database/entities/user.entity';
-import { ApiKey } from './database/entities/api-key.entity';
+import { buildTypeOrmConfig } from './config/database.config';
 
 @Module({
   imports: [
@@ -25,14 +18,7 @@ import { ApiKey } from './database/entities/api-key.entity';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        url: config.get<string>('DATABASE_URL'),
-        entities: [AgentRun, AgentStep, CostRecord, ResourceSnapshot, AgentLog, CostBudget, User, ApiKey],
-        synchronize: config.get<string>('NODE_ENV') !== 'production',
-        logging: config.get<string>('NODE_ENV') === 'development',
-        ssl: config.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
-      }),
+      useFactory: (config: ConfigService) => buildTypeOrmConfig(config),
     }),
 
     ThrottlerModule.forRoot([
