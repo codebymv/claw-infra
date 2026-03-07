@@ -114,7 +114,96 @@ export const apiKeysApi = {
   revoke: (id: string) => api.delete(`/auth/api-keys/${id}`),
 };
 
+// --- Code Visibility ---
+export const codeApi = {
+  getOverview: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<CodeOverview>(`/code/overview${qs}`);
+  },
+  getTrends: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<CodeTrendPoint[]>(`/code/trends${qs}`);
+  },
+  getPrs: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<CodePrListResponse>(`/code/prs${qs}`);
+  },
+  getQuality: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<CodeQuality>(`/code/quality${qs}`);
+  },
+  triggerBackfill: (repo?: string) => api.post<CodeBackfillResponse>('/code/sync/backfill', repo ? { repo } : {}),
+};
+
 // --- Types ---
+export interface CodeBackfillResponse {
+  accepted: boolean;
+  message: string;
+  syncStateId: string;
+  scope: string;
+}
+
+export interface CodeOverview {
+  prsOpened: number;
+  prsMerged: number;
+  commits: number;
+  changedFiles: number;
+  additions: number;
+  deletions: number;
+  netLines: number;
+  reviewedPrs: number;
+  averageMergeLatencySeconds: number | null;
+  averageFirstReviewLatencySeconds: number | null;
+}
+
+export interface CodeTrendPoint {
+  day: string;
+  prsOpened: string;
+  prsMerged: string;
+  additions: string;
+  deletions: string;
+  changedFiles: string;
+  avgMergeLatencySeconds: string | null;
+  avgFirstReviewLatencySeconds: string | null;
+}
+
+export type CodePrState = 'open' | 'closed' | 'merged';
+
+export interface CodePrRow {
+  id: string;
+  number: number;
+  title: string;
+  repo: string;
+  author: string | null;
+  state: CodePrState;
+  draft: boolean;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  openedAt: string;
+  firstReviewAt: string | null;
+  mergedAt: string | null;
+  closedAt: string | null;
+  mergedBy: string | null;
+  reviewCount: number;
+  cycleTimeSeconds: number | null;
+}
+
+export interface CodePrListResponse {
+  items: CodePrRow[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CodeQuality {
+  mergedPrs: number;
+  revertOrHotfixFollowupCount: number;
+  revertOrHotfixFollowupRate: number;
+  hotfixWindowHours: number;
+}
+
 export interface AgentRun {
   id: string;
   agentName: string;

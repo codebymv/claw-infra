@@ -10,12 +10,14 @@ import {
   DollarSign,
   Cpu,
   Settings,
+  GitPullRequest,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agents', label: 'Agent Runs', icon: Bot },
   { href: '/costs', label: 'Cost Analytics', icon: DollarSign },
+  { href: '/code', label: 'Code', icon: GitPullRequest },
   { href: '/resources', label: 'Resources', icon: Cpu },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
