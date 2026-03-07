@@ -27,7 +27,7 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(CodeCommit) private readonly commitRepository: Repository<CodeCommit>,
     private readonly githubProvider: CodeProviderGithub,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   onModuleInit() {
     const enabled = this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
@@ -109,11 +109,12 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     const prs = await this.githubProvider.fetchPullRequests({ owner, name }, from, to);
 
     if (prs.length > 0) {
-      await this.prRepository.upsert(
-        prs.map((pr) => ({
-          repoId: repo.id,
-          externalId: pr.externalId,
-          number: pr.number,
+      for (const pr of prs) {
+        const existing = await this.prRepository.findOne({
+          where: { repoId: repo.id, number: pr.number },
+        });
+
+        const partial = {
           title: pr.title,
           author: pr.author,
           state: this.resolvePrState(pr),
@@ -128,9 +129,21 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
           mergedBy: pr.mergedBy,
           createdAtProvider: pr.createdAtProvider,
           updatedAtProvider: pr.updatedAtProvider,
-        })),
-        ['repoId', 'number'],
-      );
+        };
+
+        if (existing) {
+          await this.prRepository.update(existing.id, partial);
+        } else {
+          await this.prRepository.save(
+            this.prRepository.create({
+              repoId: repo.id,
+              externalId: pr.externalId,
+              number: pr.number,
+              ...partial,
+            }),
+          );
+        }
+      }
     }
 
     const persistedPrs = await this.prRepository.find({
