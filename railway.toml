@@ -4,11 +4,16 @@
 #
 # Recommended Railway setup:
 #   Project: claw-infra
-#   ├── Service: backend     (build from ./backend, Root Dir: /backend)
-#   ├── Service: frontend    (build from ./frontend, Root Dir: /frontend)
+#   ├── Service: backend     (build from ./backend)
+#   ├── Service: frontend    (build from ./frontend)
 #   ├── Database: PostgreSQL (Railway managed)
 #   └── Database: Redis      (Railway managed)
-#
-# Service-specific railway.toml files live in each service directory.
-# Do NOT add [build] or [deploy] sections here — they conflict with
-# per-service Root Directory settings configured in Railway's dashboard.
+
+[deploy]
+startCommand = "node dist/main"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
