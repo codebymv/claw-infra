@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { CodeRepo } from '../database/entities/code-repo.entity';
 import { CodeSyncState } from '../database/entities/code-sync-state.entity';
 import { CodeProviderGithub } from './code.provider.github';
@@ -71,7 +71,7 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
       where: {
         provider: 'github',
         stream,
-        repoId: null,
+        repoId: IsNull(),
       },
     });
 

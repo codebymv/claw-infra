@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@ne
 import { Throttle } from '@nestjs/throttler';
 import { IsString, IsEnum, IsOptional, IsObject, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { LogsService } from './logs.service';

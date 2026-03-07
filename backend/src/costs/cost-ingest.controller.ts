@@ -1,7 +1,7 @@
 import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { IsString, IsNumber, IsOptional, IsDateString } from 'class-validator';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { CostsService } from './costs.service';

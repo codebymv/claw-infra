@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { Repository } from 'typeorm';
+import { Repository, LessThan } from 'typeorm';
 import { IdempotencyRecord } from '../database/entities/idempotency-record.entity';
 
 @Injectable()
@@ -70,13 +70,14 @@ export class IdempotencyService {
   }
 
   async pruneExpired(limit = 1000): Promise<number> {
-    const result = await this.idempotencyRepo
-      .createQueryBuilder()
-      .delete()
-      .where('expires_at < :now', { now: new Date() })
-      .limit(limit)
-      .execute();
+    const expired = await this.idempotencyRepo.find({
+      where: { expiresAt: LessThan(new Date()) },
+      select: ['id'],
+      take: limit,
+    });
 
+    if (expired.length === 0) return 0;
+    const result = await this.idempotencyRepo.delete(expired.map((r) => r.id));
     return result.affected || 0;
   }
 }

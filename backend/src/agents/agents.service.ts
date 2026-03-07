@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions, Between, In } from 'typeorm';
+import { Repository, FindManyOptions, Between, In, QueryDeepPartialEntity } from 'typeorm';
 import { AgentRun, AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
 import { AgentStep, StepStatus } from '../database/entities/agent-step.entity';
 import { AppGateway } from '../ws/app.gateway';
@@ -169,7 +169,7 @@ export class AgentsService {
       }
     }
 
-    await this.runRepo.update(id, patch);
+    await this.runRepo.update(id, patch as QueryDeepPartialEntity<AgentRun>);
     const updated = await this.getRunById(id);
 
     this.gateway.broadcastRunUpdate(updated.id, { type: 'run.updated', run: updated });
@@ -354,7 +354,7 @@ export class AgentsService {
       }
     }
 
-    await this.stepRepo.update(id, patch);
+    await this.stepRepo.update(id, patch as QueryDeepPartialEntity<AgentStep>);
 
     const updated = await this.stepRepo.findOne({ where: { id } });
     if (!updated) throw new NotFoundException(`Step ${id} not found`);
