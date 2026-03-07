@@ -21,16 +21,16 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: isProd
         ? {
-            directives: {
-              defaultSrc: ["'self'"],
-              scriptSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
-              imgSrc: ["'self'", 'data:'],
-              connectSrc: ["'self'", config.get<string>('FRONTEND_URL') || ''],
-              frameSrc: ["'none'"],
-              objectSrc: ["'none'"],
-            },
-          }
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'", config.get<string>('FRONTEND_URL') || ''],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"],
+          },
+        }
         : false,
       crossOriginEmbedderPolicy: isProd,
       hsts: isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
@@ -52,8 +52,20 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
 
+  const frontendUrl = (config.get<string>('FRONTEND_URL') || '').trim();
   app.enableCors({
-    origin: config.get<string>('FRONTEND_URL') || 'http://localhost:3001',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, curl, etc.)
+      if (!origin) return callback(null, true);
+      // Allow the configured frontend URL
+      if (frontendUrl && origin === frontendUrl) return callback(null, true);
+      // Allow any Railway app subdomain
+      if (origin.endsWith('.up.railway.app')) return callback(null, true);
+      // Allow localhost for development
+      if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   });
 
