@@ -1,0 +1,8 @@
+[deploy]
+startCommand = "node dist/main"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
