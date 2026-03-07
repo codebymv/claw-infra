@@ -9,6 +9,7 @@ import { CostsModule } from './costs/costs.module';
 import { LogsModule } from './logs/logs.module';
 import { WsModule } from './ws/ws.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { CodeModule } from './code/code.module';
 import { buildTypeOrmConfig } from './config/database.config';
 
 @Module({
@@ -46,6 +47,7 @@ import { buildTypeOrmConfig } from './config/database.config';
     LogsModule,
     WsModule,
     AlertsModule,
+    CodeModule,
   ],
 })
 export class AppModule {}
