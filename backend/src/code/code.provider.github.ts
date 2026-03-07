@@ -146,12 +146,12 @@ export class CodeProviderGithub {
 
         const labels = Array.isArray(row.labels)
           ? row.labels
-              .map((l) => {
-                if (!l || typeof l !== 'object') return null;
-                const name = (l as { name?: unknown }).name;
-                return typeof name === 'string' ? name : null;
-              })
-              .filter((l): l is string => !!l)
+            .map((l) => {
+              if (!l || typeof l !== 'object') return null;
+              const name = (l as { name?: unknown }).name;
+              return typeof name === 'string' ? name : null;
+            })
+            .filter((l): l is string => !!l)
           : [];
 
         const authorLogin =
@@ -161,22 +161,39 @@ export class CodeProviderGithub {
 
         const mergedByLogin =
           row.merged_by &&
-          typeof row.merged_by === 'object' &&
-          typeof (row.merged_by as { login?: unknown }).login === 'string'
+            typeof row.merged_by === 'object' &&
+            typeof (row.merged_by as { login?: unknown }).login === 'string'
             ? ((row.merged_by as { login: string }).login ?? null)
             : null;
 
+        const prNumber = typeof row.number === 'number' ? row.number : 0;
+        let additions = typeof row.additions === 'number' ? row.additions : 0;
+        let deletions = typeof row.deletions === 'number' ? row.deletions : 0;
+        let changedFiles = typeof row.changed_files === 'number' ? row.changed_files : 0;
+
+        if (prNumber > 0) {
+          try {
+            const detailUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/pulls/${prNumber}`;
+            const detail = await this.requestJson<GithubListResponseItem>(detailUrl);
+            additions = typeof detail.additions === 'number' ? detail.additions : additions;
+            deletions = typeof detail.deletions === 'number' ? detail.deletions : deletions;
+            changedFiles = typeof detail.changed_files === 'number' ? detail.changed_files : changedFiles;
+          } catch (err) {
+            this.logger.warn(`Failed to fetch details for PR #${prNumber}: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
         items.push({
           externalId: String(row.id ?? `${repo.owner}/${repo.name}#${String(row.number ?? '')}`),
-          number: typeof row.number === 'number' ? row.number : 0,
+          number: prNumber,
           title: typeof row.title === 'string' ? row.title : '(untitled)',
           author: authorLogin,
           state: row.state === 'closed' ? 'closed' : 'open',
           draft: Boolean(row.draft),
           labels,
-          additions: typeof row.additions === 'number' ? row.additions : 0,
-          deletions: typeof row.deletions === 'number' ? row.deletions : 0,
-          changedFiles: typeof row.changed_files === 'number' ? row.changed_files : 0,
+          additions,
+          deletions,
+          changedFiles,
           openedAt: createdAt || new Date(),
           mergedAt,
           closedAt,
@@ -256,9 +273,9 @@ export class CodeProviderGithub {
 
         const committedAtRaw =
           detail.commit &&
-          typeof detail.commit === 'object' &&
-          (detail.commit as { author?: unknown }).author &&
-          typeof (detail.commit as { author?: { date?: unknown } }).author?.date === 'string'
+            typeof detail.commit === 'object' &&
+            (detail.commit as { author?: unknown }).author &&
+            typeof (detail.commit as { author?: { date?: unknown } }).author?.date === 'string'
             ? ((detail.commit as { author: { date: string } }).author.date ?? null)
             : null;
 
@@ -266,16 +283,16 @@ export class CodeProviderGithub {
 
         const loginAuthor =
           detail.author &&
-          typeof detail.author === 'object' &&
-          typeof (detail.author as { login?: unknown }).login === 'string'
+            typeof detail.author === 'object' &&
+            typeof (detail.author as { login?: unknown }).login === 'string'
             ? ((detail.author as { login: string }).login ?? null)
             : null;
 
         const commitAuthor =
           detail.commit &&
-          typeof detail.commit === 'object' &&
-          (detail.commit as { author?: unknown }).author &&
-          typeof (detail.commit as { author?: { name?: unknown } }).author?.name === 'string'
+            typeof detail.commit === 'object' &&
+            (detail.commit as { author?: unknown }).author &&
+            typeof (detail.commit as { author?: { name?: unknown } }).author?.name === 'string'
             ? ((detail.commit as { author: { name: string } }).author.name ?? null)
             : null;
 
@@ -285,14 +302,14 @@ export class CodeProviderGithub {
           committedAt: new Date(committedAtRaw),
           additions:
             detail.stats &&
-            typeof detail.stats === 'object' &&
-            typeof (detail.stats as { additions?: unknown }).additions === 'number'
+              typeof detail.stats === 'object' &&
+              typeof (detail.stats as { additions?: unknown }).additions === 'number'
               ? ((detail.stats as { additions: number }).additions ?? 0)
               : 0,
           deletions:
             detail.stats &&
-            typeof detail.stats === 'object' &&
-            typeof (detail.stats as { deletions?: unknown }).deletions === 'number'
+              typeof detail.stats === 'object' &&
+              typeof (detail.stats as { deletions?: unknown }).deletions === 'number'
               ? ((detail.stats as { deletions: number }).deletions ?? 0)
               : 0,
           filesChanged: Array.isArray(detail.files) ? detail.files.length : 0,
@@ -322,9 +339,9 @@ export class CodeProviderGithub {
       } else {
         const owner =
           payload.repository &&
-          payload.repository.owner &&
-          typeof payload.repository.owner === 'object' &&
-          typeof payload.repository.owner.login === 'string'
+            payload.repository.owner &&
+            typeof payload.repository.owner === 'object' &&
+            typeof payload.repository.owner.login === 'string'
             ? payload.repository.owner.login
             : null;
         const name = payload.repository && typeof payload.repository.name === 'string' ? payload.repository.name : null;

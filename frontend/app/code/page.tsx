@@ -279,8 +279,39 @@ export default function CodePage() {
           </div>
         </SectionCard>
 
-        <SectionCard title="PR Filter" description="Filter rows by PR state">
-          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+        <SectionCard title="Largest PRs" description="Biggest changes in selected range">
+          <div className="space-y-3">
+            {prs?.items && prs.items.length > 0 ? (
+              [...prs.items]
+                .sort((a, b) => (b.additions + b.deletions) - (a.additions + a.deletions))
+                .slice(0, 5)
+                .map((pr) => (
+                  <div key={pr.id} className="flex items-center justify-between rounded-lg border border-border bg-card hover:bg-muted/20 transition-colors px-4 py-3">
+                    <div className="flex flex-col gap-1 overflow-hidden pr-3">
+                      <span className="text-[13px] font-medium truncate">#{pr.number} {pr.title}</span>
+                      <span className="text-[11px] text-muted-foreground">{pr.author || 'Unknown'}</span>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="font-mono text-[12px] tabular-nums text-emerald-500">+{pr.additions}</span>
+                      <span className="font-mono text-[12px] tabular-nums opacity-50">/</span>
+                      <span className="font-mono text-[12px] tabular-nums text-destructive">-{pr.deletions}</span>
+                    </div>
+                  </div>
+                ))
+            ) : (
+              <div className="flex h-full min-h-[160px] items-center justify-center">
+                <span className="text-[12px] text-muted-foreground">No PRs found</span>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+
+      <SectionCard
+        title="Pull Requests"
+        description="Recent PRs for selected range"
+        action={
+          <div className="flex items-center gap-2">
             {PR_STATES.map(({ value, label }) => (
               <button
                 key={label}
@@ -299,13 +330,8 @@ export default function CodePage() {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            Showing {prs?.items.length ?? 0} rows on this page ({prs?.total ?? 0} total)
-          </p>
-        </SectionCard>
-      </div>
-
-      <SectionCard title="Pull Requests" description="Recent PRs for selected range">
+        }
+      >
         <div className="relative overflow-x-auto">
           {refreshing && prs && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px]">
@@ -371,30 +397,32 @@ export default function CodePage() {
           </table>
         </div>
 
-        {prs && prs.pages > 1 && (
-          <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
+        {prs && prs.total > 0 && (
+          <div className="flex items-center justify-between border-t border-border mt-4 px-4 py-3">
             <p className="text-[11px] text-muted-foreground font-mono">
-              {prs.total} total PRs
+              Showing {prs.items.length} rows on this page ({prs.total} total)
             </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 transition-all"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-[11px] font-mono text-muted-foreground">
-                {page} / {prs.pages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(prs.pages, p + 1))}
-                disabled={page >= prs.pages}
-                className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 transition-all"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            {prs.pages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  {page} / {prs.pages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(prs.pages, p + 1))}
+                  disabled={page >= prs.pages}
+                  className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 transition-all"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </SectionCard>
