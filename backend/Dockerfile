@@ -1,21 +1,19 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
+
+# Install dependencies (all, including dev for build)
 COPY package*.json ./
 RUN npm ci
+
+# Copy source and build
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS production
-WORKDIR /app
-ENV NODE_ENV=production
+# Prune dev dependencies after build to keep image small
+RUN npm prune --production && npm cache clean --force
 
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
-
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-COPY --from=builder /app/dist ./dist
-
 USER nestjs
 
 EXPOSE 3000
