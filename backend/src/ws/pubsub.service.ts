@@ -46,6 +46,13 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
     this.sub.disconnect();
   }
 
+  async ping() {
+    if (!this.pub) {
+      throw new Error('Redis pub client not initialized');
+    }
+    return this.pub.ping();
+  }
+
   async publish(channel: PubSubChannel, data: unknown) {
     await this.pub.publish(channel, JSON.stringify(data));
   }

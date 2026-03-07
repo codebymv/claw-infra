@@ -34,7 +34,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     private readonly pubSub: PubSubService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
-  ) { }
+  ) {}
 
   afterInit(server: Server) {
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
@@ -72,7 +72,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     }
 
     try {
-      const secret = this.config.get<string>('JWT_SECRET') || 'changeme-in-production';
+      const secret = this.config.getOrThrow<string>('JWT_SECRET');
       this.jwtService.verify(token, { secret });
       this.logger.log(`Client authenticated: ${client.id}`);
     } catch {
@@ -87,10 +87,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   @SubscribeMessage('subscribe')
-  handleSubscribe(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() payload: SubscribePayload,
-  ) {
+  handleSubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
     const { channel } = payload;
 
     if (!this.isValidChannel(channel)) return;
@@ -108,10 +105,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   @SubscribeMessage('unsubscribe')
-  handleUnsubscribe(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() payload: SubscribePayload,
-  ) {
+  handleUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
     const { channel } = payload;
     client.leave(channel);
     return { status: 'ok', channel };

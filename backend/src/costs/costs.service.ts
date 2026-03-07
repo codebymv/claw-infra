@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
+import { AlertsService } from '../alerts/alerts.service';
 import { CostRecord } from '../database/entities/cost-record.entity';
 import { CostBudget } from '../database/entities/cost-budget.entity';
 
@@ -20,6 +21,7 @@ export class CostsService {
   constructor(
     @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
     @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
+    private readonly alerts: AlertsService,
   ) { }
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
@@ -175,6 +177,10 @@ export class CostsService {
 
   async getRunCosts(runId: string) {
     return this.costRepo.find({ where: { runId }, order: { recordedAt: 'ASC' } });
+  }
+
+  async notifyBudgetThreshold(agentName: string, spent: number, limit: string): Promise<void> {
+    await this.alerts.budgetExceeded(agentName, spent.toFixed(2), limit);
   }
 
   async getProjectedSpend() {

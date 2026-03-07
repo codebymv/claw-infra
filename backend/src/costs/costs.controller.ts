@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -50,6 +50,8 @@ function resolvePeriod(query: PeriodQueryDto): { from: Date; to: Date } {
 @Controller('costs')
 @UseGuards(AuthGuard('jwt'))
 export class CostsController {
+  private readonly logger = new Logger(CostsController.name);
+
   constructor(private readonly costsService: CostsService) {}
 
   @Get('summary')
@@ -87,8 +89,29 @@ export class CostsController {
   }
 
   @Get('budgets/status')
-  getBudgetStatus() {
-    return this.costsService.getBudgetStatus();
+  async getBudgetStatus() {
+    const status = await this.costsService.getBudgetStatus();
+
+    for (const item of status) {
+      const budget = item.budget;
+      const agent = budget.agentName || 'global';
+
+      if (item.dayAlert && budget.dailyLimitUsd) {
+        this.logger.warn(`Budget alert (daily) for ${agent}: ${item.daySpend} / ${budget.dailyLimitUsd}`);
+        this.costsService
+          .notifyBudgetThreshold(agent, item.daySpend, budget.dailyLimitUsd)
+          .catch(() => undefined);
+      }
+
+      if (item.monthAlert && budget.monthlyLimitUsd) {
+        this.logger.warn(`Budget alert (monthly) for ${agent}: ${item.monthSpend} / ${budget.monthlyLimitUsd}`);
+        this.costsService
+          .notifyBudgetThreshold(agent, item.monthSpend, budget.monthlyLimitUsd)
+          .catch(() => undefined);
+      }
+    }
+
+    return status;
   }
 
   @Post('budgets')
