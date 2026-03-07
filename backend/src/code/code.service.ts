@@ -34,7 +34,7 @@ export class CodeService {
     @InjectRepository(CodeCommit) private readonly commitRepository: Repository<CodeCommit>,
     @InjectRepository(CodeSyncState) private readonly syncStateRepository: Repository<CodeSyncState>,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   async getOverview(filters: CodeOverviewFilters) {
     const { from, to, repo, author } = filters;
@@ -104,16 +104,16 @@ export class CodeService {
       averageMergeLatencySeconds:
         parseInt(prAgg?.mergeLatencyCount || '0', 10) > 0
           ? Math.round(
-              parseFloat(prAgg?.mergeLatencySecondsTotal || '0') /
-                parseInt(prAgg?.mergeLatencyCount || '1', 10),
-            )
+            parseFloat(prAgg?.mergeLatencySecondsTotal || '0') /
+            parseInt(prAgg?.mergeLatencyCount || '1', 10),
+          )
           : null,
       averageFirstReviewLatencySeconds:
         parseInt(prAgg?.firstReviewLatencyCount || '0', 10) > 0
           ? Math.round(
-              parseFloat(prAgg?.firstReviewLatencySecondsTotal || '0') /
-                parseInt(prAgg?.firstReviewLatencyCount || '1', 10),
-            )
+            parseFloat(prAgg?.firstReviewLatencySecondsTotal || '0') /
+            parseInt(prAgg?.firstReviewLatencyCount || '1', 10),
+          )
           : null,
     };
   }
@@ -170,7 +170,8 @@ export class CodeService {
     if (state) qb.andWhere('pr.state = :state', { state });
 
     const [items, total] = await qb
-      .orderBy('COALESCE(pr.merged_at, pr.opened_at)', 'DESC')
+      .addSelect('COALESCE(pr.merged_at, pr.opened_at)', 'sort_date')
+      .orderBy('sort_date', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
