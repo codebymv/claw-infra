@@ -1,6 +1,6 @@
 import { Controller, Post, Body, UseGuards, Req, BadRequestException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsString, IsNumber, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
 import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
@@ -22,9 +22,11 @@ class IngestCostDto {
   model: string;
 
   @IsNumber()
+  @Min(0)
   tokensIn: number;
 
   @IsNumber()
+  @Min(0)
   tokensOut: number;
 
   @IsString()

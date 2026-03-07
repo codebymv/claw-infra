@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Query, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { IsOptional, IsString, IsNumber, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Max, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { CostsService } from './costs.service';
 
@@ -34,8 +34,10 @@ class UpsertBudgetDto {
   monthlyLimitUsd?: string | null;
 
   @IsOptional()
-  @Transform(({ value }) => parseInt(value as string))
+  @Transform(({ value }) => parseInt(value as string, 10))
   @IsNumber()
+  @Min(1)
+  @Max(100)
   alertThresholdPercent?: number;
 }
 
@@ -50,8 +52,6 @@ function resolvePeriod(query: PeriodQueryDto): { from: Date; to: Date } {
 @Controller('costs')
 @UseGuards(AuthGuard('jwt'))
 export class CostsController {
-  private readonly logger = new Logger(CostsController.name);
-
   constructor(private readonly costsService: CostsService) {}
 
   @Get('summary')
@@ -74,13 +74,13 @@ export class CostsController {
 
   @Get('trend')
   getDailyTrend(@Query('days') days?: string) {
-    return this.costsService.getDailyTrend(days ? parseInt(days) : 30);
+    return this.costsService.getDailyTrend(days ? parseInt(days, 10) : 30);
   }
 
   @Get('top-runs')
   getTopExpensiveRuns(@Query() query: PeriodQueryDto, @Query('limit') limit?: string) {
     const { from, to } = resolvePeriod(query);
-    return this.costsService.getTopExpensiveRuns(from, to, limit ? parseInt(limit) : 10);
+    return this.costsService.getTopExpensiveRuns(from, to, limit ? parseInt(limit, 10) : 10);
   }
 
   @Get('budgets')
@@ -90,28 +90,7 @@ export class CostsController {
 
   @Get('budgets/status')
   async getBudgetStatus() {
-    const status = await this.costsService.getBudgetStatus();
-
-    for (const item of status) {
-      const budget = item.budget;
-      const agent = budget.agentName || 'global';
-
-      if (item.dayAlert && budget.dailyLimitUsd) {
-        this.logger.warn(`Budget alert (daily) for ${agent}: ${item.daySpend} / ${budget.dailyLimitUsd}`);
-        this.costsService
-          .notifyBudgetThreshold(agent, item.daySpend, budget.dailyLimitUsd)
-          .catch(() => undefined);
-      }
-
-      if (item.monthAlert && budget.monthlyLimitUsd) {
-        this.logger.warn(`Budget alert (monthly) for ${agent}: ${item.monthSpend} / ${budget.monthlyLimitUsd}`);
-        this.costsService
-          .notifyBudgetThreshold(agent, item.monthSpend, budget.monthlyLimitUsd)
-          .catch(() => undefined);
-      }
-    }
-
-    return status;
+    return this.costsService.getBudgetStatus();
   }
 
   @Post('budgets')
