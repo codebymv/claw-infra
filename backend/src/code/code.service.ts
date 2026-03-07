@@ -7,6 +7,7 @@ import { CodePr, CodePrState } from '../database/entities/code-pr.entity';
 import { CodePrReview } from '../database/entities/code-pr-review.entity';
 import { CodeCommit } from '../database/entities/code-commit.entity';
 import { CodeSyncState } from '../database/entities/code-sync-state.entity';
+import { CodeSyncService } from './code.sync.service';
 
 export interface CodeOverviewFilters {
   from: Date;
@@ -33,6 +34,7 @@ export class CodeService {
     @InjectRepository(CodePrReview) private readonly reviewRepository: Repository<CodePrReview>,
     @InjectRepository(CodeCommit) private readonly commitRepository: Repository<CodeCommit>,
     @InjectRepository(CodeSyncState) private readonly syncStateRepository: Repository<CodeSyncState>,
+    private readonly codeSyncService: CodeSyncService,
     private readonly configService: ConfigService,
   ) { }
 
@@ -258,35 +260,126 @@ export class CodeService {
 
   async triggerBackfill(repo?: string) {
     const now = new Date();
+    const lookbackDays = Math.max(
+      1,
+      parseInt(this.configService.get<string>('CODE_BACKFILL_DAYS') || '30', 10),
+    );
+    const from = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
 
-    let repoEntity: CodeRepo | null = null;
+    const summaries = [] as Array<{
+      repo: string;
+      pullRequestsFetched: number;
+      reviewsFetched: number;
+      commitsFetched: number;
+    }>;
+
     if (repo) {
       const [owner, name] = repo.split('/');
-      if (owner && name) {
-        repoEntity = await this.repoRepository.findOne({ where: { provider: 'github', owner, name } });
+      if (!owner || !name) {
+        return {
+          accepted: false,
+          message: 'Invalid repo format. Expected owner/name',
+          scope: repo,
+        };
       }
+
+      const summary = await this.codeSyncService.backfillRepo(owner, name, from, now);
+      summaries.push({
+        repo: `${owner}/${name}`,
+        pullRequestsFetched: summary.pullRequestsFetched,
+        reviewsFetched: summary.reviewsFetched,
+        commitsFetched: summary.commitsFetched,
+      });
+
+      await this.syncStateRepository.upsert(
+        [
+          {
+            provider: 'github',
+            stream: 'manual-backfill-repo',
+            repoId: summary.repoId,
+            cursorValue: now.toISOString(),
+            lastSyncedAt: now,
+            metadata: {
+              requestedAt: now.toISOString(),
+              from: from.toISOString(),
+              to: now.toISOString(),
+              scope: repo,
+              ...summaries[0],
+            },
+          },
+        ],
+        ['provider', 'stream', 'repoId'],
+      );
+    } else {
+      const repoMap = new Map<string, { owner: string; name: string }>();
+
+      const existingRepos = await this.repoRepository.find({
+        where: { provider: 'github', isActive: true },
+      });
+
+      for (const repoEntity of existingRepos) {
+        repoMap.set(`${repoEntity.owner}/${repoEntity.name}`.toLowerCase(), {
+          owner: repoEntity.owner,
+          name: repoEntity.name,
+        });
+      }
+
+      const configuredRepos = (this.configService.get<string>('CODE_GITHUB_REPOS') || '')
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+
+      for (const full of configuredRepos) {
+        const [owner, name] = full.split('/');
+        if (!owner || !name) continue;
+        repoMap.set(`${owner}/${name}`.toLowerCase(), { owner, name });
+      }
+
+      for (const targetRepo of repoMap.values()) {
+        const summary = await this.codeSyncService.backfillRepo(
+          targetRepo.owner,
+          targetRepo.name,
+          from,
+          now,
+        );
+
+        summaries.push({
+          repo: `${targetRepo.owner}/${targetRepo.name}`,
+          pullRequestsFetched: summary.pullRequestsFetched,
+          reviewsFetched: summary.reviewsFetched,
+          commitsFetched: summary.commitsFetched,
+        });
+      }
+
+      await this.syncStateRepository.upsert(
+        [
+          {
+            provider: 'github',
+            stream: 'manual-backfill-global',
+            repoId: null,
+            cursorValue: now.toISOString(),
+            lastSyncedAt: now,
+            metadata: {
+              requestedAt: now.toISOString(),
+              from: from.toISOString(),
+              to: now.toISOString(),
+              scope: 'all',
+              reposProcessed: summaries.length,
+            },
+          },
+        ],
+        ['provider', 'stream', 'repoId'],
+      );
     }
-
-    const syncRow = this.syncStateRepository.create({
-      provider: 'github',
-      stream: repo ? 'manual-backfill-repo' : 'manual-backfill-global',
-      repoId: repoEntity?.id ?? null,
-      cursorValue: now.toISOString(),
-      lastSyncedAt: now,
-      metadata: {
-        requestedAt: now.toISOString(),
-        scope: repo || 'all',
-        note: 'Backfill trigger recorded. Provider sync worker wiring lands in a follow-up phase.',
-      },
-    });
-
-    const saved = await this.syncStateRepository.save(syncRow);
 
     return {
       accepted: true,
-      message: 'Backfill request recorded',
-      syncStateId: saved.id,
+      message: 'Backfill completed',
       scope: repo || 'all',
+      from,
+      to: now,
+      reposProcessed: summaries.length,
+      summaries,
     };
   }
 }
