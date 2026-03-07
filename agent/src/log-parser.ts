@@ -96,9 +96,9 @@ const PATTERNS = {
   providerWarmup: /Warming up provider.*provider="(\w+)"/i,
   llmProvider: /provider[=:\s]+[`"']?(\w+)[`"']?/i,
   llmModel: /model[=:\s]+[`"']?([\w./-]+)[`"']?/i,
-  llmTokensIn: /(?:input_tokens|tokens_in|prompt_tokens)[=:\s]+(\d+)/i,
-  llmTokensOut: /(?:output_tokens|tokens_out|completion_tokens)[=:\s]+(\d+)/i,
-  llmCost: /cost[=:\s]+\$?([\d.]+)/i,
+  llmTokensIn: /(?:input_tokens|tokens_in|prompt_tokens)[=:\s]+(?:Some\()?(\d+)\)?/i,
+  llmTokensOut: /(?:output_tokens|tokens_out|completion_tokens)[=:\s]+(?:Some\()?(\d+)\)?/i,
+  llmCost: /cost[=:\s]+(?:Some\()?\$?([\d.]+)\)?/i,
   duration: /(?:duration|took|elapsed|latency)[=:\s]+(\d+(?:\.\d+)?)\s*(ms|s|sec)/i,
 
   // Task ID
