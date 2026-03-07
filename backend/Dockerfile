@@ -1,21 +1,22 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm ci
+
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS production
-WORKDIR /app
-ENV NODE_ENV=production
+# Verify the build output exists — this will show in Railway build logs
+RUN echo "=== BUILD OUTPUT ===" && ls -la dist/ && echo "=== main.js check ===" && ls -la dist/main.js && echo "=== BUILD VERIFIED ==="
+
+# Remove dev dependencies to keep image small
+RUN npm prune --production && npm cache clean --force
+
+# Verify dist survived the prune
+RUN echo "=== POST-PRUNE CHECK ===" && ls -la dist/main.js && echo "=== DIST INTACT ==="
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001
-
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-COPY --from=builder /app/dist ./dist
-
 USER nestjs
 
 EXPOSE 3000
