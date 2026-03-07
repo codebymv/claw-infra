@@ -1,3 +1,4 @@
+// costs.service — budget tracking & spend aggregation
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
