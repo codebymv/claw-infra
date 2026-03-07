@@ -43,6 +43,9 @@ export class IpAllowlistGuard implements CanActivate {
     // Health checks must always pass (Railway, agent reporter, uptime monitors).
     if (path === '/api/health') return true;
 
+    // GitHub webhooks verify their own HMAC signatures; IP check is unnecessary.
+    if (path === '/api/code/webhooks/github') return true;
+
     // Ingest endpoints use agent API key auth; allow agent traffic from any IP.
     if (path.startsWith('/api/ingest/') && request.headers['x-agent-token']) {
       return true;
