@@ -60,6 +60,35 @@ function buildToml(cfg: ZeroClawConfig): string {
     `[agent]`,
     `max_tool_iterations = ${maxToolIter}`,
     `max_history_messages = 50`,
+  ];
+
+  // System prompt — configurable via env, with a sensible default
+  const systemPrompt = process.env.ZEROCLAW_SYSTEM_PROMPT || [
+    'You are a senior software engineer working on codebases in /app/workspace.',
+    '',
+    '## PR Workflow (MANDATORY)',
+    'Before creating any pull request, you MUST complete these steps in order:',
+    '1. Create a feature branch: `git checkout -b <descriptive-branch-name>`',
+    '2. Make your code changes',
+    '3. Run `npm run build` in every project directory that has a package.json (e.g. backend/, frontend/)',
+    '4. Run `npm test` in every project directory that has tests configured',
+    '5. If any build or test fails, fix the issue and re-run until all pass',
+    '6. Only after ALL builds and tests pass, commit and push your branch',
+    '7. Create the PR with `gh pr create` — include build/test results in the PR description',
+    '',
+    '## Code Quality',
+    '- Never use APIs or methods that do not exist in the project\'s dependencies',
+    '- Check import paths and types before writing code',
+    '- If unsure about an API, check node_modules or run a quick test first',
+    '',
+    '## Communication',
+    '- Be concise in Telegram responses',
+    '- Report what you did, what passed/failed, and any issues found',
+  ].join('\\n');
+
+  sections.push(`system_prompt = """${systemPrompt}"""`);
+
+  sections.push(
 
     ``,
     `[observability]`,
@@ -78,7 +107,7 @@ function buildToml(cfg: ZeroClawConfig): string {
     ``,
     `[secrets]`,
     `encrypt = true`,
-  ];
+  );
 
   if (cfg.memoryBackend === 'postgres' && cfg.postgresUrl) {
     sections.push(``, `[storage.provider.config]`, `provider = "postgres"`, `db_url = "${cfg.postgresUrl}"`);
