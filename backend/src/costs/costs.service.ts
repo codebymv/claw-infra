@@ -17,6 +17,11 @@ export interface IngestCostDto {
   recordedAt?: string;
 }
 
+const PRICING_MAP: Record<string, { in: number; out: number }> = {
+  'anthropic/claude-sonnet-4-6': { in: 3.0 / 1000000, out: 15.0 / 1000000 },
+  'openai/gpt-5.3-codex': { in: 2.0 / 1000000, out: 10.0 / 1000000 },
+};
+
 @Injectable()
 export class CostsService {
   private readonly logger = new Logger(CostsService.name);
@@ -29,11 +34,18 @@ export class CostsService {
     @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
     @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
     private readonly alerts: AlertsService,
-  ) {}
+  ) { }
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
+    let costUsd = parseFloat(dto.costUsd || '0');
+    if (costUsd === 0 || isNaN(costUsd)) {
+      const pricing = PRICING_MAP[dto.model] || { in: 0, out: 0 };
+      costUsd = (dto.tokensIn * pricing.in) + (dto.tokensOut * pricing.out);
+    }
+
     const record = this.costRepo.create({
       ...dto,
+      costUsd: costUsd.toFixed(6),
       recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
     });
     const saved = await this.costRepo.save(record);
