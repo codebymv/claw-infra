@@ -17,10 +17,13 @@ export interface IngestCostDto {
   recordedAt?: string;
 }
 
-const PRICING_MAP: Record<string, { in: number; out: number }> = {
-  'anthropic/claude-sonnet-4-6': { in: 3.0 / 1000000, out: 15.0 / 1000000 },
-  'openai/gpt-5.3-codex': { in: 2.0 / 1000000, out: 10.0 / 1000000 },
+const PRICING_MAP: Record<string, { in: number; out: number; cacheDiscount: number }> = {
+  'anthropic/claude-sonnet-4-6': { in: 3.0 / 1000000, out: 15.0 / 1000000, cacheDiscount: 0.1 }, // cache is 10% of base
+  'openai/gpt-5.3-codex': { in: 1.75 / 1000000, out: 14.0 / 1000000, cacheDiscount: 0.1 },
 };
+
+// ZeroClaw sends massive repeating system prompts, resulting in ~90% cache hits on OpenRouter
+const ASSUMED_CACHE_HIT_RATE = 0.90;
 
 @Injectable()
 export class CostsService {
@@ -39,8 +42,13 @@ export class CostsService {
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
     let costUsd = parseFloat(dto.costUsd || '0');
     if (costUsd === 0 || isNaN(costUsd)) {
-      const pricing = PRICING_MAP[dto.model] || { in: 0, out: 0 };
-      costUsd = (dto.tokensIn * pricing.in) + (dto.tokensOut * pricing.out);
+      const pricing = PRICING_MAP[dto.model] || { in: 0, out: 0, cacheDiscount: 1 };
+
+      const cachedTokensIn = dto.tokensIn * ASSUMED_CACHE_HIT_RATE;
+      const uncachedTokensIn = dto.tokensIn * (1 - ASSUMED_CACHE_HIT_RATE);
+      const tokensInCost = (uncachedTokensIn * pricing.in) + (cachedTokensIn * (pricing.in * pricing.cacheDiscount));
+
+      costUsd = tokensInCost + (dto.tokensOut * pricing.out);
     }
 
     const record = this.costRepo.create({
