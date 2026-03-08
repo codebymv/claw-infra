@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
+
 import { AuthModule } from './auth/auth.module';
 import { AgentsModule } from './agents/agents.module';
 import { MetricsModule } from './metrics/metrics.module';
@@ -16,6 +18,7 @@ import { buildTypeOrmConfig } from './config/database.config';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -52,4 +55,4 @@ import { buildTypeOrmConfig } from './config/database.config';
     MaintenanceModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

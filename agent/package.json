@@ -10,7 +10,8 @@
     "test": "node --test dist/log-parser.test.js"
   },
   "dependencies": {
-    "toml": "^3.0.0"
+    "toml": "^3.0.0",
+    "@railway/cli": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

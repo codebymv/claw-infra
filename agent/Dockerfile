@@ -22,8 +22,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Railway CLI
-RUN curl -fsSL https://railway.com/install.sh | sh
+# Railway CLI is now installed via npm in the builder stage
 
 # Install ZeroClaw binary from GitHub releases
 ARG ZEROCLAW_VERSION=latest
@@ -52,6 +51,9 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
+
+# Symlink Railway CLI binary from local node_modules
+RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway
 
 ENV NODE_ENV=production
 ENV ZEROCLAW_BIN=/usr/local/bin/zeroclaw

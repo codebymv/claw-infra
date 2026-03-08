@@ -19,12 +19,12 @@ export class CostRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'run_id', type: 'uuid' })
-  runId: string;
+  @Column({ name: 'run_id', type: 'uuid', nullable: true })
+  runId: string | null;
 
-  @ManyToOne(() => AgentRun, (run) => run.costRecords, { onDelete: 'CASCADE' })
+  @ManyToOne(() => AgentRun, (run) => run.costRecords, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'run_id' })
-  run: AgentRun;
+  run: AgentRun | null;
 
   @Column({ name: 'step_id', type: 'uuid', nullable: true })
   stepId: string | null;
