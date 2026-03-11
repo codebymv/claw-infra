@@ -19,8 +19,10 @@ const titles: Record<string, { label: string; description: string }> = {
 const wsConfig: Record<WsStatus, { label: string; className: string; icon: React.ComponentType<{ className?: string }> }> = {
   connected:    { label: 'Connected',    className: 'bg-primary/10 border-primary/20 text-primary',                                  icon: Signal   },
   connecting:   { label: 'Connecting…',  className: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',        icon: Loader2  },
+  reconnecting: { label: 'Reconnecting', className: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',        icon: RefreshCw },
   disconnected: { label: 'Offline',      className: 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400',            icon: WifiOff  },
   error:        { label: 'Error',        className: 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400',            icon: WifiOff  },
+  failed:       { label: 'Failed',       className: 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400',            icon: WifiOff  },
 };
 
 interface HeaderProps {
@@ -89,7 +91,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <WsIcon
               className={cn(
                 'h-3 w-3',
-                status === 'connecting' && 'animate-spin',
+                (status === 'connecting' || status === 'reconnecting') && 'animate-spin',
               )}
             />
             <span className="text-[11px] font-medium">{ws.label}</span>
