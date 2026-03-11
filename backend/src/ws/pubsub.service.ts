@@ -44,7 +44,7 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
         parsed = message;
       }
       // Pass both channel and data to pattern handlers
-      handlers.forEach((h) => h(channel, parsed));
+      handlers.forEach((h) => (h as any)(channel, parsed));
     });
 
     // Activate any channels registered before this init ran (e.g. from afterInit hooks)

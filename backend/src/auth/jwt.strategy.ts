@@ -83,6 +83,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // If no secret worked, fail authentication
-    return this.fail(new UnauthorizedException('Invalid token'));
+    return this.fail('Invalid token', 401);
   }
 }

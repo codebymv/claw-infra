@@ -106,8 +106,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   {this.props.componentName
-                    ? `The ${this.props.componentName} component encountered an error and couldn't be displayed.`
-                    : 'This component encountered an error and couldn't be displayed.'}
+                    ? `The ${this.props.componentName} component encountered an error and could not be displayed.`
+                    : 'This component encountered an error and could not be displayed.'}
                 </p>
                 
                 {process.env.NODE_ENV === 'development' && this.state.error && (

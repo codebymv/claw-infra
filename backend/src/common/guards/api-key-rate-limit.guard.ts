@@ -1,8 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { Redis } from 'ioredis';
-import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
 
 @Injectable()
 export class ApiKeyRateLimitGuard implements CanActivate {
@@ -11,11 +10,14 @@ export class ApiKeyRateLimitGuard implements CanActivate {
   private readonly windowMs: number = 60000; // 1 minute
   private readonly exemptAdminKeys: boolean;
 
+  private readonly redis: Redis;
+
   constructor(
-    @InjectRedis() private readonly redis: Redis,
     private readonly config: ConfigService,
     private readonly reflector: Reflector,
   ) {
+    const redisUrl = this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    this.redis = new Redis(redisUrl);
     this.rateLimit = parseInt(
       this.config.get<string>('INGEST_RATE_LIMIT_PER_KEY') || '100',
       10,

@@ -99,7 +99,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   handleDisconnect(client: Socket) {
-    this.cleanupClientSubscriptions(client.id);
+    // Clean up client channel tracking
+    this.clientChannels.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
