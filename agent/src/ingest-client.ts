@@ -145,6 +145,7 @@ export async function sendMetrics(opts: {
   memoryMb: number;
   memoryPercent: number;
   activeConnections?: number;
+  logBufferSize?: number;
 }): Promise<void> {
   await request({ method: 'POST', path: '/ingest/metrics', body: opts });
 }

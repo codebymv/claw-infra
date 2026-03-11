@@ -11,7 +11,10 @@ export class IdempotencyService {
   private readonly ttlHours: number;
 
   constructor(private readonly config: ConfigService) {
-    const redisUrl = this.config.get<string>('REDIS_URL');
+    const redisUrl = this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    if (!redisUrl) {
+      throw new Error('REDIS_URL environment variable is required');
+    }
     this.redis = new Redis(redisUrl);
     this.enabled = this.config.get<string>('INGEST_IDEMPOTENCY_ENABLED') === 'true';
     this.ttlHours = parseInt(this.config.get<string>('INGEST_IDEMPOTENCY_TTL_HOURS') || '24', 10);

@@ -15,6 +15,7 @@ import { CodeCommit } from '../database/entities/code-commit.entity';
 import { CodeSyncState } from '../database/entities/code-sync-state.entity';
 import { CodeDailyMetric } from '../database/entities/code-daily-metric.entity';
 import { IdempotencyRecord } from '../database/entities/idempotency-record.entity';
+import { ModelPricing } from '../database/entities/model-pricing.entity';
 
 export const DATABASE_ENTITIES = [
   AgentRun,
@@ -32,10 +33,17 @@ export const DATABASE_ENTITIES = [
   CodeSyncState,
   CodeDailyMetric,
   IdempotencyRecord,
+  ModelPricing,
 ];
 
 export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions {
   const nodeEnv = config.get<string>('NODE_ENV') || 'development';
+
+  // Connection pool configuration
+  const poolMax = parseInt(config.get<string>('DB_POOL_MAX') || '20', 10);
+  const poolMin = parseInt(config.get<string>('DB_POOL_MIN') || '5', 10);
+  const poolIdleTimeout = parseInt(config.get<string>('DB_POOL_IDLE_TIMEOUT') || '30000', 10);
+  const connectionTimeout = parseInt(config.get<string>('DB_POOL_CONNECTION_TIMEOUT') || '2000', 10);
 
   return {
     type: 'postgres',
@@ -46,5 +54,13 @@ export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions 
     logging: nodeEnv === 'development',
     ssl: nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
     migrations: ['dist/database/migrations/*.js'],
+    
+    // Connection pool settings
+    extra: {
+      max: poolMax,
+      min: poolMin,
+      idleTimeoutMillis: poolIdleTimeout,
+      connectionTimeoutMillis: connectionTimeout,
+    },
   };
 }

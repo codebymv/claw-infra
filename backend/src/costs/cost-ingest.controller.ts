@@ -2,6 +2,7 @@ import { Controller, Post, Body, UseGuards, BadRequestException, Logger } from '
 import { Throttle } from '@nestjs/throttler';
 import { IsString, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
+import { ApiKeyRateLimitGuard } from '../common/guards/api-key-rate-limit.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { CostsService } from './costs.service';
 import { IdempotencyService } from '../common/services/idempotency.service';
@@ -37,7 +38,7 @@ class IngestCostDto {
 }
 
 @Controller('ingest/costs')
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, ApiKeyRateLimitGuard)
 @RequireApiKeyType(ApiKeyType.AGENT)
 @Throttle({ ingest: { ttl: 60000, limit: 30 } })
 export class CostIngestController {

@@ -26,6 +26,9 @@ async function bootstrap() {
 
   validateStartupEnv(config);
 
+  // Enable graceful shutdown hooks
+  app.enableShutdownHooks();
+
   // Run database migrations before starting the server
   const dataSource = app.get(DataSource);
   try {
@@ -101,6 +104,30 @@ async function bootstrap() {
   const port = config.get<string>('PORT') || 3000;
   await app.listen(port);
   console.log(`Backend listening on port ${port}`);
+
+  // Graceful shutdown handling
+  const gracefulShutdown = async (signal: string) => {
+    console.log(`Received ${signal}, starting graceful shutdown...`);
+    
+    const shutdownTimeout = setTimeout(() => {
+      console.error('Graceful shutdown timeout exceeded, forcing exit');
+      process.exit(1);
+    }, 30000); // 30 second timeout
+
+    try {
+      await app.close();
+      clearTimeout(shutdownTimeout);
+      console.log('Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error during graceful shutdown:', error);
+      clearTimeout(shutdownTimeout);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 bootstrap();

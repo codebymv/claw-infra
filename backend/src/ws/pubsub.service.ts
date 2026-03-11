@@ -22,6 +22,7 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
     this.pub = new Redis(url);
     this.sub = new Redis(url);
 
+    // Handle regular channel messages
     this.sub.on('message', (channel: string, message: string) => {
       const handlers = this.handlers.get(channel) || [];
       let parsed: unknown;
@@ -33,9 +34,28 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
       handlers.forEach((h) => h(parsed));
     });
 
+    // Handle pattern subscription messages
+    this.sub.on('pmessage', (pattern: string, channel: string, message: string) => {
+      const handlers = this.handlers.get(pattern) || [];
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(message);
+      } catch {
+        parsed = message;
+      }
+      // Pass both channel and data to pattern handlers
+      handlers.forEach((h) => h(channel, parsed));
+    });
+
     // Activate any channels registered before this init ran (e.g. from afterInit hooks)
     for (const channel of this.handlers.keys()) {
-      this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      if (channel.includes('*')) {
+        // Pattern subscription
+        this.sub.psubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      } else {
+        // Regular subscription
+        this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      }
     }
 
     this.logger.log('PubSub connected');
@@ -62,10 +82,28 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
       this.handlers.set(channel, []);
       // If sub is already initialized, subscribe immediately; otherwise onModuleInit will pick it up
       if (this.sub) {
-        this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        if (channel.includes('*')) {
+          this.sub.psubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        } else {
+          this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        }
       }
     }
     this.handlers.get(channel)!.push(handler);
+  }
+
+  /**
+   * Subscribe to a pattern (e.g., "run:*")
+   * Handler receives (channel, data) instead of just (data)
+   */
+  psubscribe(pattern: string, handler: (channel: string, data: unknown) => void) {
+    if (!this.handlers.has(pattern)) {
+      this.handlers.set(pattern, []);
+      if (this.sub) {
+        this.sub.psubscribe(pattern).catch((err: Error) => this.logger.error(err.message));
+      }
+    }
+    this.handlers.get(pattern)!.push(handler as any);
   }
 
   unsubscribe(channel: string, handler: (data: unknown) => void) {
@@ -73,7 +111,11 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
     const updated = handlers.filter((h) => h !== handler);
     if (updated.length === 0) {
       this.handlers.delete(channel);
-      this.sub.unsubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      if (channel.includes('*')) {
+        this.sub.punsubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      } else {
+        this.sub.unsubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+      }
     } else {
       this.handlers.set(channel, updated);
     }

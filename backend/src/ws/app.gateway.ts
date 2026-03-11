@@ -30,12 +30,8 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   private readonly logger = new Logger(AppGateway.name);
 
-  // Track per-client channel memberships so we can cleanup on disconnect
+  // Track per-client channel memberships for cleanup on disconnect
   private readonly clientChannels = new Map<string, Set<string>>();
-
-  // Track dynamic channel subscribers to avoid duplicate Redis handlers / leaks
-  private readonly dynamicChannelRefCounts = new Map<string, number>();
-  private readonly dynamicChannelHandlers = new Map<string, (data: unknown) => void>();
 
   constructor(
     private readonly pubSub: PubSubService,
@@ -57,6 +53,7 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       this.logger.warn('server.engine not available in afterInit — CORS header hook skipped');
     }
 
+    // Subscribe to global channels
     this.pubSub.subscribe('global:status', (data) => {
       server.to('global:status').emit('global:status', data);
     });
@@ -65,7 +62,18 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       server.to('resources:live').emit('resources:live', data);
     });
 
+    // Use pattern subscription for run-specific channels (wildcard)
+    this.pubSub.psubscribe('run:*', (channel, data) => {
+      server.to(channel).emit(channel, data);
+    });
+
+    // Use pattern subscription for log-specific channels (wildcard)
+    this.pubSub.psubscribe('logs:*', (channel, data) => {
+      server.to(channel).emit(channel, data);
+    });
+
     this.logger.log(`WebSocket gateway initialized (CORS origin: ${frontendUrl})`);
+    this.logger.log('Using wildcard subscriptions for run:* and logs:* channels');
   }
 
   handleConnection(client: Socket) {
@@ -108,13 +116,11 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       return { status: 'ok', channel };
     }
 
+    // Just join the Socket.IO room - no need to create Redis subscriptions
+    // Pattern subscriptions (run:*, logs:*) handle all dynamic channels
     client.join(channel);
     channels.add(channel);
     this.clientChannels.set(client.id, channels);
-
-    if (this.isDynamicChannel(channel)) {
-      this.addDynamicChannelSubscription(channel);
-    }
 
     this.logger.log(`Client ${client.id} subscribed to ${channel}`);
     return { status: 'ok', channel };
@@ -133,9 +139,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
     const channels = this.clientChannels.get(client.id);
     if (channels?.has(channel)) {
       channels.delete(channel);
-      if (this.isDynamicChannel(channel)) {
-        this.removeDynamicChannelSubscription(channel);
-      }
     }
 
     return { status: 'ok', channel };
@@ -152,48 +155,6 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   private isDynamicChannel(channel: string): boolean {
     return channel.startsWith('run:') || channel.startsWith('logs:');
-  }
-
-  private addDynamicChannelSubscription(channel: string): void {
-    const current = this.dynamicChannelRefCounts.get(channel) || 0;
-    const next = current + 1;
-    this.dynamicChannelRefCounts.set(channel, next);
-
-    if (current === 0) {
-      const handler = (data: unknown) => {
-        this.server.to(channel).emit(channel, data);
-      };
-      this.dynamicChannelHandlers.set(channel, handler);
-      this.pubSub.subscribe(channel, handler);
-    }
-  }
-
-  private removeDynamicChannelSubscription(channel: string): void {
-    const current = this.dynamicChannelRefCounts.get(channel) || 0;
-    if (current <= 1) {
-      this.dynamicChannelRefCounts.delete(channel);
-      const handler = this.dynamicChannelHandlers.get(channel);
-      if (handler) {
-        this.pubSub.unsubscribe(channel, handler);
-        this.dynamicChannelHandlers.delete(channel);
-      }
-      return;
-    }
-
-    this.dynamicChannelRefCounts.set(channel, current - 1);
-  }
-
-  private cleanupClientSubscriptions(clientId: string): void {
-    const channels = this.clientChannels.get(clientId);
-    if (!channels) return;
-
-    for (const channel of channels) {
-      if (this.isDynamicChannel(channel)) {
-        this.removeDynamicChannelSubscription(channel);
-      }
-    }
-
-    this.clientChannels.delete(clientId);
   }
 
   broadcastRunUpdate(runId: string, data: unknown) {

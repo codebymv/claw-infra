@@ -316,110 +316,118 @@ export class ZeroClawLogParser extends EventEmitter {
     timestamp: Date,
     json?: Record<string, unknown>,
   ): void {
-    // Tool invocation
-    const toolInvokeMatch = PATTERNS.toolInvoke.exec(message) || PATTERNS.toolUse.exec(message);
-    if (toolInvokeMatch) {
-      this.emitEvent({
-        type: 'tool_call',
-        toolName: toolInvokeMatch[1],
-        taskId,
-        input: message,
-        timestamp,
-      });
-    }
+    // Early exit optimization: check for keywords before running expensive regex
+    const hasToolKeyword = message.includes('tool') || message.includes('Tool');
+    const hasProviderKeyword = message.includes('provider') || message.includes('tokens') || message.includes('llm') || message.includes('api');
 
-    // Tool result / completion
-    const toolCompleteMatch = PATTERNS.toolComplete.exec(message) || PATTERNS.toolResult.exec(message);
-    if (toolCompleteMatch) {
-      const durationMatch = PATTERNS.duration.exec(message);
-      this.emitEvent({
-        type: 'tool_result',
-        toolName: toolCompleteMatch[1] || 'unknown',
-        taskId,
-        success: level !== 'error',
-        durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
-        output: message,
-        timestamp,
-      });
-    }
-
-    // Tool failure
-    const toolFailMatch = PATTERNS.toolFailed.exec(message);
-    if (toolFailMatch) {
-      this.emitEvent({
-        type: 'tool_result',
-        toolName: toolFailMatch[1] || 'unknown',
-        taskId,
-        success: false,
-        error: message,
-        timestamp,
-      });
-    }
-
-    // LLM API calls
-    const j = json as any;
-    const jsonTokensIn =
-      (typeof j?.tokens_in === 'number' ? j.tokens_in : undefined) ??
-      (typeof j?.input_tokens === 'number' ? j.input_tokens : undefined) ??
-      (typeof j?.prompt_tokens === 'number' ? j.prompt_tokens : undefined) ??
-      (typeof j?.usage?.input_tokens === 'number' ? j.usage.input_tokens : undefined) ??
-      (typeof j?.usage?.prompt_tokens === 'number' ? j.usage.prompt_tokens : undefined) ??
-      (typeof j?.payload?.input_tokens === 'number' ? j.payload.input_tokens : undefined) ??
-      (typeof j?.payload?.prompt_tokens === 'number' ? j.payload.prompt_tokens : undefined);
-
-    const jsonTokensOut =
-      (typeof j?.tokens_out === 'number' ? j.tokens_out : undefined) ??
-      (typeof j?.output_tokens === 'number' ? j.output_tokens : undefined) ??
-      (typeof j?.completion_tokens === 'number' ? j.completion_tokens : undefined) ??
-      (typeof j?.usage?.output_tokens === 'number' ? j.usage.output_tokens : undefined) ??
-      (typeof j?.usage?.completion_tokens === 'number' ? j.usage.completion_tokens : undefined) ??
-      (typeof j?.payload?.output_tokens === 'number' ? j.payload.output_tokens : undefined) ??
-      (typeof j?.payload?.completion_tokens === 'number' ? j.payload.completion_tokens : undefined);
-
-    const jsonCost =
-      (typeof j?.cost === 'number' ? j.cost : undefined) ??
-      (typeof j?.cost_usd === 'number' ? j.cost_usd : undefined) ??
-      (typeof j?.payload?.cost === 'number' ? j.payload.cost : undefined) ??
-      (typeof j?.payload?.cost_usd === 'number' ? j.payload.cost_usd : undefined);
-
-    if (
-      PATTERNS.llmRequest.test(message) ||
-      jsonTokensIn !== undefined ||
-      jsonTokensOut !== undefined ||
-      jsonCost !== undefined ||
-      !!j?.provider ||
-      !!j?.model ||
-      !!j?.payload?.provider ||
-      !!j?.payload?.model
-    ) {
-      const providerMatch = PATTERNS.llmProvider.exec(message);
-      const modelMatch = PATTERNS.llmModel.exec(message);
-      const tokensInMatch = PATTERNS.llmTokensIn.exec(message);
-      const tokensOutMatch = PATTERNS.llmTokensOut.exec(message);
-      const costMatch = PATTERNS.llmCost.exec(message);
-      const durationMatch = PATTERNS.duration.exec(message);
-
-      const provider =
-        providerMatch?.[1] ||
-        String(j?.provider || j?.fields?.provider || j?.payload?.provider || 'unknown');
-      const model =
-        modelMatch?.[1] ||
-        String(j?.model || j?.fields?.model || j?.payload?.model || 'unknown');
-      const tokensIn = tokensInMatch ? parseInt(tokensInMatch[1]) : jsonTokensIn;
-      const tokensOut = tokensOutMatch ? parseInt(tokensOutMatch[1]) : jsonTokensOut;
-
-      if (provider !== 'unknown' || model !== 'unknown' || tokensIn || tokensOut) {
+    // Tool invocation - only check if tool keyword present
+    if (hasToolKeyword) {
+      const toolInvokeMatch = PATTERNS.toolInvoke.exec(message) || PATTERNS.toolUse.exec(message);
+      if (toolInvokeMatch) {
         this.emitEvent({
-          type: 'llm_call',
-          provider,
-          model,
-          tokensIn,
-          tokensOut,
-          costUsd: costMatch ? parseFloat(costMatch[1]) : jsonCost,
-          durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
+          type: 'tool_call',
+          toolName: toolInvokeMatch[1],
           taskId,
+          input: message,
           timestamp,
         });
+      }
+
+      // Tool result / completion
+      const toolCompleteMatch = PATTERNS.toolComplete.exec(message) || PATTERNS.toolResult.exec(message);
+      if (toolCompleteMatch) {
+        const durationMatch = PATTERNS.duration.exec(message);
+        this.emitEvent({
+          type: 'tool_result',
+          toolName: toolCompleteMatch[1] || 'unknown',
+          taskId,
+          success: level !== 'error',
+          durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
+          output: message,
+          timestamp,
+        });
+      }
+
+      // Tool failure
+      const toolFailMatch = PATTERNS.toolFailed.exec(message);
+      if (toolFailMatch) {
+        this.emitEvent({
+          type: 'tool_result',
+          toolName: toolFailMatch[1] || 'unknown',
+          taskId,
+          success: false,
+          error: message,
+          timestamp,
+        });
+      }
+    }
+
+    // LLM API calls - only check if provider keyword present
+    if (hasProviderKeyword || json) {
+      const j = json as any;
+      const jsonTokensIn =
+        (typeof j?.tokens_in === 'number' ? j.tokens_in : undefined) ??
+        (typeof j?.input_tokens === 'number' ? j.input_tokens : undefined) ??
+        (typeof j?.prompt_tokens === 'number' ? j.prompt_tokens : undefined) ??
+        (typeof j?.usage?.input_tokens === 'number' ? j.usage.input_tokens : undefined) ??
+        (typeof j?.usage?.prompt_tokens === 'number' ? j.usage.prompt_tokens : undefined) ??
+        (typeof j?.payload?.input_tokens === 'number' ? j.payload.input_tokens : undefined) ??
+        (typeof j?.payload?.prompt_tokens === 'number' ? j.payload.prompt_tokens : undefined);
+
+      const jsonTokensOut =
+        (typeof j?.tokens_out === 'number' ? j.tokens_out : undefined) ??
+        (typeof j?.output_tokens === 'number' ? j.output_tokens : undefined) ??
+        (typeof j?.completion_tokens === 'number' ? j.completion_tokens : undefined) ??
+        (typeof j?.usage?.output_tokens === 'number' ? j.usage.output_tokens : undefined) ??
+        (typeof j?.usage?.completion_tokens === 'number' ? j.usage.completion_tokens : undefined) ??
+        (typeof j?.payload?.output_tokens === 'number' ? j.payload.output_tokens : undefined) ??
+        (typeof j?.payload?.completion_tokens === 'number' ? j.payload.completion_tokens : undefined);
+
+      const jsonCost =
+        (typeof j?.cost === 'number' ? j.cost : undefined) ??
+        (typeof j?.cost_usd === 'number' ? j.cost_usd : undefined) ??
+        (typeof j?.payload?.cost === 'number' ? j.payload.cost : undefined) ??
+        (typeof j?.payload?.cost_usd === 'number' ? j.payload.cost_usd : undefined);
+
+      if (
+        PATTERNS.llmRequest.test(message) ||
+        jsonTokensIn !== undefined ||
+        jsonTokensOut !== undefined ||
+        jsonCost !== undefined ||
+        !!j?.provider ||
+        !!j?.model ||
+        !!j?.payload?.provider ||
+        !!j?.payload?.model
+      ) {
+        const providerMatch = PATTERNS.llmProvider.exec(message);
+        const modelMatch = PATTERNS.llmModel.exec(message);
+        const tokensInMatch = PATTERNS.llmTokensIn.exec(message);
+        const tokensOutMatch = PATTERNS.llmTokensOut.exec(message);
+        const costMatch = PATTERNS.llmCost.exec(message);
+        const durationMatch = PATTERNS.duration.exec(message);
+
+        const provider =
+          providerMatch?.[1] ||
+          String(j?.provider || j?.fields?.provider || j?.payload?.provider || 'unknown');
+        const model =
+          modelMatch?.[1] ||
+          String(j?.model || j?.fields?.model || j?.payload?.model || 'unknown');
+        const tokensIn = tokensInMatch ? parseInt(tokensInMatch[1]) : jsonTokensIn;
+        const tokensOut = tokensOutMatch ? parseInt(tokensOutMatch[1]) : jsonTokensOut;
+
+        if (provider !== 'unknown' || model !== 'unknown' || tokensIn || tokensOut) {
+          this.emitEvent({
+            type: 'llm_call',
+            provider,
+            model,
+            tokensIn,
+            tokensOut,
+            costUsd: costMatch ? parseFloat(costMatch[1]) : jsonCost,
+            durationMs: durationMatch ? parseDurationMs(durationMatch[1], durationMatch[2]) : undefined,
+            taskId,
+            timestamp,
+          });
+        }
       }
     }
   }

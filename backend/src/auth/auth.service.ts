@@ -18,7 +18,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {
-    this.apiKeySecret = this.config.get<string>('API_KEY_SECRET');
+    this.apiKeySecret = this.config.get<string>('API_KEY_SECRET') || '';
     if (!this.apiKeySecret) {
       throw new Error('API_KEY_SECRET environment variable is required');
     }
@@ -46,8 +46,12 @@ export class AuthService {
 
   private signToken(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
+    
+    // Use JWT_SIGNING_SECRET if set, otherwise use JWT_SECRET
+    const signingSecret = this.config.get<string>('JWT_SIGNING_SECRET') || this.config.get<string>('JWT_SECRET');
+    
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, signingSecret ? { secret: signingSecret } : undefined),
       user: { id: user.id, email: user.email, role: user.role, displayName: user.displayName },
     };
   }

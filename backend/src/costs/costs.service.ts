@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { AlertsService } from '../alerts/alerts.service';
 import { CostRecord } from '../database/entities/cost-record.entity';
 import { CostBudget } from '../database/entities/cost-budget.entity';
+import { PricingService } from './pricing.service';
 
 export interface IngestCostDto {
   runId: string;
@@ -16,11 +17,6 @@ export interface IngestCostDto {
   costUsd: string;
   recordedAt?: string;
 }
-
-const PRICING_MAP: Record<string, { in: number; out: number; cacheDiscount: number }> = {
-  'anthropic/claude-sonnet-4-6': { in: 3.0 / 1000000, out: 15.0 / 1000000, cacheDiscount: 0.1 }, // cache is 10% of base
-  'openai/gpt-5.3-codex': { in: 1.75 / 1000000, out: 14.0 / 1000000, cacheDiscount: 0.1 },
-};
 
 // ZeroClaw sends massive repeating system prompts, resulting in ~90% cache hits on OpenRouter
 const ASSUMED_CACHE_HIT_RATE = 0.90;
@@ -37,24 +33,29 @@ export class CostsService {
     @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
     @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
     private readonly alerts: AlertsService,
+    private readonly pricingService: PricingService,
   ) { }
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
+    const recordedAt = dto.recordedAt ? new Date(dto.recordedAt) : new Date();
     let costUsd = parseFloat(dto.costUsd || '0');
+    
     if (costUsd === 0 || isNaN(costUsd)) {
-      const pricing = PRICING_MAP[dto.model] || { in: 0, out: 0, cacheDiscount: 1 };
+      // Get pricing from database
+      const pricing = await this.pricingService.getPricing(dto.provider, dto.model, recordedAt);
 
       const cachedTokensIn = dto.tokensIn * ASSUMED_CACHE_HIT_RATE;
       const uncachedTokensIn = dto.tokensIn * (1 - ASSUMED_CACHE_HIT_RATE);
-      const tokensInCost = (uncachedTokensIn * pricing.in) + (cachedTokensIn * (pricing.in * pricing.cacheDiscount));
+      const tokensInCost = (uncachedTokensIn * pricing.inputPricePerMillion) + 
+                           (cachedTokensIn * (pricing.inputPricePerMillion * pricing.cacheDiscount));
 
-      costUsd = tokensInCost + (dto.tokensOut * pricing.out);
+      costUsd = tokensInCost + (dto.tokensOut * pricing.outputPricePerMillion);
     }
 
     const record = this.costRepo.create({
       ...dto,
       costUsd: costUsd.toFixed(6),
-      recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
+      recordedAt,
     });
     const saved = await this.costRepo.save(record);
 
@@ -90,18 +91,86 @@ export class CostsService {
   }
 
   async getCostByModel(from: Date, to: Date) {
-    return this.costRepo
-      .createQueryBuilder('c')
-      .select('c.provider', 'provider')
-      .addSelect('c.model', 'model')
-      .addSelect('SUM(CAST(c.cost_usd AS DECIMAL))', 'totalCostUsd')
-      .addSelect('SUM(c.tokens_in + c.tokens_out)', 'totalTokens')
-      .addSelect('COUNT(*)', 'callCount')
-      .where('c.recorded_at BETWEEN :from AND :to', { from, to })
-      .groupBy('c.provider')
-      .addGroupBy('c.model')
-      .orderBy('SUM(CAST(c.cost_usd AS DECIMAL))', 'DESC')
-      .getRawMany();
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Use materialized views for historical data (older than 24 hours)
+    if (to < oneDayAgo) {
+      // Query daily summary for old data
+      return this.costRepo.manager.query(`
+        SELECT 
+          provider,
+          model,
+          SUM(total_cost_usd) as "totalCostUsd",
+          SUM(total_tokens_in + total_tokens_out) as "totalTokens",
+          SUM(call_count) as "callCount"
+        FROM daily_cost_summary
+        WHERE day BETWEEN $1 AND $2
+        GROUP BY provider, model
+        ORDER BY SUM(total_cost_usd) DESC
+      `, [from, to]);
+    } else if (from >= oneDayAgo) {
+      // Query hourly summary for recent data
+      return this.costRepo.manager.query(`
+        SELECT 
+          provider,
+          model,
+          SUM(total_cost_usd) as "totalCostUsd",
+          SUM(total_tokens_in + total_tokens_out) as "totalTokens",
+          SUM(call_count) as "callCount"
+        FROM hourly_cost_summary
+        WHERE hour BETWEEN $1 AND $2
+        GROUP BY provider, model
+        ORDER BY SUM(total_cost_usd) DESC
+      `, [from, to]);
+    } else {
+      // Mixed query - combine both sources
+      const historicalData = await this.costRepo.manager.query(`
+        SELECT 
+          provider,
+          model,
+          SUM(total_cost_usd) as total_cost_usd,
+          SUM(total_tokens_in + total_tokens_out) as total_tokens,
+          SUM(call_count) as call_count
+        FROM daily_cost_summary
+        WHERE day BETWEEN $1 AND $2
+        GROUP BY provider, model
+      `, [from, oneDayAgo]);
+
+      const recentData = await this.costRepo.manager.query(`
+        SELECT 
+          provider,
+          model,
+          SUM(total_cost_usd) as total_cost_usd,
+          SUM(total_tokens_in + total_tokens_out) as total_tokens,
+          SUM(call_count) as call_count
+        FROM hourly_cost_summary
+        WHERE hour BETWEEN $1 AND $2
+        GROUP BY provider, model
+      `, [oneDayAgo, to]);
+
+      // Merge results
+      const merged = new Map();
+      [...historicalData, ...recentData].forEach(row => {
+        const key = `${row.provider}:${row.model}`;
+        if (merged.has(key)) {
+          const existing = merged.get(key);
+          existing.totalCostUsd = parseFloat(existing.totalCostUsd) + parseFloat(row.total_cost_usd);
+          existing.totalTokens = parseInt(existing.totalTokens) + parseInt(row.total_tokens);
+          existing.callCount = parseInt(existing.callCount) + parseInt(row.call_count);
+        } else {
+          merged.set(key, {
+            provider: row.provider,
+            model: row.model,
+            totalCostUsd: parseFloat(row.total_cost_usd),
+            totalTokens: parseInt(row.total_tokens),
+            callCount: parseInt(row.call_count),
+          });
+        }
+      });
+
+      return Array.from(merged.values()).sort((a, b) => b.totalCostUsd - a.totalCostUsd);
+    }
   }
 
   async getCostByAgent(from: Date, to: Date) {

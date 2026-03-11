@@ -197,25 +197,38 @@ export class AgentsService {
     const limit = Math.min(query.limit || 20, 100);
     const skip = (page - 1) * limit;
 
-    const where: FindManyOptions<AgentRun>['where'] = {};
+    // Build query with eager loading to prevent N+1
+    const queryBuilder = this.runRepo.createQueryBuilder('run')
+      .leftJoinAndSelect('run.steps', 'steps')
+      .orderBy('run.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit);
 
+    // Apply filters
     if (query.status) {
-      where.status = Array.isArray(query.status) ? In(query.status) : query.status;
+      if (Array.isArray(query.status)) {
+        queryBuilder.andWhere('run.status IN (:...statuses)', { statuses: query.status });
+      } else {
+        queryBuilder.andWhere('run.status = :status', { status: query.status });
+      }
     }
-    if (query.agentName) where.agentName = query.agentName;
-    if (query.trigger) where.trigger = query.trigger;
+    
+    if (query.agentName) {
+      queryBuilder.andWhere('run.agent_name = :agentName', { agentName: query.agentName });
+    }
+    
+    if (query.trigger) {
+      queryBuilder.andWhere('run.trigger = :trigger', { trigger: query.trigger });
+    }
+    
     if (query.from || query.to) {
       const from = query.from ? new Date(query.from) : new Date(0);
       const to = query.to ? new Date(query.to) : new Date();
-      where.startedAt = Between(from, to);
+      queryBuilder.andWhere('run.started_at BETWEEN :from AND :to', { from, to });
     }
 
-    const [items, total] = await this.runRepo.findAndCount({
-      where,
-      order: { createdAt: 'DESC' },
-      skip,
-      take: limit,
-    });
+    // Execute with count
+    const [items, total] = await queryBuilder.getManyAndCount();
 
     return { items, total, page, limit, pages: Math.ceil(total / limit) };
   }
