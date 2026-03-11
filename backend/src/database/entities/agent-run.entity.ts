@@ -33,6 +33,8 @@ export enum AgentRunTrigger {
 @Index(['status'])
 @Index(['agentName'])
 @Index(['startedAt'])
+@Index(['agentName', 'status', 'startedAt']) // Composite for filtered queries
+@Index(['status', 'startedAt']) // Composite for active runs timeline
 export class AgentRun {
   @PrimaryGeneratedColumn('uuid')
   id: string;

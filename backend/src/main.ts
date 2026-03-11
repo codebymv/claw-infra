@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -24,6 +25,22 @@ async function bootstrap() {
   const isProd = config.get<string>('NODE_ENV') === 'production';
 
   validateStartupEnv(config);
+
+  // Run database migrations before starting the server
+  const dataSource = app.get(DataSource);
+  try {
+    console.log('Running database migrations...');
+    const migrations = await dataSource.runMigrations({ transaction: 'all' });
+    if (migrations.length > 0) {
+      console.log(`Applied ${migrations.length} migration(s):`);
+      migrations.forEach((m) => console.log(`  - ${m.name}`));
+    } else {
+      console.log('No pending migrations');
+    }
+  } catch (error) {
+    console.error('Migration failed:', error);
+    process.exit(1);
+  }
 
   app.use(
     helmet({

@@ -21,6 +21,8 @@ export enum LogLevel {
 @Index(['runId'])
 @Index(['level'])
 @Index(['createdAt'])
+@Index(['runId', 'level', 'createdAt']) // Composite for filtered log queries
+@Index(['runId', 'createdAt']) // Composite for run log timeline
 export class AgentLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;

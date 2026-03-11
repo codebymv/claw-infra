@@ -15,6 +15,8 @@ import { AgentStep } from './agent-step.entity';
 @Index(['recordedAt'])
 @Index(['provider'])
 @Index(['model'])
+@Index(['runId', 'recordedAt']) // Composite for run cost timeline
+@Index(['provider', 'model', 'recordedAt']) // Composite for cost analytics
 export class CostRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;

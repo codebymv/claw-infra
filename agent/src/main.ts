@@ -17,6 +17,7 @@ import * as ingest from './ingest-client';
 const AGENT_NAME = process.env.ZEROCLAW_AGENT_NAME || 'zeroclaw-primary';
 const METRICS_INTERVAL_MS = parseInt(process.env.METRICS_INTERVAL_MS || '15000', 10);
 const LOG_BATCH_INTERVAL_MS = parseInt(process.env.LOG_BATCH_INTERVAL_MS || '5000', 10);
+const MAX_LOG_BUFFER_SIZE = parseInt(process.env.MAX_LOG_BUFFER_SIZE || '10000', 10);
 const ZEROCLAW_BIN = process.env.ZEROCLAW_BIN || 'zeroclaw';
 const ZEROCLAW_CMD = process.env.ZEROCLAW_CMD || 'daemon';
 
@@ -168,6 +169,16 @@ async function onLlmCall(event: LlmCallEvent): Promise<void> {
 function onLogLine(event: LogLineEvent): void {
   if (!currentRun) return;
 
+  // Check buffer capacity and drop oldest if full
+  if (logBuffer.length >= MAX_LOG_BUFFER_SIZE) {
+    logBuffer.shift(); // Remove oldest log
+    
+    // Log warning at 80% capacity (only once per run)
+    if (logBuffer.length === Math.floor(MAX_LOG_BUFFER_SIZE * 0.8)) {
+      console.warn(`[reporter] Log buffer at 80% capacity (${logBuffer.length}/${MAX_LOG_BUFFER_SIZE}), oldest logs will be dropped`);
+    }
+  }
+
   logBuffer.push({
     runId: currentRun.runId,
     level: event.level,
@@ -212,6 +223,7 @@ async function collectMetrics(): Promise<void> {
       cpuPercent: Math.min(Math.round(cpuPercent * 100) / 100, 100),
       memoryMb: Math.round(usedMem / 1024 / 1024),
       memoryPercent: Math.round((usedMem / totalMem) * 10000) / 100,
+      logBufferSize: logBuffer.length, // Include buffer size in metrics
     });
   } catch (err) {
     console.error(`[reporter] Failed to send metrics:`, err);

@@ -11,6 +11,7 @@ import { AgentRun } from './agent-run.entity';
 @Entity('resource_snapshots')
 @Index(['runId'])
 @Index(['recordedAt'])
+@Index(['runId', 'recordedAt']) // Composite for run metrics timeline
 export class ResourceSnapshot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
