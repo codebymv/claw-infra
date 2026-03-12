@@ -20,36 +20,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const secretsEnv = config.get<string>('JWT_SECRETS');
     const singleSecret = config.get<string>('JWT_SECRET');
     
+    let secrets: string[];
+    let primarySecret: string;
+    
     if (secretsEnv) {
-      const secrets = secretsEnv.split(',').map(s => s.trim()).filter(Boolean);
+      secrets = secretsEnv.split(',').map(s => s.trim()).filter(Boolean);
       if (secrets.length === 0) {
         throw new Error('JWT_SECRETS is set but contains no valid secrets');
       }
-      
-      // Use first secret for validation by default (passport-jwt limitation)
-      super({
-        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-        ignoreExpiration: false,
-        secretOrKey: secrets[0],
-      });
-      
-      // Store all secrets for manual validation fallback
-      // @ts-ignore - accessing private property for multi-secret support
-      this.jwtSecrets = secrets;
+      primarySecret = secrets[0];
     } else if (singleSecret) {
-      super({
-        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-        ignoreExpiration: false,
-        secretOrKey: singleSecret,
-      });
-      // @ts-ignore
-      this.jwtSecrets = [singleSecret];
+      secrets = [singleSecret];
+      primarySecret = singleSecret;
     } else {
       throw new Error('Either JWT_SECRET or JWT_SECRETS must be set');
     }
 
-    // Get signing secret (defaults to first secret in list)
-    this.signingSecret = config.get<string>('JWT_SIGNING_SECRET') || this.jwtSecrets[0];
+    // Call super() first with the primary secret
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: primarySecret,
+    });
+    
+    // Now we can set instance properties
+    this.jwtSecrets = secrets;
+    this.signingSecret = config.get<string>('JWT_SIGNING_SECRET') || secrets[0];
     
     // Warn if signing secret is not in the secrets list
     if (!this.jwtSecrets.includes(this.signingSecret)) {
