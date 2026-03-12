@@ -7,7 +7,7 @@ import { ApiKeyType } from '../database/entities/api-key.entity';
 import { AgentsService } from './agents.service';
 import { AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
 import { StepStatus } from '../database/entities/agent-step.entity';
-import { IdempotencyService } from '../common/idempotency.service';
+import { IdempotencyService } from '../common/services/idempotency.service';
 
 class IngestRunDto {
   @IsString()

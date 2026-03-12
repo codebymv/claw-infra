@@ -7,7 +7,7 @@ import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { LogsService } from './logs.service';
 import { LogLevel } from '../database/entities/agent-log.entity';
-import { IdempotencyService } from '../common/idempotency.service';
+import { IdempotencyService } from '../common/services/idempotency.service';
 
 class IngestLogDto {
   @IsString()

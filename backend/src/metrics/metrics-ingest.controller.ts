@@ -5,7 +5,7 @@ import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { MetricsService } from './metrics.service';
-import { IdempotencyService } from '../common/idempotency.service';
+import { IdempotencyService } from '../common/services/idempotency.service';
 
 class IngestSnapshotDto {
   @IsOptional()

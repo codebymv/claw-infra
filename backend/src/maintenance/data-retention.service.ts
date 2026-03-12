@@ -6,7 +6,6 @@ import { AgentLog } from '../database/entities/agent-log.entity';
 import { ResourceSnapshot } from '../database/entities/resource-snapshot.entity';
 import { CostRecord } from '../database/entities/cost-record.entity';
 import { CodeDailyMetric } from '../database/entities/code-daily-metric.entity';
-import { IdempotencyService } from '../common/idempotency.service';
 
 @Injectable()
 export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
@@ -22,7 +21,6 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
     private readonly costsRepo: Repository<CostRecord>,
     @InjectRepository(CodeDailyMetric)
     private readonly codeDailyMetricsRepo: Repository<CodeDailyMetric>,
-    private readonly idempotency: IdempotencyService,
     private readonly config: ConfigService,
   ) {}
 
@@ -77,7 +75,7 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
     const costsBefore = new Date(now - costsDays * 24 * 60 * 60 * 1000);
     const codeDailyBefore = new Date(now - codeDailyDays * 24 * 60 * 60 * 1000);
 
-    const [logsDeleted, metricsDeleted, costsDeleted, codeDailyDeleted, idempotencyDeleted] = await Promise.all([
+    const [logsDeleted, metricsDeleted, costsDeleted, codeDailyDeleted] = await Promise.all([
       this.logsRepo
         .createQueryBuilder()
         .delete()
@@ -106,13 +104,12 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
         .where('day < :beforeDate', { beforeDate: codeDailyBefore.toISOString().slice(0, 10) })
         .execute()
         .then((res) => res.affected || 0),
-      this.idempotency.pruneExpired(),
     ]);
 
     await this.downsampleOldMetrics(metricsBefore);
 
     this.logger.log(
-      `Retention sweep complete: logs=${logsDeleted}, metrics=${metricsDeleted}, costs=${costsDeleted}, codeDaily=${codeDailyDeleted}, idempotency=${idempotencyDeleted}`,
+      `Retention sweep complete: logs=${logsDeleted}, metrics=${metricsDeleted}, costs=${costsDeleted}, codeDaily=${codeDailyDeleted}`,
     );
 
     return {
@@ -120,7 +117,6 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
       metricsDeleted,
       costsDeleted,
       codeDailyDeleted,
-      idempotencyDeleted,
       cutoffs: {
         logsBefore,
         metricsBefore,
