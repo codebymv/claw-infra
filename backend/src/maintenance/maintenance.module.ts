@@ -6,6 +6,7 @@ import { CostRecord } from '../database/entities/cost-record.entity';
 import { CodeDailyMetric } from '../database/entities/code-daily-metric.entity';
 import { CommonModule } from '../common/common.module';
 import { DataRetentionService } from './data-retention.service';
+import { FixViewsController } from './fix-views.controller';
 
 @Module({
   imports: [
@@ -13,5 +14,6 @@ import { DataRetentionService } from './data-retention.service';
     CommonModule,
   ],
   providers: [DataRetentionService],
+  controllers: [FixViewsController],
 })
 export class MaintenanceModule {}

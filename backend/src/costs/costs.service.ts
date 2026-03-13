@@ -94,83 +94,109 @@ export class CostsService {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    // Use materialized views for historical data (older than 24 hours)
-    if (to < oneDayAgo) {
-      // Query daily summary for old data
-      return this.costRepo.manager.query(`
-        SELECT 
-          provider,
-          model,
-          SUM(total_cost_usd) as "totalCostUsd",
-          SUM(total_tokens_in + total_tokens_out) as "totalTokens",
-          SUM(call_count) as "callCount"
-        FROM daily_cost_summary
-        WHERE day BETWEEN $1 AND $2
-        GROUP BY provider, model
-        ORDER BY SUM(total_cost_usd) DESC
-      `, [from, to]);
-    } else if (from >= oneDayAgo) {
-      // Query hourly summary for recent data
-      return this.costRepo.manager.query(`
-        SELECT 
-          provider,
-          model,
-          SUM(total_cost_usd) as "totalCostUsd",
-          SUM(total_tokens_in + total_tokens_out) as "totalTokens",
-          SUM(call_count) as "callCount"
-        FROM hourly_cost_summary
-        WHERE hour BETWEEN $1 AND $2
-        GROUP BY provider, model
-        ORDER BY SUM(total_cost_usd) DESC
-      `, [from, to]);
-    } else {
-      // Mixed query - combine both sources
-      const historicalData = await this.costRepo.manager.query(`
-        SELECT 
-          provider,
-          model,
-          SUM(total_cost_usd) as total_cost_usd,
-          SUM(total_tokens_in + total_tokens_out) as total_tokens,
-          SUM(call_count) as call_count
-        FROM daily_cost_summary
-        WHERE day BETWEEN $1 AND $2
-        GROUP BY provider, model
-      `, [from, oneDayAgo]);
+    try {
+      // Use materialized views for historical data (older than 24 hours)
+      if (to < oneDayAgo) {
+        // Query daily summary for old data
+        return await this.costRepo.manager.query(`
+          SELECT 
+            provider,
+            model,
+            SUM(total_cost_usd) as "totalCostUsd",
+            SUM(total_tokens_in + total_tokens_out) as "totalTokens",
+            SUM(call_count) as "callCount"
+          FROM daily_cost_summary
+          WHERE day BETWEEN $1 AND $2
+          GROUP BY provider, model
+          ORDER BY SUM(total_cost_usd) DESC
+        `, [from, to]);
+      } else if (from >= oneDayAgo) {
+        // Query hourly summary for recent data
+        return await this.costRepo.manager.query(`
+          SELECT 
+            provider,
+            model,
+            SUM(total_cost_usd) as "totalCostUsd",
+            SUM(total_tokens_in + total_tokens_out) as "totalTokens",
+            SUM(call_count) as "callCount"
+          FROM hourly_cost_summary
+          WHERE hour BETWEEN $1 AND $2
+          GROUP BY provider, model
+          ORDER BY SUM(total_cost_usd) DESC
+        `, [from, to]);
+      } else {
+        // Mixed query - combine both sources
+        const historicalData = await this.costRepo.manager.query(`
+          SELECT 
+            provider,
+            model,
+            SUM(total_cost_usd) as total_cost_usd,
+            SUM(total_tokens_in + total_tokens_out) as total_tokens,
+            SUM(call_count) as call_count
+          FROM daily_cost_summary
+          WHERE day BETWEEN $1 AND $2
+          GROUP BY provider, model
+        `, [from, oneDayAgo]);
 
-      const recentData = await this.costRepo.manager.query(`
-        SELECT 
-          provider,
-          model,
-          SUM(total_cost_usd) as total_cost_usd,
-          SUM(total_tokens_in + total_tokens_out) as total_tokens,
-          SUM(call_count) as call_count
-        FROM hourly_cost_summary
-        WHERE hour BETWEEN $1 AND $2
-        GROUP BY provider, model
-      `, [oneDayAgo, to]);
+        const recentData = await this.costRepo.manager.query(`
+          SELECT 
+            provider,
+            model,
+            SUM(total_cost_usd) as total_cost_usd,
+            SUM(total_tokens_in + total_tokens_out) as total_tokens,
+            SUM(call_count) as call_count
+          FROM hourly_cost_summary
+          WHERE hour BETWEEN $1 AND $2
+          GROUP BY provider, model
+        `, [oneDayAgo, to]);
 
-      // Merge results
-      const merged = new Map();
-      [...historicalData, ...recentData].forEach(row => {
-        const key = `${row.provider}:${row.model}`;
-        if (merged.has(key)) {
-          const existing = merged.get(key);
-          existing.totalCostUsd = parseFloat(existing.totalCostUsd) + parseFloat(row.total_cost_usd);
-          existing.totalTokens = parseInt(existing.totalTokens) + parseInt(row.total_tokens);
-          existing.callCount = parseInt(existing.callCount) + parseInt(row.call_count);
-        } else {
-          merged.set(key, {
-            provider: row.provider,
-            model: row.model,
-            totalCostUsd: parseFloat(row.total_cost_usd),
-            totalTokens: parseInt(row.total_tokens),
-            callCount: parseInt(row.call_count),
-          });
-        }
-      });
+        // Merge results
+        const merged = new Map();
+        [...historicalData, ...recentData].forEach(row => {
+          const key = `${row.provider}:${row.model}`;
+          if (merged.has(key)) {
+            const existing = merged.get(key);
+            existing.totalCostUsd = parseFloat(existing.totalCostUsd) + parseFloat(row.total_cost_usd);
+            existing.totalTokens = parseInt(existing.totalTokens) + parseInt(row.total_tokens);
+            existing.callCount = parseInt(existing.callCount) + parseInt(row.call_count);
+          } else {
+            merged.set(key, {
+              provider: row.provider,
+              model: row.model,
+              totalCostUsd: parseFloat(row.total_cost_usd),
+              totalTokens: parseInt(row.total_tokens),
+              callCount: parseInt(row.call_count),
+            });
+          }
+        });
 
-      return Array.from(merged.values()).sort((a, b) => b.totalCostUsd - a.totalCostUsd);
+        return Array.from(merged.values()).sort((a, b) => b.totalCostUsd - a.totalCostUsd);
+      }
+    } catch (error) {
+      // If materialized views don't exist, fall back to direct cost_records query
+      if (error.message.includes('does not exist')) {
+        this.logger.warn(`Materialized views not available, falling back to direct query: ${error.message}`);
+        return this.getCostByModelFallback(from, to);
+      }
+      throw error;
     }
+  }
+
+  /**
+   * Fallback method when materialized views are not available
+   */
+  private async getCostByModelFallback(from: Date, to: Date) {
+    return this.costRepo
+      .createQueryBuilder('c')
+      .select('c.provider', 'provider')
+      .addSelect('c.model', 'model')
+      .addSelect('SUM(CAST(c.cost_usd AS DECIMAL))', 'totalCostUsd')
+      .addSelect('SUM(c.tokens_in + c.tokens_out)', 'totalTokens')
+      .addSelect('COUNT(*)', 'callCount')
+      .where('c.recorded_at BETWEEN :from AND :to', { from, to })
+      .groupBy('c.provider, c.model')
+      .orderBy('SUM(CAST(c.cost_usd AS DECIMAL))', 'DESC')
+      .getRawMany();
   }
 
   async getCostByAgent(from: Date, to: Date) {

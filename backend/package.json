@@ -22,7 +22,14 @@
     "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/AutoMigration",
     "migration:create": "npm run typeorm -- migration:create src/database/migrations/ManualMigration",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "db:manage": "ts-node database-manager.ts",
+    "db:fix": "npm run db:manage -- --operation=matviews",
+    "db:health": "npm run db:manage -- --operation=health",
+    "db:cleanup": "npm run db:manage -- --operation=cleanup",
+    "db:indexes": "npm run db:manage -- --operation=indexes",
+    "db:migrate": "npm run db:manage -- --operation=migrate",
+    "db:test": "ts-node test-db-connection.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
