@@ -4,15 +4,16 @@ This document describes how to update the pinned ZeroClaw version in the agent D
 
 ## Current Version
 
-**v0.4.2** (pinned in `agent/Dockerfile`)
+**v0.1.9a** (pinned in `agent/Dockerfile`, built from source)
 
-## Why Pin Versions?
+## Why Build from Source?
 
-Pinning ZeroClaw to a specific version ensures:
-- **Reproducible builds** - Same Dockerfile always produces same image
-- **Predictable deployments** - No surprise behavior changes
-- **Reliable rollbacks** - Can always rebuild exact previous version
-- **Controlled updates** - Explicit decision to adopt new versions
+Building ZeroClaw from source ensures:
+- **Always available** - No dependency on prebuilt binary availability
+- **Architecture support** - Works on any architecture supported by Rust
+- **Security** - Full control over the build process
+- **Reproducible builds** - Same source always produces same binary
+- **Latest fixes** - Get all commits up to the tagged version
 
 ## Updating ZeroClaw Version
 
@@ -73,9 +74,10 @@ docker build --build-arg ZEROCLAW_VERSION=v0.4.4 -t claw-agent:custom agent/
 
 | ZeroClaw Version | Agent Reporter | Notes |
 |---|---|---|
-| v0.4.2 | ✅ Compatible | Current pinned version |
-| v0.4.1 | ✅ Compatible | Previous stable |
-| v0.4.0 | ✅ Compatible | Initial release |
+| v0.1.9a | ✅ Compatible | Current pinned version (built from source) |
+| v0.1.9-beta.136 | ✅ Compatible | Latest beta (built from source) |
+| v0.4.2 | ✅ Compatible | Previous stable (deprecated) |
+| v0.4.1 | ✅ Compatible | Previous stable (deprecated) |
 | latest | ❌ Blocked | Not allowed (fails at build time) |
 
 ## Troubleshooting
@@ -86,7 +88,7 @@ The Dockerfile supports `amd64` (x86_64) and `arm64` (aarch64) only. If you need
 
 ### Download fails with 404
 
-The specified version doesn't exist. Check the releases page and ensure the version tag is correct (must include `v` prefix, e.g., `v0.4.2` not `0.4.2`).
+This issue has been resolved by building from source instead of downloading prebuilt binaries. The Dockerfile now clones the repository and builds ZeroClaw from source, which is more reliable and works for all architectures.
 
 ### Version mismatch after build
 

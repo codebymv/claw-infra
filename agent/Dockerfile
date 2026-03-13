@@ -24,19 +24,26 @@ RUN apt-get update \
 
 # Railway CLI is now installed via npm in the builder stage
 
-# Install ZeroClaw binary from GitHub releases
-# Using specific version v0.1.9a which is confirmed to exist
+# Install ZeroClaw binary by building from source
+# This is more reliable than downloading prebuilt binaries
 ARG ZEROCLAW_VERSION=v0.1.9a
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "amd64" ]; then TARGET="x86_64-unknown-linux-gnu"; \
-    elif [ "$ARCH" = "arm64" ]; then TARGET="aarch64-unknown-linux-gnu"; \
-    else echo "Unsupported arch: $ARCH" && exit 1; fi && \
-    URL="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${TARGET}.tar.gz" && \
-    echo "Downloading ZeroClaw ${ZEROCLAW_VERSION} from $URL" && \
-    curl -fsSL "$URL" -o /tmp/zeroclaw.tar.gz && \
-    tar -xzf /tmp/zeroclaw.tar.gz -C /usr/local/bin/ && \
-    chmod +x /usr/local/bin/zeroclaw && \
-    rm /tmp/zeroclaw.tar.gz
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . ~/.cargo/env \
+    && echo "Building ZeroClaw ${ZEROCLAW_VERSION} from source" \
+    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} https://github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
+    && cd /tmp/zeroclaw \
+    && cargo build --release \
+    && cp target/release/zeroclaw /usr/local/bin/zeroclaw \
+    && chmod +x /usr/local/bin/zeroclaw \
+    && cd / \
+    && rm -rf /tmp/zeroclaw ~/.cargo \
+    && apt-get remove -y build-essential pkg-config libssl-dev \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create workspace directory
 RUN mkdir -p /app/workspace /root/.zeroclaw
