@@ -6,6 +6,7 @@ export type PubSubChannel =
   | 'global:status'
   | `run:${string}`
   | `logs:${string}`
+  | `project:${string}`
   | 'resources:live';
 
 @Injectable()

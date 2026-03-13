@@ -25,19 +25,13 @@ RUN apt-get update \
 # Railway CLI is now installed via npm in the builder stage
 
 # Install ZeroClaw binary from GitHub releases
-# NOTE: Update ZEROCLAW_VERSION to match your actual ZeroClaw release version
-# Check available versions at: https://github.com/zeroclaw-labs/zeroclaw/releases
-# For now, using latest as a fallback - update this in production!
-ARG ZEROCLAW_VERSION=latest
+# Using specific version v0.1.9a which is confirmed to exist
+ARG ZEROCLAW_VERSION=v0.1.9a
 RUN ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "amd64" ]; then TARGET="x86_64-unknown-linux-gnu"; \
     elif [ "$ARCH" = "arm64" ]; then TARGET="aarch64-unknown-linux-gnu"; \
     else echo "Unsupported arch: $ARCH" && exit 1; fi && \
-    if [ "$ZEROCLAW_VERSION" = "latest" ]; then \
-      URL="https://github.com/zeroclaw-labs/zeroclaw/releases/latest/download/zeroclaw-${TARGET}.tar.gz"; \
-    else \
-      URL="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${TARGET}.tar.gz"; \
-    fi && \
+    URL="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${TARGET}.tar.gz" && \
     echo "Downloading ZeroClaw ${ZEROCLAW_VERSION} from $URL" && \
     curl -fsSL "$URL" -o /tmp/zeroclaw.tar.gz && \
     tar -xzf /tmp/zeroclaw.tar.gz -C /usr/local/bin/ && \

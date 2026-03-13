@@ -16,6 +16,14 @@ import { CodeSyncState } from '../database/entities/code-sync-state.entity';
 import { CodeDailyMetric } from '../database/entities/code-daily-metric.entity';
 import { IdempotencyRecord } from '../database/entities/idempotency-record.entity';
 import { ModelPricing } from '../database/entities/model-pricing.entity';
+// Project Management Entities
+import { Project } from '../database/entities/project.entity';
+import { ProjectMember } from '../database/entities/project-member.entity';
+import { KanbanBoard } from '../database/entities/kanban-board.entity';
+import { Column } from '../database/entities/column.entity';
+import { Card } from '../database/entities/card.entity';
+import { Comment } from '../database/entities/comment.entity';
+import { CardHistory } from '../database/entities/card-history.entity';
 
 export const DATABASE_ENTITIES = [
   AgentRun,
@@ -34,6 +42,14 @@ export const DATABASE_ENTITIES = [
   CodeDailyMetric,
   IdempotencyRecord,
   ModelPricing,
+  // Project Management Entities
+  Project,
+  ProjectMember,
+  KanbanBoard,
+  Column,
+  Card,
+  Comment,
+  CardHistory,
 ];
 
 export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions {

@@ -13,6 +13,7 @@ import { WsModule } from './ws/ws.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { CodeModule } from './code/code.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { ProjectsModule } from './projects/projects.module';
 import { buildTypeOrmConfig } from './config/database.config';
 
 @Module({
@@ -53,6 +54,7 @@ import { buildTypeOrmConfig } from './config/database.config';
     AlertsModule,
     CodeModule,
     MaintenanceModule,
+    ProjectsModule,
   ],
 })
 export class AppModule { }

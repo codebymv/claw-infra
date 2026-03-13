@@ -40,12 +40,26 @@ async function testConnection() {
       console.log(`   Parsed username: ${url.username}`);
       console.log(`   Password length: ${url.password?.length || 0} characters\n`);
 
+      // Ensure password is a string and handle potential encoding issues
+      let password = url.password;
+      if (password) {
+        // Try decoding if it appears to be URL-encoded
+        try {
+          const decoded = decodeURIComponent(password);
+          // Only use decoded version if it's different (was actually encoded)
+          password = decoded !== password ? decoded : password;
+        } catch {
+          // If decoding fails, use original password
+          password = url.password;
+        }
+      }
+
       dataSource = new DataSource({
         type: 'postgres',
         host: url.hostname,
         port: parseInt(url.port) || 5432,
         username: url.username,
-        password: decodeURIComponent(url.password), // Decode URL-encoded password
+        password: password || '', // Ensure password is always a string
         database: url.pathname.slice(1),
         ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
         logging: false,

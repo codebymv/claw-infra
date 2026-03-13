@@ -72,8 +72,13 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       server.to(channel).emit(channel, data);
     });
 
+    // Use pattern subscription for project-specific channels (wildcard)
+    this.pubSub.psubscribe('project:*', (channel, data) => {
+      server.to(channel).emit(channel, data);
+    });
+
     this.logger.log(`WebSocket gateway initialized (CORS origin: ${frontendUrl})`);
-    this.logger.log('Using wildcard subscriptions for run:* and logs:* channels');
+    this.logger.log('Using wildcard subscriptions for run:*, logs:*, and project:* channels');
   }
 
   handleConnection(client: Socket) {
@@ -150,12 +155,13 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       channel === 'global:status' ||
       channel === 'resources:live' ||
       /^run:[a-f0-9-]{36}$/.test(channel) ||
-      /^logs:[a-f0-9-]{36}$/.test(channel)
+      /^logs:[a-f0-9-]{36}$/.test(channel) ||
+      /^project:[a-f0-9-]{36}$/.test(channel)
     );
   }
 
   private isDynamicChannel(channel: string): boolean {
-    return channel.startsWith('run:') || channel.startsWith('logs:');
+    return channel.startsWith('run:') || channel.startsWith('logs:') || channel.startsWith('project:');
   }
 
   broadcastRunUpdate(runId: string, data: unknown) {
@@ -169,5 +175,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
 
   broadcastResourceUpdate(data: unknown) {
     this.pubSub.publish('resources:live', data);
+  }
+
+  broadcastProjectUpdate(projectId: string, data: unknown) {
+    this.pubSub.publish(`project:${projectId}`, data);
+    this.pubSub.publish('global:status', data);
   }
 }
