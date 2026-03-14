@@ -244,30 +244,6 @@ export default function ProjectsPage() {
         onOpenChange={setCreateDialogOpen}
         onSuccess={handleProjectCreate}
       />
-
-      {/* Backend Status Info */}
-      <div className="mt-12 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
-              Backend Services Ready
-            </h3>
-            <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
-              <p>All project management APIs are implemented and ready:</p>
-              <ul className="mt-2 space-y-1 text-xs">
-                <li>• Project & Board Management</li>
-                <li>• Card & Comment System</li>
-                <li>• Real-time WebSocket Updates</li>
-                <li>• Advanced Search & Analytics</li>
-                <li>• Agent API Integration</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
