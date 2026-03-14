@@ -11,11 +11,13 @@ import {
   Cpu,
   Settings,
   GitPullRequest,
+  Kanban,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agents', label: 'Agent Runs', icon: Bot },
+  { href: '/projects', label: 'Projects', icon: Kanban },
   { href: '/costs', label: 'Cost Analytics', icon: DollarSign },
   { href: '/code', label: 'Code', icon: GitPullRequest },
   { href: '/resources', label: 'Resources', icon: Cpu },
