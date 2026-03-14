@@ -65,8 +65,8 @@ export function KanbanColumn({
     }
   };
 
-  const wipLimitReached = column.wipLimit && sortedCards.length >= column.wipLimit;
-  const wipLimitWarning = column.wipLimit && sortedCards.length >= column.wipLimit * 0.8;
+  const wipLimitReached = !!(column.wipLimit && sortedCards.length >= column.wipLimit);
+  const wipLimitWarning = !!(column.wipLimit && sortedCards.length >= column.wipLimit * 0.8);
 
   return (
     <div className="flex-shrink-0 w-80">
