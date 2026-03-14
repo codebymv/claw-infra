@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { type Card } from '@/lib/api';
-import { Calendar, MessageSquare, Paperclip, User } from 'lucide-react';
+import { Calendar, MessageSquare, User } from 'lucide-react';
 
 interface KanbanCardProps {
   card: Card;
@@ -124,16 +124,10 @@ export function KanbanCard({ card, onDragStart, onDragEnd, onUpdate, onCardClick
         </div>
         
         <div className="flex items-center space-x-2">
-          {card.attachmentCount && card.attachmentCount > 0 && (
-            <div className="flex items-center">
-              <Paperclip className="h-3 w-3 mr-1" />
-              <span>{card.attachmentCount}</span>
-            </div>
-          )}
-          {card.commentCount && card.commentCount > 0 && (
+          {card.comments && card.comments.length > 0 && (
             <div className="flex items-center">
               <MessageSquare className="h-3 w-3 mr-1" />
-              <span>{card.commentCount}</span>
+              <span>{card.comments.length}</span>
             </div>
           )}
         </div>
