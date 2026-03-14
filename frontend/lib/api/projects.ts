@@ -36,10 +36,19 @@ export interface UpdateProjectRequest {
   settings?: Partial<Project['settings']>;
 }
 
+export interface ProjectsResponse {
+  items: Project[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
 class ProjectsApi {
   // Projects
   async getProjects(): Promise<Project[]> {
-    return api.get('/projects');
+    const response: ProjectsResponse = await api.get('/projects');
+    return response.items;
   }
 
   async getProject(id: string): Promise<Project> {
