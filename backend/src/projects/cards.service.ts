@@ -42,7 +42,7 @@ export class CardsService {
       const maxPosition = await this.cardRepo
         .createQueryBuilder('card')
         .select('MAX(card.position)', 'maxPosition')
-        .where('card.column_id = :columnId', { columnId })
+        .where('card.columnId = :columnId', { columnId })
         .getRawOne<{ maxPosition: number }>();
 
       dto.position = (maxPosition?.maxPosition || 0) + 1;
@@ -118,13 +118,13 @@ export class CardsService {
       .leftJoinAndSelect('card.reporter', 'reporter')
       .leftJoinAndSelect('card.column', 'column')
       .leftJoinAndSelect('card.board', 'board')
-      .where('card.board_id = :boardId', { boardId })
+      .where('card.boardId = :boardId', { boardId })
       .skip(skip)
       .take(limit);
 
     // Apply filters
     if (query.columnId) {
-      queryBuilder.andWhere('card.column_id = :columnId', { columnId: query.columnId });
+      queryBuilder.andWhere('card.columnId = :columnId', { columnId: query.columnId });
     }
 
     if (query.type) {
@@ -140,11 +140,11 @@ export class CardsService {
     }
 
     if (query.assigneeId) {
-      queryBuilder.andWhere('card.assignee_id = :assigneeId', { assigneeId: query.assigneeId });
+      queryBuilder.andWhere('card.assigneeId = :assigneeId', { assigneeId: query.assigneeId });
     }
 
     if (query.reporterId) {
-      queryBuilder.andWhere('card.reporter_id = :reporterId', { reporterId: query.reporterId });
+      queryBuilder.andWhere('card.reporterId = :reporterId', { reporterId: query.reporterId });
     }
 
     if (query.tags && query.tags.length > 0) {
@@ -253,7 +253,7 @@ export class CardsService {
       const maxPosition = await this.cardRepo
         .createQueryBuilder('card')
         .select('MAX(card.position)', 'maxPosition')
-        .where('card.column_id = :columnId', { columnId: dto.targetColumnId })
+        .where('card.columnId = :columnId', { columnId: dto.targetColumnId })
         .getRawOne<{ maxPosition: number }>();
 
       targetPosition = (maxPosition?.maxPosition || 0) + 1;
@@ -482,7 +482,7 @@ export class CardsService {
       .createQueryBuilder()
       .update(Card)
       .set({ position: () => `position + ${shift}` })
-      .where('column_id = :columnId AND position >= :fromPosition', { columnId, fromPosition })
+      .where('columnId = :columnId AND position >= :fromPosition', { columnId, fromPosition })
       .execute();
   }
 
@@ -498,7 +498,7 @@ export class CardsService {
         .createQueryBuilder()
         .update(Card)
         .set({ position: () => 'position - 1' })
-        .where('column_id = :columnId AND position > :oldPosition AND position <= :newPosition', {
+        .where('columnId = :columnId AND position > :oldPosition AND position <= :newPosition', {
           columnId: card.columnId,
           oldPosition,
           newPosition,
@@ -510,7 +510,7 @@ export class CardsService {
         .createQueryBuilder()
         .update(Card)
         .set({ position: () => 'position + 1' })
-        .where('column_id = :columnId AND position >= :newPosition AND position < :oldPosition', {
+        .where('columnId = :columnId AND position >= :newPosition AND position < :oldPosition', {
           columnId: card.columnId,
           oldPosition,
           newPosition,
@@ -524,9 +524,9 @@ export class CardsService {
 
   private getSortField(sortBy: string): string {
     const fieldMap = {
-      createdAt: 'created_at',
-      updatedAt: 'updated_at',
-      dueDate: 'due_date',
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt',
+      dueDate: 'dueDate',
       priority: 'priority',
       position: 'position',
     };
@@ -569,7 +569,7 @@ export class CardsService {
     const maxPosition = await this.cardRepo
       .createQueryBuilder('card')
       .select('MAX(card.position)', 'maxPosition')
-      .where('card.column_id = :columnId', { columnId: targetColumnId })
+      .where('card.columnId = :columnId', { columnId: targetColumnId })
       .getRawOne<{ maxPosition: number }>();
 
     let nextPosition = (maxPosition?.maxPosition || 0) + 1;

@@ -106,8 +106,8 @@ export class ProjectsService {
       .leftJoinAndSelect('members.user', 'memberUser')
       .leftJoinAndSelect('project.boards', 'boards')
       .where('project.status = :status', { status: ProjectStatus.ACTIVE })
-      .andWhere('(project.owner_id = :userId OR members.user_id = :userId)', { userId })
-      .orderBy('project.updated_at', 'DESC')
+      .andWhere('(project.ownerId = :userId OR members.userId = :userId)', { userId })
+      .orderBy('project.updatedAt', 'DESC')
       .skip(skip)
       .take(limit);
 
@@ -121,7 +121,7 @@ export class ProjectsService {
     }
 
     if (query.teamId) {
-      queryBuilder.andWhere('project.team_id = :teamId', { teamId: query.teamId });
+      queryBuilder.andWhere('project.teamId = :teamId', { teamId: query.teamId });
     }
 
     if (query.search) {

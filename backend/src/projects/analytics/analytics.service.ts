@@ -153,9 +153,9 @@ export class AnalyticsService {
     const completedCards = await this.cardRepo
       .createQueryBuilder('card')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
+      .where('board.projectId = :projectId', { projectId })
       .andWhere('card.status = :status', { status: CardStatus.COMPLETED })
-      .andWhere('card.completed_at BETWEEN :startDate AND :endDate', {
+      .andWhere('card.completedAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -219,8 +219,8 @@ export class AnalyticsService {
       .createQueryBuilder('card')
       .leftJoin('card.board', 'board')
       .leftJoin('card.assignee', 'assignee')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at BETWEEN :startDate AND :endDate', {
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -294,8 +294,8 @@ export class AnalyticsService {
       .select('card.status', 'status')
       .addSelect('COUNT(*)', 'count')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at BETWEEN :startDate AND :endDate', {
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -326,8 +326,8 @@ export class AnalyticsService {
       .select('card.priority', 'priority')
       .addSelect('COUNT(*)', 'count')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at BETWEEN :startDate AND :endDate', {
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -351,8 +351,8 @@ export class AnalyticsService {
       .select('card.type', 'type')
       .addSelect('COUNT(*)', 'count')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at BETWEEN :startDate AND :endDate', {
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -380,7 +380,7 @@ export class AnalyticsService {
     const columns = await this.columnRepo
       .createQueryBuilder('column')
       .leftJoin('column.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
+      .where('board.projectId = :projectId', { projectId })
       .getMany();
 
     const columnMetrics: Array<{
@@ -400,15 +400,15 @@ export class AnalyticsService {
       // Calculate average time in column based on history
       const avgTimeQuery = await this.historyRepo
         .createQueryBuilder('history')
-        .select('AVG(EXTRACT(EPOCH FROM (history.created_at - prev_history.created_at)))', 'avg_time')
+        .select('AVG(EXTRACT(EPOCH FROM (history.createdAt - prev_history.created_at)))', 'avg_time')
         .leftJoin('card_history', 'prev_history', 
-          'prev_history.card_id = history.card_id AND prev_history.created_at < history.created_at'
+          'prev_history.card_id = history.card_id AND prev_history.created_at < history.createdAt'
         )
-        .leftJoin('cards', 'card', 'card.id = history.card_id')
+        .leftJoin('cards', 'card', 'card.id = history.cardId')
         .leftJoin('kanban_boards', 'board', 'board.id = card.board_id')
         .where('board.project_id = :projectId', { projectId })
         .andWhere('history.metadata->>\'toColumnId\' = :columnId', { columnId: column.id })
-        .andWhere('history.created_at BETWEEN :startDate AND :endDate', {
+        .andWhere('history.createdAt BETWEEN :startDate AND :endDate', {
           startDate: timeRange.startDate,
           endDate: timeRange.endDate,
         })
@@ -458,8 +458,8 @@ export class AnalyticsService {
       const count = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
-        .where('board.project_id = :projectId', { projectId })
-        .andWhere('card.created_at BETWEEN :start AND :end', {
+        .where('board.projectId = :projectId', { projectId })
+        .andWhere('card.createdAt BETWEEN :start AND :end', {
           start: startOfDay,
           end: endOfDay,
         })
@@ -477,9 +477,9 @@ export class AnalyticsService {
       const count = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
-        .where('board.project_id = :projectId', { projectId })
+        .where('board.projectId = :projectId', { projectId })
         .andWhere('card.status = :status', { status: CardStatus.COMPLETED })
-        .andWhere('card.completed_at BETWEEN :start AND :end', {
+        .andWhere('card.completedAt BETWEEN :start AND :end', {
           start: startOfDay,
           end: endOfDay,
         })
@@ -498,9 +498,9 @@ export class AnalyticsService {
       const weeklyCompleted = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
-        .where('board.project_id = :projectId', { projectId })
+        .where('board.projectId = :projectId', { projectId })
         .andWhere('card.status = :status', { status: CardStatus.COMPLETED })
-        .andWhere('card.completed_at BETWEEN :start AND :end', {
+        .andWhere('card.completedAt BETWEEN :start AND :end', {
           start: weekStart,
           end: weekEnd,
         })
@@ -538,8 +538,8 @@ export class AnalyticsService {
     const totalCards = await this.cardRepo
       .createQueryBuilder('card')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at <= :endDate', { endDate: timeRange.endDate })
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt <= :endDate', { endDate: timeRange.endDate })
       .getCount();
 
     let cumulativeCompleted = 0;
@@ -553,9 +553,9 @@ export class AnalyticsService {
       const completedUpToDate = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
-        .where('board.project_id = :projectId', { projectId })
+        .where('board.projectId = :projectId', { projectId })
         .andWhere('card.status = :status', { status: CardStatus.COMPLETED })
-        .andWhere('card.completed_at <= :date', { date })
+        .andWhere('card.completedAt <= :date', { date })
         .getCount();
 
       const remaining = Math.max(0, totalCards - completedUpToDate);
@@ -580,10 +580,10 @@ export class AnalyticsService {
       .createQueryBuilder()
       .select('COUNT(*)', 'count')
       .from('comments', 'comment')
-      .leftJoin('cards', 'card', 'card.id = comment.card_id')
-      .leftJoin('kanban_boards', 'board', 'board.id = card.board_id')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('comment.created_at BETWEEN :startDate AND :endDate', {
+      .leftJoin('cards', 'card', 'card.id = comment.cardId')
+      .leftJoin('kanban_boards', 'board', 'board.id = card.boardId')
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('comment.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })
@@ -592,8 +592,8 @@ export class AnalyticsService {
     const cardCount = await this.cardRepo
       .createQueryBuilder('card')
       .leftJoin('card.board', 'board')
-      .where('board.project_id = :projectId', { projectId })
-      .andWhere('card.created_at BETWEEN :startDate AND :endDate', {
+      .where('board.projectId = :projectId', { projectId })
+      .andWhere('card.createdAt BETWEEN :startDate AND :endDate', {
         startDate: timeRange.startDate,
         endDate: timeRange.endDate,
       })

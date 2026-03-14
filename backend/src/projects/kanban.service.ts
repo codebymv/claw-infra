@@ -201,7 +201,7 @@ export class KanbanService {
       const maxOrder = await this.columnRepo
         .createQueryBuilder('column')
         .select('MAX(column.order)', 'maxOrder')
-        .where('column.board_id = :boardId', { boardId })
+        .where('column.boardId = :boardId', { boardId })
         .getRawOne<{ maxOrder: number }>();
 
       dto.order = (maxOrder?.maxOrder || 0) + 1;
@@ -442,7 +442,7 @@ export class KanbanService {
       .createQueryBuilder()
       .update(Column)
       .set({ order: () => `"order" + ${shift}` })
-      .where('board_id = :boardId AND "order" >= :fromOrder', { boardId, fromOrder })
+      .where('boardId = :boardId AND "order" >= :fromOrder', { boardId, fromOrder })
       .execute();
   }
 
@@ -458,7 +458,7 @@ export class KanbanService {
         .createQueryBuilder()
         .update(Column)
         .set({ order: () => '"order" - 1' })
-        .where('board_id = :boardId AND "order" > :oldOrder AND "order" <= :newOrder', {
+        .where('boardId = :boardId AND "order" > :oldOrder AND "order" <= :newOrder', {
           boardId: column.boardId,
           oldOrder,
           newOrder,
@@ -470,7 +470,7 @@ export class KanbanService {
         .createQueryBuilder()
         .update(Column)
         .set({ order: () => '"order" + 1' })
-        .where('board_id = :boardId AND "order" >= :newOrder AND "order" < :oldOrder', {
+        .where('boardId = :boardId AND "order" >= :newOrder AND "order" < :oldOrder', {
           boardId: column.boardId,
           oldOrder,
           newOrder,

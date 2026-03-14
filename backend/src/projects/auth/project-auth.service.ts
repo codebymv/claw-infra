@@ -110,7 +110,8 @@ export class ProjectAuthService {
       .createQueryBuilder()
       .select('project.*')
       .from('cards', 'card')
-      .innerJoin('projects', 'project', 'project.id = card.board_id')
+      .innerJoin('kanban_boards', 'board', 'board.id = card.board_id')
+      .innerJoin('projects', 'project', 'project.id = board.project_id')
       .where('card.id = :cardId', { cardId })
       .getRawOne();
 
@@ -218,10 +219,10 @@ export class ProjectAuthService {
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.owner', 'owner')
       .leftJoin('project.members', 'member')
-      .where('project.owner_id = :userId', { userId })
-      .orWhere('member.user_id = :userId', { userId })
+      .where('project.ownerId = :userId', { userId })
+      .orWhere('member.userId = :userId', { userId })
       .orWhere('project.visibility = :visibility', { visibility: ProjectVisibility.PUBLIC })
-      .orderBy('project.updated_at', 'DESC')
+      .orderBy('project.updatedAt', 'DESC')
       .getMany();
   }
 

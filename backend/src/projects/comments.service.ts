@@ -116,19 +116,19 @@ export class CommentsService {
       .leftJoinAndSelect('comment.author', 'author')
       .leftJoinAndSelect('comment.replies', 'replies')
       .leftJoinAndSelect('replies.author', 'replyAuthor')
-      .where('comment.card_id = :cardId', { cardId })
-      .andWhere('comment.deleted_at IS NULL')
-      .orderBy('comment.created_at', 'DESC')
-      .addOrderBy('replies.created_at', 'ASC')
+      .where('comment.cardId = :cardId', { cardId })
+      .andWhere('comment.deletedAt IS NULL')
+      .orderBy('comment.createdAt', 'DESC')
+      .addOrderBy('replies.createdAt', 'ASC')
       .skip(skip)
       .take(limit);
 
     // Filter by parent (for threading)
     if (query.parentId) {
-      queryBuilder.andWhere('comment.parent_id = :parentId', { parentId: query.parentId });
+      queryBuilder.andWhere('comment.parentId = :parentId', { parentId: query.parentId });
     } else {
       // Only get top-level comments (no parent)
-      queryBuilder.andWhere('comment.parent_id IS NULL');
+      queryBuilder.andWhere('comment.parentId IS NULL');
     }
 
     const [items, total] = await queryBuilder.getManyAndCount();
@@ -358,9 +358,9 @@ export class CommentsService {
       }),
       this.commentRepo
         .createQueryBuilder('comment')
-        .select('COUNT(DISTINCT comment.author_id)', 'count')
-        .where('comment.card_id = :cardId', { cardId })
-        .andWhere('comment.deleted_at IS NULL')
+        .select('COUNT(DISTINCT comment.authorId)', 'count')
+        .where('comment.cardId = :cardId', { cardId })
+        .andWhere('comment.deletedAt IS NULL')
         .getRawOne<{ count: string }>(),
     ]);
 

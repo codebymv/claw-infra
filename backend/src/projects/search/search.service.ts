@@ -185,7 +185,7 @@ export class SearchService {
       .leftJoinAndSelect('comment.card', 'card')
       .leftJoinAndSelect('card.board', 'board')
       .leftJoinAndSelect('board.project', 'project')
-      .where('comment.deleted_at IS NULL');
+      .where('comment.deletedAt IS NULL');
 
     // Add full-text search
     if (query && query.trim()) {
@@ -217,17 +217,17 @@ export class SearchService {
 
     // Apply date filters
     if (searchQuery.createdAfter) {
-      queryBuilder = queryBuilder.andWhere('comment.created_at >= :createdAfter', { createdAfter: searchQuery.createdAfter });
+      queryBuilder = queryBuilder.andWhere('comment.createdAt >= :createdAfter', { createdAfter: searchQuery.createdAfter });
     }
     if (searchQuery.createdBefore) {
-      queryBuilder = queryBuilder.andWhere('comment.created_at <= :createdBefore', { createdBefore: searchQuery.createdBefore });
+      queryBuilder = queryBuilder.andWhere('comment.createdAt <= :createdBefore', { createdBefore: searchQuery.createdBefore });
     }
 
     // Apply sorting
     if (query && sortBy === 'relevance') {
       queryBuilder = queryBuilder.orderBy('relevance', sortOrder);
     } else {
-      const sortField = sortBy === 'created' ? 'comment.created_at' : 'comment.updated_at';
+      const sortField = sortBy === 'created' ? 'comment.createdAt' : 'comment.updatedAt';
       queryBuilder = queryBuilder.orderBy(sortField, sortOrder);
     }
 
@@ -414,15 +414,15 @@ export class SearchService {
     }
 
     if (columnId) {
-      queryBuilder = queryBuilder.andWhere('card.column_id = :columnId', { columnId });
+      queryBuilder = queryBuilder.andWhere('card.columnId = :columnId', { columnId });
     }
 
     if (assigneeId) {
-      queryBuilder = queryBuilder.andWhere('card.assignee_id = :assigneeId', { assigneeId });
+      queryBuilder = queryBuilder.andWhere('card.assigneeId = :assigneeId', { assigneeId });
     }
 
     if (reporterId) {
-      queryBuilder = queryBuilder.andWhere('card.reporter_id = :reporterId', { reporterId });
+      queryBuilder = queryBuilder.andWhere('card.reporterId = :reporterId', { reporterId });
     }
 
     if (status && status.length > 0) {
@@ -450,19 +450,19 @@ export class SearchService {
     }
 
     if (createdBefore) {
-      queryBuilder = queryBuilder.andWhere('card.created_at <= :createdBefore', { createdBefore });
+      queryBuilder = queryBuilder.andWhere('card.createdAt <= :createdBefore', { createdBefore });
     }
 
     if (createdAfter) {
-      queryBuilder = queryBuilder.andWhere('card.created_at >= :createdAfter', { createdAfter });
+      queryBuilder = queryBuilder.andWhere('card.createdAt >= :createdAfter', { createdAfter });
     }
 
     if (updatedBefore) {
-      queryBuilder = queryBuilder.andWhere('card.updated_at <= :updatedBefore', { updatedBefore });
+      queryBuilder = queryBuilder.andWhere('card.updatedAt <= :updatedBefore', { updatedBefore });
     }
 
     if (updatedAfter) {
-      queryBuilder = queryBuilder.andWhere('card.updated_at >= :updatedAfter', { updatedAfter });
+      queryBuilder = queryBuilder.andWhere('card.updatedAt >= :updatedAfter', { updatedAfter });
     }
 
     return queryBuilder;
@@ -479,10 +479,10 @@ export class SearchService {
     } else {
       switch (sortBy) {
         case 'created':
-          queryBuilder = queryBuilder.orderBy('card.created_at', sortOrder);
+          queryBuilder = queryBuilder.orderBy('card.createdAt', sortOrder);
           break;
         case 'updated':
-          queryBuilder = queryBuilder.orderBy('card.updated_at', sortOrder);
+          queryBuilder = queryBuilder.orderBy('card.updatedAt', sortOrder);
           break;
         case 'due':
           queryBuilder = queryBuilder.orderBy('card.due_date', sortOrder, 'NULLS LAST');
@@ -499,7 +499,7 @@ export class SearchService {
           );
           break;
         default:
-          queryBuilder = queryBuilder.orderBy('card.updated_at', 'DESC');
+          queryBuilder = queryBuilder.orderBy('card.updatedAt', 'DESC');
       }
     }
 

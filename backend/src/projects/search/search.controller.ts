@@ -15,11 +15,11 @@ import { CardStatus, CardPriority, CardType } from '../../database/entities/card
 
 export class SearchQueryDto {
   q?: string; // search query
-  project_id?: string;
-  board_id?: string;
-  column_id?: string;
-  assignee_id?: string;
-  reporter_id?: string;
+  projectId?: string;
+  boardId?: string;
+  columnId?: string;
+  assigneeId?: string;
+  reporterId?: string;
   status?: string; // comma-separated values
   priority?: string; // comma-separated values
   type?: string; // comma-separated values
@@ -228,20 +228,20 @@ export class SearchController {
     };
 
     // Parse optional filters
-    if (queryDto.board_id) {
-      searchQuery.boardId = queryDto.board_id;
+    if (queryDto.boardId) {
+      searchQuery.boardId = queryDto.boardId;
     }
 
-    if (queryDto.column_id) {
-      searchQuery.columnId = queryDto.column_id;
+    if (queryDto.columnId) {
+      searchQuery.columnId = queryDto.columnId;
     }
 
-    if (queryDto.assignee_id) {
-      searchQuery.assigneeId = queryDto.assignee_id;
+    if (queryDto.assigneeId) {
+      searchQuery.assigneeId = queryDto.assigneeId;
     }
 
-    if (queryDto.reporter_id) {
-      searchQuery.reporterId = queryDto.reporter_id;
+    if (queryDto.reporterId) {
+      searchQuery.reporterId = queryDto.reporterId;
     }
 
     // Parse array filters
