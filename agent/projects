@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+// ZeroClaw-compatible project management wrapper
+// This script provides a simple interface for ZeroClaw to access project management features
+
+const { execSync } = require('child_process');
+const path = require('path');
+
+// Get the project-manager.js path
+const projectManagerPath = path.join(__dirname, 'project-manager.js');
+
+// Get command line arguments
+const args = process.argv.slice(2);
+
+// Default command is 'projects' if no args provided
+const command = args.length > 0 ? args.join(' ') : 'projects';
+
+try {
+  // Execute the project-manager CLI
+  const result = execSync(`node "${projectManagerPath}" ${command}`, {
+    encoding: 'utf8',
+    stdio: 'pipe'
+  });
+  
+  console.log(result);
+} catch (error) {
+  console.error(`❌ Project management error: ${error.message}`);
+  process.exit(1);
+}
