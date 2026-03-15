@@ -13,7 +13,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ProjectAuthGuard } from './auth/project-auth.guard';
-import { ProjectAccessGuard, RequireProjectPermission } from './auth/project-access.guard';
+import {
+  ProjectAccessGuard,
+  RequireProjectPermission,
+} from './auth/project-access.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -31,21 +34,21 @@ export class ProjectsController {
   @Post()
   async createProject(@Body() dto: CreateProjectDto, @Request() req) {
     const result = await this.projectsService.createProject(dto, req.user.id);
-    
+
     await this.auditLogService.logProjectAccess(
       req.user.id,
       result.id,
       'create',
-      { projectName: result.name }
+      { projectName: result.name },
     );
-    
+
     return result;
   }
 
   @Get()
   async listProjects(@Query() query: ListProjectsQueryDto, @Request() req) {
     const result = await this.projectsService.listProjects(query, req.user.id);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'list',
@@ -53,7 +56,7 @@ export class ProjectsController {
       resourceId: 'all',
       metadata: { count: result.items.length },
     });
-    
+
     return result;
   }
 
@@ -62,27 +65,23 @@ export class ProjectsController {
   @RequireProjectPermission('read')
   async getProject(@Param('id') id: string, @Request() req) {
     const result = await this.projectsService.getProjectById(id);
-    
-    await this.auditLogService.logProjectAccess(
-      req.user.id,
-      id,
-      'read'
-    );
-    
+
+    await this.auditLogService.logProjectAccess(req.user.id, id, 'read');
+
     return result;
   }
 
   @Get('slug/:slug')
   async getProjectBySlug(@Param('slug') slug: string, @Request() req) {
     const result = await this.projectsService.getProjectBySlug(slug);
-    
+
     await this.auditLogService.logProjectAccess(
       req.user.id,
       result.id,
       'read',
-      { accessMethod: 'slug' }
+      { accessMethod: 'slug' },
     );
-    
+
     return result;
   }
 
@@ -94,15 +93,16 @@ export class ProjectsController {
     @Body() dto: UpdateProjectDto,
     @Request() req,
   ) {
-    const result = await this.projectsService.updateProject(id, dto, req.user.id);
-    
-    await this.auditLogService.logProjectAccess(
-      req.user.id,
+    const result = await this.projectsService.updateProject(
       id,
-      'update',
-      { changes: Object.keys(dto) }
+      dto,
+      req.user.id,
     );
-    
+
+    await this.auditLogService.logProjectAccess(req.user.id, id, 'update', {
+      changes: Object.keys(dto),
+    });
+
     return result;
   }
 
@@ -112,13 +112,9 @@ export class ProjectsController {
   @HttpCode(HttpStatus.OK)
   async archiveProject(@Param('id') id: string, @Request() req) {
     const result = await this.projectsService.archiveProject(id, req.user.id);
-    
-    await this.auditLogService.logProjectAccess(
-      req.user.id,
-      id,
-      'archive'
-    );
-    
+
+    await this.auditLogService.logProjectAccess(req.user.id, id, 'archive');
+
     return result;
   }
 
@@ -129,12 +125,8 @@ export class ProjectsController {
   async deleteProject(@Param('id') id: string, @Request() req) {
     // Only project owner can delete (additional check in service)
     await this.projectsService.deleteProject(id, req.user.id);
-    
-    await this.auditLogService.logProjectAccess(
-      req.user.id,
-      id,
-      'delete'
-    );
+
+    await this.auditLogService.logProjectAccess(req.user.id, id, 'delete');
   }
 
   @Post(':id/members')
@@ -145,15 +137,19 @@ export class ProjectsController {
     @Body() body: { userId: string; role: string },
     @Request() req,
   ) {
-    const result = await this.projectsService.addProjectMember(projectId, body.userId, body.role as any);
-    
+    const result = await this.projectsService.addProjectMember(
+      projectId,
+      body.userId,
+      body.role as any,
+    );
+
     await this.auditLogService.logProjectAccess(
       req.user.id,
       projectId,
       'add_member',
-      { targetUserId: body.userId, role: body.role }
+      { targetUserId: body.userId, role: body.role },
     );
-    
+
     return result;
   }
 
@@ -166,13 +162,17 @@ export class ProjectsController {
     @Param('userId') userId: string,
     @Request() req,
   ) {
-    await this.projectsService.removeProjectMember(projectId, userId, req.user.id);
-    
+    await this.projectsService.removeProjectMember(
+      projectId,
+      userId,
+      req.user.id,
+    );
+
     await this.auditLogService.logProjectAccess(
       req.user.id,
       projectId,
       'remove_member',
-      { targetUserId: userId }
+      { targetUserId: userId },
     );
   }
 }

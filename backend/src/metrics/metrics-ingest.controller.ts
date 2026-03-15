@@ -49,9 +49,7 @@ class IngestSnapshotDto {
 @RequireApiKeyType(ApiKeyType.AGENT)
 @Throttle({ ingest: { ttl: 60000, limit: 30 } })
 export class MetricsIngestController {
-  constructor(
-    private readonly metricsService: MetricsService,
-  ) {}
+  constructor(private readonly metricsService: MetricsService) {}
 
   @Post()
   async ingest(@Body() dto: IngestSnapshotDto) {

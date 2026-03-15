@@ -20,13 +20,24 @@ export class IdempotencyService {
   }
 
   ttlHours(): number {
-    const parsed = parseInt(this.config.get<string>('INGEST_IDEMPOTENCY_TTL_HOURS') || '24', 10);
+    const parsed = parseInt(
+      this.config.get<string>('INGEST_IDEMPOTENCY_TTL_HOURS') || '24',
+      10,
+    );
     if (Number.isNaN(parsed) || parsed < 1) return 24;
     return parsed;
   }
 
-  buildKeyHash(rawKey: string, route: string, tokenPrefix: string | null): string {
-    const normalized = [rawKey.trim(), route.trim().toLowerCase(), tokenPrefix || ''].join('|');
+  buildKeyHash(
+    rawKey: string,
+    route: string,
+    tokenPrefix: string | null,
+  ): string {
+    const normalized = [
+      rawKey.trim(),
+      route.trim().toLowerCase(),
+      tokenPrefix || '',
+    ].join('|');
     return createHash('sha256').update(normalized).digest('hex');
   }
 
@@ -51,9 +62,13 @@ export class IdempotencyService {
   }): Promise<void> {
     const expiresAt = new Date(Date.now() + this.ttlHours() * 60 * 60 * 1000);
 
-    const existing = await this.idempotencyRepo.findOne({ where: { keyHash: input.keyHash } });
+    const existing = await this.idempotencyRepo.findOne({
+      where: { keyHash: input.keyHash },
+    });
     if (existing) {
-      this.logger.debug(`Idempotency collision on ${input.route}, preserving original response`);
+      this.logger.debug(
+        `Idempotency collision on ${input.route}, preserving original response`,
+      );
       return;
     }
 

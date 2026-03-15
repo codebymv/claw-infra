@@ -34,7 +34,9 @@ export class ProjectMember {
   @Column({ name: 'project_id', type: 'uuid' })
   projectId: string;
 
-  @ManyToOne(() => Project, (project) => project.members, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, (project) => project.members, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'project_id' })
   project: Project;
 

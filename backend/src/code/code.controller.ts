@@ -13,7 +13,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IsEnum, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -73,7 +80,9 @@ class BackfillDto {
 
 function resolveRange(from?: string, to?: string) {
   const resolvedTo = to ? new Date(to) : new Date();
-  const resolvedFrom = from ? new Date(from) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const resolvedFrom = from
+    ? new Date(from)
+    : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   return { from: resolvedFrom, to: resolvedTo };
 }
 
@@ -102,7 +111,12 @@ export class CodeController {
   @UseGuards(AuthGuard('jwt'))
   getOverview(@Query() query: BaseCodeQueryDto) {
     const { from, to } = resolveRange(query.from, query.to);
-    return this.codeService.getOverview({ from, to, repo: query.repo, author: query.author });
+    return this.codeService.getOverview({
+      from,
+      to,
+      repo: query.repo,
+      author: query.author,
+    });
   }
 
   @Get('trends')
@@ -137,12 +151,20 @@ export class CodeController {
   @UseGuards(AuthGuard('jwt'))
   getQuality(@Query() query: BaseCodeQueryDto) {
     const { from, to } = resolveRange(query.from, query.to);
-    return this.codeService.getQuality({ from, to, repo: query.repo, author: query.author });
+    return this.codeService.getQuality({
+      from,
+      to,
+      repo: query.repo,
+      author: query.author,
+    });
   }
 
   @Post('sync/backfill')
   @UseGuards(AuthGuard('jwt'))
-  triggerBackfill(@Body() body: BackfillDto, @Req() req: Request & { user?: AuthRequestUser }) {
+  triggerBackfill(
+    @Body() body: BackfillDto,
+    @Req() req: Request & { user?: AuthRequestUser },
+  ) {
     if (req.user?.role !== 'admin') {
       throw new ForbiddenException('Admin role required');
     }
@@ -155,14 +177,20 @@ export class CodeController {
     @Req() req: GithubWebhookRequest,
     @Body() body: unknown,
   ) {
-    const webhooksEnabled = this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
+    const webhooksEnabled =
+      this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
     if (!webhooksEnabled) {
       throw new ForbiddenException('Code webhooks are disabled');
     }
 
-    const event = (req.headers['x-github-event'] as string | undefined) || 'unknown';
-    const deliveryId = (req.headers['x-github-delivery'] as string | undefined) || `delivery-${Date.now()}`;
-    const signature256 = req.headers['x-hub-signature-256'] as string | undefined;
+    const event =
+      (req.headers['x-github-event'] as string | undefined) || 'unknown';
+    const deliveryId =
+      (req.headers['x-github-delivery'] as string | undefined) ||
+      `delivery-${Date.now()}`;
+    const signature256 = req.headers['x-hub-signature-256'] as
+      | string
+      | undefined;
     const signature = req.headers['x-hub-signature'] as string | undefined;
     const secret = this.config.get<string>('GITHUB_WEBHOOK_SECRET') || '';
 
@@ -176,7 +204,9 @@ export class CodeController {
     const resultSha1 = verifyGithubSignature(rawBody, signature, secret);
 
     if (!result256.valid && !resultSha1.valid) {
-      this.logger.warn(`GitHub webhook signature validation failed for delivery ${deliveryId}`);
+      this.logger.warn(
+        `GitHub webhook signature validation failed for delivery ${deliveryId}`,
+      );
       throw new UnauthorizedException('Invalid webhook signature');
     }
 

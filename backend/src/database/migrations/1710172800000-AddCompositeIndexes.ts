@@ -52,12 +52,26 @@ export class AddCompositeIndexes1710172800000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop composite indexes
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_agent_runs_agent_status_started"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_agent_runs_status_started"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_agent_logs_run_level_created"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_agent_logs_run_created"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_cost_records_run_recorded"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_cost_records_provider_model_recorded"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_resource_snapshots_run_recorded"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_agent_runs_agent_status_started"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_agent_runs_status_started"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_agent_logs_run_level_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_agent_logs_run_created"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_cost_records_run_recorded"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_cost_records_provider_model_recorded"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_resource_snapshots_run_recorded"`,
+    );
   }
 }

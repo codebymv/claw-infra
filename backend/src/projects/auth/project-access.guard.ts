@@ -9,8 +9,9 @@ import { Reflector } from '@nestjs/core';
 import { ProjectAuthService } from './project-auth.service';
 
 export const PROJECT_PERMISSION_KEY = 'projectPermission';
-export const RequireProjectPermission = (permission: 'read' | 'write' | 'admin') =>
-  SetMetadata(PROJECT_PERMISSION_KEY, permission);
+export const RequireProjectPermission = (
+  permission: 'read' | 'write' | 'admin',
+) => SetMetadata(PROJECT_PERMISSION_KEY, permission);
 
 @Injectable()
 export class ProjectAccessGuard implements CanActivate {
@@ -27,10 +28,11 @@ export class ProjectAccessGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    const requiredPermission = this.reflector.getAllAndOverride<'read' | 'write' | 'admin'>(
-      PROJECT_PERMISSION_KEY,
-      [context.getHandler(), context.getClass()],
-    ) || 'read';
+    const requiredPermission =
+      this.reflector.getAllAndOverride<'read' | 'write' | 'admin'>(
+        PROJECT_PERMISSION_KEY,
+        [context.getHandler(), context.getClass()],
+      ) || 'read';
 
     // Extract project ID from route parameters
     const projectId = request.params.projectId;
@@ -39,16 +41,19 @@ export class ProjectAccessGuard implements CanActivate {
     }
 
     try {
-      const projectContext = await this.projectAuthService.validateProjectAccess(projectId, user.id);
-      
+      const projectContext =
+        await this.projectAuthService.validateProjectAccess(projectId, user.id);
+
       // Check if user has required permission
       if (!this.hasPermission(projectContext.permissions, requiredPermission)) {
-        throw new ForbiddenException(`Access denied: ${requiredPermission} permission required`);
+        throw new ForbiddenException(
+          `Access denied: ${requiredPermission} permission required`,
+        );
       }
 
       // Attach project context to request for use in controllers
       request.projectContext = projectContext;
-      
+
       return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {
@@ -58,7 +63,10 @@ export class ProjectAccessGuard implements CanActivate {
     }
   }
 
-  private hasPermission(permissions: any, required: 'read' | 'write' | 'admin'): boolean {
+  private hasPermission(
+    permissions: any,
+    required: 'read' | 'write' | 'admin',
+  ): boolean {
     switch (required) {
       case 'read':
         return permissions.canRead;

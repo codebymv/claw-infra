@@ -24,11 +24,16 @@ export class IpAllowlistGuard implements CanActivate {
     this.enabled = config.get<string>('IP_ALLOWLIST_ENABLED') === 'true';
     const raw = config.get<string>('ALLOWED_IPS') || '';
     this.allowedIps = new Set(
-      raw.split(',').map((ip) => ip.trim()).filter(Boolean),
+      raw
+        .split(',')
+        .map((ip) => ip.trim())
+        .filter(Boolean),
     );
 
     if (this.enabled) {
-      this.logger.log(`IP allowlist active with ${this.allowedIps.size} entries`);
+      this.logger.log(
+        `IP allowlist active with ${this.allowedIps.size} entries`,
+      );
     }
   }
 
@@ -56,7 +61,9 @@ export class IpAllowlistGuard implements CanActivate {
     if (this.isRailwayInternal(clientIp)) return true;
     if (this.allowedIps.has(clientIp)) return true;
 
-    this.logger.warn(`Blocked request from ${clientIp} to ${request.method} ${request.url}`);
+    this.logger.warn(
+      `Blocked request from ${clientIp} to ${request.method} ${request.url}`,
+    );
     this.alerts?.blockedIp(clientIp, `${request.method} ${request.url}`);
 
     throw new ForbiddenException('Access denied');
@@ -65,7 +72,9 @@ export class IpAllowlistGuard implements CanActivate {
   private extractIp(request: Request): string {
     const forwarded = request.headers['x-forwarded-for'];
     if (forwarded) {
-      const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(',')[0].trim();
+      const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)
+        .split(',')[0]
+        .trim();
       return this.normalizeIp(first);
     }
 

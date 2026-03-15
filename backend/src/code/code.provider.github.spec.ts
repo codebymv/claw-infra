@@ -39,8 +39,14 @@ describe('CodeProviderGithub', () => {
       normalizeReviewState: (value: unknown) => CodePrReviewState;
     };
 
-    expect(cast.normalizeReviewState('approved')).toBe(CodePrReviewState.APPROVED);
-    expect(cast.normalizeReviewState('CHANGES_REQUESTED')).toBe(CodePrReviewState.CHANGES_REQUESTED);
-    expect(cast.normalizeReviewState('nonsense')).toBe(CodePrReviewState.COMMENTED);
+    expect(cast.normalizeReviewState('approved')).toBe(
+      CodePrReviewState.APPROVED,
+    );
+    expect(cast.normalizeReviewState('CHANGES_REQUESTED')).toBe(
+      CodePrReviewState.CHANGES_REQUESTED,
+    );
+    expect(cast.normalizeReviewState('nonsense')).toBe(
+      CodePrReviewState.COMMENTED,
+    );
   });
 });

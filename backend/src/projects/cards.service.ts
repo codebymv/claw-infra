@@ -1,10 +1,26 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryDeepPartialEntity, In, Between, Like, ILike } from 'typeorm';
+import {
+  Repository,
+  QueryDeepPartialEntity,
+  In,
+  Between,
+  Like,
+  ILike,
+} from 'typeorm';
 import { Card, CardStatus } from '../database/entities/card.entity';
 import { Column, ColumnRuleType } from '../database/entities/column.entity';
 import { KanbanBoard } from '../database/entities/kanban-board.entity';
-import { CardHistory, HistoryAction } from '../database/entities/card-history.entity';
+import {
+  CardHistory,
+  HistoryAction,
+} from '../database/entities/card-history.entity';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
@@ -20,13 +36,19 @@ export class CardsService {
   constructor(
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
     @InjectRepository(Column) private readonly columnRepo: Repository<Column>,
-    @InjectRepository(KanbanBoard) private readonly boardRepo: Repository<KanbanBoard>,
-    @InjectRepository(CardHistory) private readonly historyRepo: Repository<CardHistory>,
+    @InjectRepository(KanbanBoard)
+    private readonly boardRepo: Repository<KanbanBoard>,
+    @InjectRepository(CardHistory)
+    private readonly historyRepo: Repository<CardHistory>,
     private readonly gateway: ProjectWebSocketGateway,
     private readonly pubSub: ProjectPubSubService,
   ) {}
 
-  async createCard(boardId: string, columnId: string, dto: CreateCardDto): Promise<Card> {
+  async createCard(
+    boardId: string,
+    columnId: string,
+    dto: CreateCardDto,
+  ): Promise<Card> {
     // Validate board and column exist and are related
     const column = await this.columnRepo.findOne({
       where: { id: columnId, boardId },
@@ -34,7 +56,9 @@ export class CardsService {
     });
 
     if (!column) {
-      throw new NotFoundException(`Column ${columnId} not found in board ${boardId}`);
+      throw new NotFoundException(
+        `Column ${columnId} not found in board ${boardId}`,
+      );
     }
 
     // Determine position if not provided
@@ -68,10 +92,15 @@ export class CardsService {
     const saved = await this.cardRepo.save(card);
 
     // Create history entry
-    await this.createHistoryEntry(saved.id, HistoryAction.CREATED, dto.reporterId, {
-      action: 'Card created',
-      details: { title: saved.title, columnId },
-    });
+    await this.createHistoryEntry(
+      saved.id,
+      HistoryAction.CREATED,
+      dto.reporterId,
+      {
+        action: 'Card created',
+        details: { title: saved.title, columnId },
+      },
+    );
 
     // Enforce column rules
     await this.enforceColumnRules(columnId, saved.id);
@@ -84,7 +113,7 @@ export class CardsService {
       saved.id,
       'create',
       result,
-      dto.reporterId
+      dto.reporterId,
     );
 
     this.logger.log(`Created card ${saved.id} in column ${columnId}`);
@@ -94,7 +123,14 @@ export class CardsService {
   async getCardById(id: string): Promise<Card> {
     const card = await this.cardRepo.findOne({
       where: { id },
-      relations: ['board', 'column', 'assignee', 'reporter', 'comments', 'history'],
+      relations: [
+        'board',
+        'column',
+        'assignee',
+        'reporter',
+        'comments',
+        'history',
+      ],
       order: {
         comments: { createdAt: 'ASC' },
         history: { createdAt: 'DESC' },
@@ -113,7 +149,8 @@ export class CardsService {
     const limit = Math.min(query.limit || 20, 100);
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.cardRepo.createQueryBuilder('card')
+    const queryBuilder = this.cardRepo
+      .createQueryBuilder('card')
       .leftJoinAndSelect('card.assignee', 'assignee')
       .leftJoinAndSelect('card.reporter', 'reporter')
       .leftJoinAndSelect('card.column', 'column')
@@ -124,7 +161,9 @@ export class CardsService {
 
     // Apply filters
     if (query.columnId) {
-      queryBuilder.andWhere('card.columnId = :columnId', { columnId: query.columnId });
+      queryBuilder.andWhere('card.columnId = :columnId', {
+        columnId: query.columnId,
+      });
     }
 
     if (query.type) {
@@ -132,7 +171,9 @@ export class CardsService {
     }
 
     if (query.priority) {
-      queryBuilder.andWhere('card.priority = :priority', { priority: query.priority });
+      queryBuilder.andWhere('card.priority = :priority', {
+        priority: query.priority,
+      });
     }
 
     if (query.status) {
@@ -140,11 +181,15 @@ export class CardsService {
     }
 
     if (query.assigneeId) {
-      queryBuilder.andWhere('card.assigneeId = :assigneeId', { assigneeId: query.assigneeId });
+      queryBuilder.andWhere('card.assigneeId = :assigneeId', {
+        assigneeId: query.assigneeId,
+      });
     }
 
     if (query.reporterId) {
-      queryBuilder.andWhere('card.reporterId = :reporterId', { reporterId: query.reporterId });
+      queryBuilder.andWhere('card.reporterId = :reporterId', {
+        reporterId: query.reporterId,
+      });
     }
 
     if (query.tags && query.tags.length > 0) {
@@ -154,16 +199,20 @@ export class CardsService {
     if (query.search) {
       queryBuilder.andWhere(
         '(card.title ILIKE :search OR card.description ILIKE :search)',
-        { search: `%${query.search}%` }
+        { search: `%${query.search}%` },
       );
     }
 
     if (query.dueBefore) {
-      queryBuilder.andWhere('card.due_date <= :dueBefore', { dueBefore: new Date(query.dueBefore) });
+      queryBuilder.andWhere('card.due_date <= :dueBefore', {
+        dueBefore: new Date(query.dueBefore),
+      });
     }
 
     if (query.dueAfter) {
-      queryBuilder.andWhere('card.due_date >= :dueAfter', { dueAfter: new Date(query.dueAfter) });
+      queryBuilder.andWhere('card.due_date >= :dueAfter', {
+        dueAfter: new Date(query.dueAfter),
+      });
     }
 
     // Apply sorting
@@ -181,7 +230,11 @@ export class CardsService {
     };
   }
 
-  async updateCard(id: string, dto: UpdateCardDto, userId: string): Promise<Card> {
+  async updateCard(
+    id: string,
+    dto: UpdateCardDto,
+    userId: string,
+  ): Promise<Card> {
     const card = await this.getCardById(id);
     const originalData = { ...card };
 
@@ -225,7 +278,7 @@ export class CardsService {
       id,
       'update',
       updated,
-      userId
+      userId,
     );
 
     this.logger.log(`Updated card ${id} by user ${userId}`);
@@ -234,7 +287,7 @@ export class CardsService {
 
   async moveCard(id: string, dto: MoveCardDto, userId: string): Promise<Card> {
     const card = await this.getCardById(id);
-    
+
     // Validate target column exists and is in the same board
     const targetColumn = await this.columnRepo.findOne({
       where: { id: dto.targetColumnId, boardId: card.boardId },
@@ -242,7 +295,9 @@ export class CardsService {
     });
 
     if (!targetColumn) {
-      throw new NotFoundException(`Target column ${dto.targetColumnId} not found in board ${card.boardId}`);
+      throw new NotFoundException(
+        `Target column ${dto.targetColumnId} not found in board ${card.boardId}`,
+      );
     }
 
     const originalColumnId = card.columnId;
@@ -266,10 +321,10 @@ export class CardsService {
       // Moving to different column
       // Remove from original column (shift cards up)
       await this.shiftCardsPosition(originalColumnId, card.position + 1, -1);
-      
+
       // Add to target column (shift cards down if needed)
       await this.shiftCardsPosition(dto.targetColumnId, targetPosition, 1);
-      
+
       // Update card's column and position
       await this.cardRepo.update(id, {
         columnId: dto.targetColumnId,
@@ -293,19 +348,17 @@ export class CardsService {
     });
 
     // Broadcast card move
-    await this.gateway.broadcastCardMove(
-      targetColumn.board.projectId,
-      id,
-      {
-        fromColumnId: originalColumnId,
-        toColumnId: dto.targetColumnId,
-        fromPosition: card.position,
-        toPosition: targetPosition,
-        userId,
-      }
-    );
+    await this.gateway.broadcastCardMove(targetColumn.board.projectId, id, {
+      fromColumnId: originalColumnId,
+      toColumnId: dto.targetColumnId,
+      fromPosition: card.position,
+      toPosition: targetPosition,
+      userId,
+    });
 
-    this.logger.log(`Moved card ${id} from column ${originalColumnId} to ${dto.targetColumnId}`);
+    this.logger.log(
+      `Moved card ${id} from column ${originalColumnId} to ${dto.targetColumnId}`,
+    );
     return updated;
   }
 
@@ -323,13 +376,17 @@ export class CardsService {
       id,
       'delete',
       { columnId: card.columnId },
-      userId
+      userId,
     );
 
     this.logger.log(`Deleted card ${id} by user ${userId}`);
   }
 
-  async bulkOperation(boardId: string, dto: BulkCardOperationDto, userId: string): Promise<any> {
+  async bulkOperation(
+    boardId: string,
+    dto: BulkCardOperationDto,
+    userId: string,
+  ): Promise<any> {
     // Validate all cards belong to the board
     const cards = await this.cardRepo.find({
       where: { id: In(dto.cardIds), boardId },
@@ -337,9 +394,11 @@ export class CardsService {
     });
 
     if (cards.length !== dto.cardIds.length) {
-      const foundIds = cards.map(c => c.id);
-      const missingIds = dto.cardIds.filter(id => !foundIds.includes(id));
-      throw new NotFoundException(`Cards not found in board: ${missingIds.join(', ')}`);
+      const foundIds = cards.map((c) => c.id);
+      const missingIds = dto.cardIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Cards not found in board: ${missingIds.join(', ')}`,
+      );
     }
 
     let result: any;
@@ -350,7 +409,9 @@ export class CardsService {
         break;
       case 'move':
         if (!dto.targetColumnId) {
-          throw new BadRequestException('targetColumnId is required for move operation');
+          throw new BadRequestException(
+            'targetColumnId is required for move operation',
+          );
         }
         result = await this.bulkMove(cards, dto.targetColumnId, userId);
         break;
@@ -377,24 +438,34 @@ export class CardsService {
       metadata: { bulkOperation: true },
     });
 
-    this.logger.log(`Bulk ${dto.operation} operation on ${dto.cardIds.length} cards by user ${userId}`);
+    this.logger.log(
+      `Bulk ${dto.operation} operation on ${dto.cardIds.length} cards by user ${userId}`,
+    );
     return result;
   }
 
   // Private helper methods
-  private async validateCustomFields(boardId: string, customFields: Record<string, any>): Promise<void> {
+  private async validateCustomFields(
+    boardId: string,
+    customFields: Record<string, any>,
+  ): Promise<void> {
     const board = await this.boardRepo.findOne({ where: { id: boardId } });
     if (!board) return;
 
     const boardCustomFields = board.layout.customFields || [];
-    
+
     for (const [fieldId, value] of Object.entries(customFields)) {
-      const fieldDef = boardCustomFields.find(f => f.id === fieldId);
+      const fieldDef = boardCustomFields.find((f) => f.id === fieldId);
       if (!fieldDef) continue;
 
       // Validate required fields
-      if (fieldDef.required && (value === null || value === undefined || value === '')) {
-        throw new BadRequestException(`Custom field '${fieldDef.name}' is required`);
+      if (
+        fieldDef.required &&
+        (value === null || value === undefined || value === '')
+      ) {
+        throw new BadRequestException(
+          `Custom field '${fieldDef.name}' is required`,
+        );
       }
 
       // Validate field types
@@ -404,52 +475,85 @@ export class CardsService {
     }
   }
 
-  private async validateCustomFieldValue(fieldDef: any, value: any): Promise<void> {
+  private async validateCustomFieldValue(
+    fieldDef: any,
+    value: any,
+  ): Promise<void> {
     switch (fieldDef.type) {
       case 'number':
         if (typeof value !== 'number') {
-          throw new BadRequestException(`Field '${fieldDef.name}' must be a number`);
+          throw new BadRequestException(
+            `Field '${fieldDef.name}' must be a number`,
+          );
         }
         break;
       case 'date':
         if (!Date.parse(value)) {
-          throw new BadRequestException(`Field '${fieldDef.name}' must be a valid date`);
+          throw new BadRequestException(
+            `Field '${fieldDef.name}' must be a valid date`,
+          );
         }
         break;
       case 'select':
         if (fieldDef.options && !fieldDef.options.includes(value)) {
-          throw new BadRequestException(`Field '${fieldDef.name}' must be one of: ${fieldDef.options.join(', ')}`);
+          throw new BadRequestException(
+            `Field '${fieldDef.name}' must be one of: ${fieldDef.options.join(', ')}`,
+          );
         }
         break;
       case 'multiselect':
-        if (!Array.isArray(value) || !value.every(v => fieldDef.options?.includes(v))) {
-          throw new BadRequestException(`Field '${fieldDef.name}' must be an array of valid options`);
+        if (
+          !Array.isArray(value) ||
+          !value.every((v) => fieldDef.options?.includes(v))
+        ) {
+          throw new BadRequestException(
+            `Field '${fieldDef.name}' must be an array of valid options`,
+          );
         }
         break;
       case 'boolean':
         if (typeof value !== 'boolean') {
-          throw new BadRequestException(`Field '${fieldDef.name}' must be a boolean`);
+          throw new BadRequestException(
+            `Field '${fieldDef.name}' must be a boolean`,
+          );
         }
         break;
     }
   }
 
-  private async handleStatusChange(card: Card, newStatus: CardStatus, userId: string): Promise<void> {
+  private async handleStatusChange(
+    card: Card,
+    newStatus: CardStatus,
+    userId: string,
+  ): Promise<void> {
     // Auto-complete card when moved to completed column
-    if (newStatus === CardStatus.COMPLETED && card.status !== CardStatus.COMPLETED) {
-      const column = await this.columnRepo.findOne({ where: { id: card.columnId } });
+    if (
+      newStatus === CardStatus.COMPLETED &&
+      card.status !== CardStatus.COMPLETED
+    ) {
+      const column = await this.columnRepo.findOne({
+        where: { id: card.columnId },
+      });
       if (column?.isCompleted) {
         await this.cardRepo.update(card.id, { completedAt: new Date() });
       }
     }
 
     // Clear completion date when moving away from completed status
-    if (card.status === CardStatus.COMPLETED && newStatus !== CardStatus.COMPLETED) {
+    if (
+      card.status === CardStatus.COMPLETED &&
+      newStatus !== CardStatus.COMPLETED
+    ) {
       await this.cardRepo.update(card.id, { completedAt: null });
     }
   }
 
-  private async createHistoryEntry(cardId: string, action: HistoryAction, userId: string, metadata: any): Promise<void> {
+  private async createHistoryEntry(
+    cardId: string,
+    action: HistoryAction,
+    userId: string,
+    metadata: any,
+  ): Promise<void> {
     const history = this.historyRepo.create({
       cardId,
       action,
@@ -460,9 +564,21 @@ export class CardsService {
     await this.historyRepo.save(history);
   }
 
-  private detectChanges(original: Card, updated: Card): Array<{ field: string; from: any; to: any }> {
+  private detectChanges(
+    original: Card,
+    updated: Card,
+  ): Array<{ field: string; from: any; to: any }> {
     const changes: Array<{ field: string; from: any; to: any }> = [];
-    const fields = ['title', 'description', 'type', 'priority', 'status', 'assigneeId', 'dueDate', 'tags'];
+    const fields = [
+      'title',
+      'description',
+      'type',
+      'priority',
+      'status',
+      'assigneeId',
+      'dueDate',
+      'tags',
+    ];
 
     for (const field of fields) {
       if (JSON.stringify(original[field]) !== JSON.stringify(updated[field])) {
@@ -477,16 +593,26 @@ export class CardsService {
     return changes;
   }
 
-  private async shiftCardsPosition(columnId: string, fromPosition: number, shift: number): Promise<void> {
+  private async shiftCardsPosition(
+    columnId: string,
+    fromPosition: number,
+    shift: number,
+  ): Promise<void> {
     await this.cardRepo
       .createQueryBuilder()
       .update(Card)
       .set({ position: () => `position + ${shift}` })
-      .where('columnId = :columnId AND position >= :fromPosition', { columnId, fromPosition })
+      .where('columnId = :columnId AND position >= :fromPosition', {
+        columnId,
+        fromPosition,
+      })
       .execute();
   }
 
-  private async reorderCard(cardId: string, newPosition: number): Promise<void> {
+  private async reorderCard(
+    cardId: string,
+    newPosition: number,
+  ): Promise<void> {
     const card = await this.getCardById(cardId);
     const oldPosition = card.position;
 
@@ -498,11 +624,14 @@ export class CardsService {
         .createQueryBuilder()
         .update(Card)
         .set({ position: () => 'position - 1' })
-        .where('columnId = :columnId AND position > :oldPosition AND position <= :newPosition', {
-          columnId: card.columnId,
-          oldPosition,
-          newPosition,
-        })
+        .where(
+          'columnId = :columnId AND position > :oldPosition AND position <= :newPosition',
+          {
+            columnId: card.columnId,
+            oldPosition,
+            newPosition,
+          },
+        )
         .execute();
     } else {
       // Moving up: shift cards between new and old position down
@@ -510,11 +639,14 @@ export class CardsService {
         .createQueryBuilder()
         .update(Card)
         .set({ position: () => 'position + 1' })
-        .where('columnId = :columnId AND position >= :newPosition AND position < :oldPosition', {
-          columnId: card.columnId,
-          oldPosition,
-          newPosition,
-        })
+        .where(
+          'columnId = :columnId AND position >= :newPosition AND position < :oldPosition',
+          {
+            columnId: card.columnId,
+            oldPosition,
+            newPosition,
+          },
+        )
         .execute();
     }
 
@@ -534,25 +666,33 @@ export class CardsService {
     return fieldMap[sortBy] || 'position';
   }
 
-  private async bulkUpdate(cards: Card[], updateData: any, userId: string): Promise<Card[]> {
-    const cardIds = cards.map(c => c.id);
-    
+  private async bulkUpdate(
+    cards: Card[],
+    updateData: any,
+    userId: string,
+  ): Promise<Card[]> {
+    const cardIds = cards.map((c) => c.id);
+
     await this.cardRepo.update({ id: In(cardIds) }, updateData);
 
     // Create history entries
     await Promise.all(
-      cardIds.map(cardId =>
+      cardIds.map((cardId) =>
         this.createHistoryEntry(cardId, HistoryAction.UPDATED, userId, {
           action: 'Bulk update',
           details: updateData,
-        })
-      )
+        }),
+      ),
     );
 
     return this.cardRepo.find({ where: { id: In(cardIds) } });
   }
 
-  private async bulkMove(cards: Card[], targetColumnId: string, userId: string): Promise<Card[]> {
+  private async bulkMove(
+    cards: Card[],
+    targetColumnId: string,
+    userId: string,
+  ): Promise<Card[]> {
     // Validate target column
     const targetColumn = await this.columnRepo.findOne({
       where: { id: targetColumnId },
@@ -563,8 +703,8 @@ export class CardsService {
     }
 
     // Move all cards to target column
-    const cardIds = cards.map(c => c.id);
-    
+    const cardIds = cards.map((c) => c.id);
+
     // Get next available positions in target column
     const maxPosition = await this.cardRepo
       .createQueryBuilder('card')
@@ -594,14 +734,17 @@ export class CardsService {
   }
 
   private async bulkDelete(cards: Card[], userId: string): Promise<void> {
-    const cardIds = cards.map(c => c.id);
-    
+    const cardIds = cards.map((c) => c.id);
+
     // Group cards by column for position adjustment
-    const cardsByColumn = cards.reduce((acc, card) => {
-      if (!acc[card.columnId]) acc[card.columnId] = [];
-      acc[card.columnId].push(card);
-      return acc;
-    }, {} as Record<string, Card[]>);
+    const cardsByColumn = cards.reduce(
+      (acc, card) => {
+        if (!acc[card.columnId]) acc[card.columnId] = [];
+        acc[card.columnId].push(card);
+        return acc;
+      },
+      {} as Record<string, Card[]>,
+    );
 
     // Delete cards
     await this.cardRepo.delete({ id: In(cardIds) });
@@ -609,21 +752,24 @@ export class CardsService {
     // Adjust positions in each affected column
     for (const [columnId, columnCards] of Object.entries(cardsByColumn)) {
       const sortedCards = columnCards.sort((a, b) => a.position - b.position);
-      
+
       for (const card of sortedCards) {
         await this.shiftCardsPosition(columnId, card.position + 1, -1);
       }
     }
   }
 
-  private async enforceColumnRules(columnId: string, cardId?: string): Promise<void> {
+  private async enforceColumnRules(
+    columnId: string,
+    cardId?: string,
+  ): Promise<void> {
     const column = await this.columnRepo.findOne({
       where: { id: columnId },
       relations: ['cards'],
     });
 
     if (!column) return;
-    
+
     for (const rule of column.rules) {
       if (!rule.isActive) continue;
 
@@ -644,14 +790,17 @@ export class CardsService {
     }
   }
 
-  private async enforceWipLimit(columnId: string, wipLimit: number | null): Promise<void> {
+  private async enforceWipLimit(
+    columnId: string,
+    wipLimit: number | null,
+  ): Promise<void> {
     if (!wipLimit) return;
 
     const cardCount = await this.cardRepo.count({ where: { columnId } });
     if (cardCount > wipLimit) {
       const column = await this.columnRepo.findOne({ where: { id: columnId } });
       throw new BadRequestException(
-        `WIP limit exceeded. Column "${column?.name}" has ${cardCount} cards but limit is ${wipLimit}.`
+        `WIP limit exceeded. Column "${column?.name}" has ${cardCount} cards but limit is ${wipLimit}.`,
       );
     }
   }
@@ -659,18 +808,24 @@ export class CardsService {
   private async enforceAutoAssign(cardId: string, rule: any): Promise<void> {
     // Implementation would depend on the specific auto-assign logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing auto-assign rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing auto-assign rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 
   private async enforceAutoMove(cardId: string, rule: any): Promise<void> {
     // Implementation would depend on the specific auto-move logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing auto-move rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing auto-move rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 
   private async enforceValidation(cardId: string, rule: any): Promise<void> {
     // Implementation would depend on the specific validation logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing validation rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing validation rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 }

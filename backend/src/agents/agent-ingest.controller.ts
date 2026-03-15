@@ -1,11 +1,29 @@
-import { Controller, Post, Patch, Body, Param, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsString, IsOptional, IsEnum, IsNumber, IsObject, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsObject,
+  IsDateString,
+} from 'class-validator';
 import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
 import { AgentsService } from './agents.service';
-import { AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
+import {
+  AgentRunStatus,
+  AgentRunTrigger,
+} from '../database/entities/agent-run.entity';
 import { StepStatus } from '../database/entities/agent-step.entity';
 
 class IngestRunDto {
@@ -121,9 +139,7 @@ class UpdateStepStatusDto {
 @RequireApiKeyType(ApiKeyType.AGENT)
 @Throttle({ ingest: { ttl: 60000, limit: 30 } })
 export class AgentIngestController {
-  constructor(
-    private readonly agentsService: AgentsService,
-  ) {}
+  constructor(private readonly agentsService: AgentsService) {}
 
   @Post('runs')
   async createRun(@Body() dto: IngestRunDto) {
@@ -138,7 +154,10 @@ export class AgentIngestController {
   }
 
   @Patch('runs/:id/status')
-  async updateRunStatus(@Param('id') id: string, @Body() dto: UpdateRunStatusDto) {
+  async updateRunStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateRunStatusDto,
+  ) {
     const updated = await this.agentsService.updateRun(id, {
       ...dto,
       completedAt: dto.completedAt ? new Date(dto.completedAt) : undefined,
@@ -154,7 +173,10 @@ export class AgentIngestController {
   }
 
   @Patch('steps/:id/status')
-  async updateStepStatus(@Param('id') id: string, @Body() dto: UpdateStepStatusDto) {
+  async updateStepStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateStepStatusDto,
+  ) {
     const updated = await this.agentsService.updateStep(id, dto);
     return updated;
   }

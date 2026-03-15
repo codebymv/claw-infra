@@ -1,4 +1,9 @@
-import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from '../../database/entities/project.entity';
@@ -55,7 +60,8 @@ export class AgentOrchestratorService {
   private readonly conflicts = new Map<string, ConflictResolution>();
 
   constructor(
-    @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly projectAuthService: ProjectAuthService,
@@ -66,17 +72,19 @@ export class AgentOrchestratorService {
     projectId: string,
     agentId: string,
     agentName: string,
-    maxConcurrentOperations = 5
+    maxConcurrentOperations = 5,
   ): Promise<AgentWorkspace> {
     // Validate project exists and agent has access
-    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    });
     if (!project) {
       throw new NotFoundException(`Project ${projectId} not found`);
     }
 
     // Check if workspace already exists for this agent in this project
     const existingWorkspace = Array.from(this.workspaces.values()).find(
-      ws => ws.projectId === projectId && ws.agentId === agentId
+      (ws) => ws.projectId === projectId && ws.agentId === agentId,
     );
 
     if (existingWorkspace) {
@@ -86,7 +94,9 @@ export class AgentOrchestratorService {
         existingWorkspace.metadata.lastActivity = new Date();
         return existingWorkspace;
       } else {
-        throw new ConflictException(`Agent ${agentId} already has an active workspace in project ${projectId}`);
+        throw new ConflictException(
+          `Agent ${agentId} already has an active workspace in project ${projectId}`,
+        );
       }
     }
 
@@ -120,7 +130,9 @@ export class AgentOrchestratorService {
       metadata: { agentName, maxConcurrentOperations },
     });
 
-    this.logger.log(`Created workspace ${workspace.id} for agent ${agentName} in project ${projectId}`);
+    this.logger.log(
+      `Created workspace ${workspace.id} for agent ${agentName} in project ${projectId}`,
+    );
     return workspace;
   }
 
@@ -132,17 +144,23 @@ export class AgentOrchestratorService {
     return workspace;
   }
 
-  async listWorkspaces(projectId?: string, agentId?: string): Promise<AgentWorkspace[]> {
+  async listWorkspaces(
+    projectId?: string,
+    agentId?: string,
+  ): Promise<AgentWorkspace[]> {
     const workspaces = Array.from(this.workspaces.values());
-    
-    return workspaces.filter(ws => {
+
+    return workspaces.filter((ws) => {
       if (projectId && ws.projectId !== projectId) return false;
       if (agentId && ws.agentId !== agentId) return false;
       return true;
     });
   }
 
-  async terminateWorkspace(workspaceId: string, reason = 'manual'): Promise<void> {
+  async terminateWorkspace(
+    workspaceId: string,
+    reason = 'manual',
+  ): Promise<void> {
     const workspace = this.workspaces.get(workspaceId);
     if (!workspace) {
       throw new NotFoundException(`Workspace ${workspaceId} not found`);
@@ -150,7 +168,7 @@ export class AgentOrchestratorService {
 
     // Cancel all pending operations
     const pendingOps = Array.from(this.operations.values()).filter(
-      op => op.workspaceId === workspaceId && op.status === 'pending'
+      (op) => op.workspaceId === workspaceId && op.status === 'pending',
     );
 
     for (const op of pendingOps) {
@@ -171,13 +189,15 @@ export class AgentOrchestratorService {
       metadata: { reason, pendingOperations: pendingOps.length },
     });
 
-    this.logger.log(`Terminated workspace ${workspaceId} for agent ${workspace.agentName}: ${reason}`);
+    this.logger.log(
+      `Terminated workspace ${workspaceId} for agent ${workspace.agentName}: ${reason}`,
+    );
   }
 
   async allocateResource(
     workspaceId: string,
     resourceType: 'card' | 'board',
-    resourceId: string
+    resourceId: string,
   ): Promise<boolean> {
     const workspace = this.workspaces.get(workspaceId);
     if (!workspace) {
@@ -189,16 +209,18 @@ export class AgentOrchestratorService {
     }
 
     // Check if resource is already allocated to another workspace
-    const conflictingWorkspace = Array.from(this.workspaces.values()).find(ws => {
-      if (ws.id === workspaceId || ws.status !== 'active') return false;
-      
-      if (resourceType === 'card') {
-        return ws.resources.cardIds.includes(resourceId);
-      } else if (resourceType === 'board') {
-        return ws.resources.boardIds.includes(resourceId);
-      }
-      return false;
-    });
+    const conflictingWorkspace = Array.from(this.workspaces.values()).find(
+      (ws) => {
+        if (ws.id === workspaceId || ws.status !== 'active') return false;
+
+        if (resourceType === 'card') {
+          return ws.resources.cardIds.includes(resourceId);
+        } else if (resourceType === 'board') {
+          return ws.resources.boardIds.includes(resourceId);
+        }
+        return false;
+      },
+    );
 
     if (conflictingWorkspace) {
       // Create conflict resolution
@@ -216,8 +238,10 @@ export class AgentOrchestratorService {
       });
 
       workspace.metadata.conflictCount++;
-      
-      this.logger.warn(`Resource conflict detected: ${resourceType}:${resourceId} between workspaces ${workspaceId} and ${conflictingWorkspace.id}`);
+
+      this.logger.warn(
+        `Resource conflict detected: ${resourceType}:${resourceId} between workspaces ${workspaceId} and ${conflictingWorkspace.id}`,
+      );
       return false;
     }
 
@@ -245,7 +269,7 @@ export class AgentOrchestratorService {
   async releaseResource(
     workspaceId: string,
     resourceType: 'card' | 'board',
-    resourceId: string
+    resourceId: string,
   ): Promise<void> {
     const workspace = this.workspaces.get(workspaceId);
     if (!workspace) {
@@ -253,9 +277,13 @@ export class AgentOrchestratorService {
     }
 
     if (resourceType === 'card') {
-      workspace.resources.cardIds = workspace.resources.cardIds.filter(id => id !== resourceId);
+      workspace.resources.cardIds = workspace.resources.cardIds.filter(
+        (id) => id !== resourceId,
+      );
     } else if (resourceType === 'board') {
-      workspace.resources.boardIds = workspace.resources.boardIds.filter(id => id !== resourceId);
+      workspace.resources.boardIds = workspace.resources.boardIds.filter(
+        (id) => id !== resourceId,
+      );
     }
 
     workspace.metadata.lastActivity = new Date();
@@ -279,7 +307,7 @@ export class AgentOrchestratorService {
     resourceType: AgentOperation['resourceType'],
     resourceId: string,
     metadata: Record<string, any> = {},
-    priority = 0
+    priority = 0,
   ): Promise<AgentOperation> {
     const workspace = this.workspaces.get(workspaceId);
     if (!workspace) {
@@ -306,7 +334,9 @@ export class AgentOrchestratorService {
     workspace.metadata.operationCount++;
     workspace.metadata.lastActivity = new Date();
 
-    this.logger.log(`Queued operation ${operation.id}: ${type} ${resourceType}:${resourceId} for workspace ${workspaceId}`);
+    this.logger.log(
+      `Queued operation ${operation.id}: ${type} ${resourceType}:${resourceId} for workspace ${workspaceId}`,
+    );
     return operation;
   }
 
@@ -318,7 +348,9 @@ export class AgentOrchestratorService {
 
     const workspace = this.workspaces.get(operation.workspaceId);
     if (!workspace) {
-      throw new NotFoundException(`Workspace ${operation.workspaceId} not found`);
+      throw new NotFoundException(
+        `Workspace ${operation.workspaceId} not found`,
+      );
     }
 
     if (operation.status !== 'pending') {
@@ -329,7 +361,7 @@ export class AgentOrchestratorService {
     const resourceAllocated = await this.allocateResource(
       operation.workspaceId,
       operation.resourceType === 'card' ? 'card' : 'board',
-      operation.resourceId
+      operation.resourceId,
     );
 
     if (!resourceAllocated) {
@@ -344,7 +376,7 @@ export class AgentOrchestratorService {
     try {
       // Here you would integrate with the actual service methods
       // For now, we'll simulate the operation
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       operation.status = 'completed';
       operation.completedAt = new Date();
@@ -357,7 +389,6 @@ export class AgentOrchestratorService {
         projectId: workspace.projectId,
         metadata: { operationId, workspaceId: workspace.id },
       });
-
     } catch (error) {
       operation.status = 'failed';
       operation.completedAt = new Date();
@@ -369,12 +400,15 @@ export class AgentOrchestratorService {
       await this.releaseResource(
         operation.workspaceId,
         operation.resourceType === 'card' ? 'card' : 'board',
-        operation.resourceId
+        operation.resourceId,
       );
     }
   }
 
-  async resolveConflict(conflictId: string, resolution: ConflictResolution): Promise<void> {
+  async resolveConflict(
+    conflictId: string,
+    resolution: ConflictResolution,
+  ): Promise<void> {
     const conflict = this.conflicts.get(conflictId);
     if (!conflict) {
       throw new NotFoundException(`Conflict ${conflictId} not found`);
@@ -390,7 +424,9 @@ export class AgentOrchestratorService {
       metadata: resolution,
     });
 
-    this.logger.log(`Resolved conflict ${conflictId} with strategy: ${resolution.strategy}`);
+    this.logger.log(
+      `Resolved conflict ${conflictId} with strategy: ${resolution.strategy}`,
+    );
   }
 
   async getWorkspaceStats(workspaceId: string): Promise<{
@@ -409,31 +445,41 @@ export class AgentOrchestratorService {
     };
   }> {
     const workspace = await this.getWorkspace(workspaceId);
-    const operations = Array.from(this.operations.values()).filter(op => op.workspaceId === workspaceId);
-    
+    const operations = Array.from(this.operations.values()).filter(
+      (op) => op.workspaceId === workspaceId,
+    );
+
     return {
       workspace,
       operations: {
         total: operations.length,
-        pending: operations.filter(op => op.status === 'pending').length,
-        executing: operations.filter(op => op.status === 'executing').length,
-        completed: operations.filter(op => op.status === 'completed').length,
-        failed: operations.filter(op => op.status === 'failed').length,
-        conflicted: operations.filter(op => op.status === 'conflicted').length,
+        pending: operations.filter((op) => op.status === 'pending').length,
+        executing: operations.filter((op) => op.status === 'executing').length,
+        completed: operations.filter((op) => op.status === 'completed').length,
+        failed: operations.filter((op) => op.status === 'failed').length,
+        conflicted: operations.filter((op) => op.status === 'conflicted')
+          .length,
       },
       resources: {
-        allocated: workspace.resources.cardIds.length + workspace.resources.boardIds.length,
+        allocated:
+          workspace.resources.cardIds.length +
+          workspace.resources.boardIds.length,
         conflicts: workspace.metadata.conflictCount,
       },
     };
   }
 
-  private async processQueuedOperations(resourceType: string, resourceId: string): Promise<void> {
+  private async processQueuedOperations(
+    resourceType: string,
+    resourceId: string,
+  ): Promise<void> {
     // Find operations waiting for this resource
-    const queuedOps = Array.from(this.operations.values()).filter(op => 
-      op.status === 'conflicted' && 
-      op.resourceId === resourceId &&
-      (op.resourceType === resourceType || (resourceType === 'board' && op.resourceType === 'card'))
+    const queuedOps = Array.from(this.operations.values()).filter(
+      (op) =>
+        op.status === 'conflicted' &&
+        op.resourceId === resourceId &&
+        (op.resourceType === resourceType ||
+          (resourceType === 'board' && op.resourceType === 'card')),
     );
 
     // Sort by priority and creation time
@@ -447,8 +493,10 @@ export class AgentOrchestratorService {
       const nextOp = queuedOps[0];
       nextOp.status = 'pending';
       delete nextOp.metadata.conflictReason;
-      
-      this.logger.log(`Requeued operation ${nextOp.id} after resource ${resourceType}:${resourceId} was released`);
+
+      this.logger.log(
+        `Requeued operation ${nextOp.id} after resource ${resourceType}:${resourceId} was released`,
+      );
     }
   }
 
@@ -458,7 +506,10 @@ export class AgentOrchestratorService {
 
     // Remove old terminated workspaces
     for (const [id, workspace] of this.workspaces.entries()) {
-      if (workspace.status === 'terminated' && workspace.metadata.lastActivity < oneHourAgo) {
+      if (
+        workspace.status === 'terminated' &&
+        workspace.metadata.lastActivity < oneHourAgo
+      ) {
         this.workspaces.delete(id);
       }
     }

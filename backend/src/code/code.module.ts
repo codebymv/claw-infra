@@ -13,7 +13,17 @@ import { CodeSyncService } from './code.sync.service';
 import { CodeProviderGithub } from './code.provider.github';
 
 @Module({
-  imports: [ConfigModule, TypeOrmModule.forFeature([CodeRepo, CodePr, CodePrReview, CodeCommit, CodeSyncState, CodeDailyMetric])],
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([
+      CodeRepo,
+      CodePr,
+      CodePrReview,
+      CodeCommit,
+      CodeSyncState,
+      CodeDailyMetric,
+    ]),
+  ],
   controllers: [CodeController],
   providers: [CodeService, CodeSyncService, CodeProviderGithub],
   exports: [CodeService],

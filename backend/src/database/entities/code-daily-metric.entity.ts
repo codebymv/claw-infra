@@ -46,7 +46,11 @@ export class CodeDailyMetric {
   @Column({ name: 'merge_latency_count', type: 'int', default: 0 })
   mergeLatencyCount: number;
 
-  @Column({ name: 'first_review_latency_seconds_total', type: 'bigint', default: 0 })
+  @Column({
+    name: 'first_review_latency_seconds_total',
+    type: 'bigint',
+    default: 0,
+  })
   firstReviewLatencySecondsTotal: string;
 
   @Column({ name: 'first_review_latency_count', type: 'int', default: 0 })

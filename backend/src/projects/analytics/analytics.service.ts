@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Card, CardStatus } from '../../database/entities/card.entity';
-import { CardHistory, HistoryAction } from '../../database/entities/card-history.entity';
+import {
+  CardHistory,
+  HistoryAction,
+} from '../../database/entities/card-history.entity';
 import { Project } from '../../database/entities/project.entity';
 import { KanbanBoard } from '../../database/entities/kanban-board.entity';
 import { Column } from '../../database/entities/column.entity';
@@ -71,7 +74,12 @@ export interface CustomDashboard {
   projectId: string;
   userId: string;
   widgets: Array<{
-    type: 'velocity' | 'burndown' | 'status-distribution' | 'team-performance' | 'bottlenecks';
+    type:
+      | 'velocity'
+      | 'burndown'
+      | 'status-distribution'
+      | 'team-performance'
+      | 'bottlenecks';
     title: string;
     config: Record<string, any>;
     position: { x: number; y: number; width: number; height: number };
@@ -86,16 +94,19 @@ export class AnalyticsService {
 
   constructor(
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
-    @InjectRepository(CardHistory) private readonly historyRepo: Repository<CardHistory>,
-    @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
-    @InjectRepository(KanbanBoard) private readonly boardRepo: Repository<KanbanBoard>,
+    @InjectRepository(CardHistory)
+    private readonly historyRepo: Repository<CardHistory>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
+    @InjectRepository(KanbanBoard)
+    private readonly boardRepo: Repository<KanbanBoard>,
     @InjectRepository(Column) private readonly columnRepo: Repository<Column>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
   async getProjectInsights(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<ProjectInsights> {
     const project = await this.projectRepo.findOne({
       where: { id: projectId },
@@ -127,7 +138,7 @@ export class AnalyticsService {
       projectId,
       velocity,
       productivity,
-      columnMetrics
+      columnMetrics,
     );
 
     return {
@@ -147,7 +158,7 @@ export class AnalyticsService {
 
   async calculateVelocityMetrics(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<VelocityMetrics> {
     // Get completed cards in the time range
     const completedCards = await this.cardRepo
@@ -164,7 +175,7 @@ export class AnalyticsService {
     const completedCount = completedCards.length;
 
     // Calculate average completion time
-    let totalCompletionTime = 0;
+    const totalCompletionTime = 0;
     let totalCycleTime = 0;
     let totalLeadTime = 0;
 
@@ -183,18 +194,32 @@ export class AnalyticsService {
         });
 
         if (startHistory && startHistory.createdAt) {
-          const cycleTime = card.completedAt.getTime() - startHistory.createdAt.getTime();
+          const cycleTime =
+            card.completedAt.getTime() - startHistory.createdAt.getTime();
           totalCycleTime += cycleTime;
         }
       }
     }
 
-    const averageCompletionTime = completedCount > 0 ? totalCompletionTime / completedCount / (1000 * 60 * 60) : 0;
-    const cycleTime = completedCount > 0 ? totalCycleTime / completedCount / (1000 * 60 * 60) : 0;
-    const leadTime = completedCount > 0 ? totalLeadTime / completedCount / (1000 * 60 * 60) : 0;
+    const averageCompletionTime =
+      completedCount > 0
+        ? totalCompletionTime / completedCount / (1000 * 60 * 60)
+        : 0;
+    const cycleTime =
+      completedCount > 0
+        ? totalCycleTime / completedCount / (1000 * 60 * 60)
+        : 0;
+    const leadTime =
+      completedCount > 0
+        ? totalLeadTime / completedCount / (1000 * 60 * 60)
+        : 0;
 
     // Calculate throughput (cards per day)
-    const daysDiff = Math.max(1, (timeRange.endDate.getTime() - timeRange.startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.max(
+      1,
+      (timeRange.endDate.getTime() - timeRange.startDate.getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
     const throughput = completedCount / daysDiff;
 
     // Generate burndown data
@@ -212,7 +237,7 @@ export class AnalyticsService {
 
   async calculateTeamProductivityMetrics(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<TeamProductivityMetrics> {
     // Get all cards in the project within the time range
     const allCards = await this.cardRepo
@@ -226,17 +251,23 @@ export class AnalyticsService {
       })
       .getMany();
 
-    const completedCards = allCards.filter(card => card.status === CardStatus.COMPLETED);
+    const completedCards = allCards.filter(
+      (card) => card.status === CardStatus.COMPLETED,
+    );
     const totalCards = allCards.length;
-    const completionRate = totalCards > 0 ? (completedCards.length / totalCards) * 100 : 0;
+    const completionRate =
+      totalCards > 0 ? (completedCards.length / totalCards) * 100 : 0;
 
     // Calculate user performance metrics
-    const userPerformance = new Map<string, {
-      userId: string;
-      username: string;
-      completedCards: number;
-      totalCompletionTime: number;
-    }>();
+    const userPerformance = new Map<
+      string,
+      {
+        userId: string;
+        username: string;
+        completedCards: number;
+        totalCompletionTime: number;
+      }
+    >();
 
     for (const card of completedCards) {
       if (card.assigneeId) {
@@ -248,9 +279,10 @@ export class AnalyticsService {
         };
 
         existing.completedCards++;
-        
+
         if (card.completedAt && card.createdAt) {
-          const completionTime = card.completedAt.getTime() - card.createdAt.getTime();
+          const completionTime =
+            card.completedAt.getTime() - card.createdAt.getTime();
           existing.totalCompletionTime += completionTime;
         }
 
@@ -259,21 +291,26 @@ export class AnalyticsService {
     }
 
     const topPerformers = Array.from(userPerformance.values())
-      .map(user => ({
+      .map((user) => ({
         userId: user.userId,
         username: user.username,
         completedCards: user.completedCards,
-        averageCompletionTime: user.completedCards > 0 
-          ? user.totalCompletionTime / user.completedCards / (1000 * 60 * 60)
-          : 0,
+        averageCompletionTime:
+          user.completedCards > 0
+            ? user.totalCompletionTime / user.completedCards / (1000 * 60 * 60)
+            : 0,
       }))
       .sort((a, b) => b.completedCards - a.completedCards)
       .slice(0, 10);
 
-    const averageCardsPerUser = userPerformance.size > 0 ? totalCards / userPerformance.size : 0;
+    const averageCardsPerUser =
+      userPerformance.size > 0 ? totalCards / userPerformance.size : 0;
 
     // Calculate collaboration score based on comments and card interactions
-    const collaborationScore = await this.calculateCollaborationScore(projectId, timeRange);
+    const collaborationScore = await this.calculateCollaborationScore(
+      projectId,
+      timeRange,
+    );
 
     return {
       totalCards,
@@ -287,7 +324,7 @@ export class AnalyticsService {
 
   async getStatusDistribution(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<Record<CardStatus, number>> {
     const distribution = await this.cardRepo
       .createQueryBuilder('card')
@@ -310,7 +347,7 @@ export class AnalyticsService {
       [CardStatus.CANCELLED]: 0,
     };
 
-    distribution.forEach(item => {
+    distribution.forEach((item) => {
       result[item.status as CardStatus] = parseInt(item.count);
     });
 
@@ -319,7 +356,7 @@ export class AnalyticsService {
 
   async getPriorityDistribution(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<Record<string, number>> {
     const distribution = await this.cardRepo
       .createQueryBuilder('card')
@@ -335,7 +372,7 @@ export class AnalyticsService {
       .getRawMany();
 
     const result: Record<string, number> = {};
-    distribution.forEach(item => {
+    distribution.forEach((item) => {
       result[item.priority] = parseInt(item.count);
     });
 
@@ -344,7 +381,7 @@ export class AnalyticsService {
 
   async getTypeDistribution(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<Record<string, number>> {
     const distribution = await this.cardRepo
       .createQueryBuilder('card')
@@ -360,7 +397,7 @@ export class AnalyticsService {
       .getRawMany();
 
     const result: Record<string, number> = {};
-    distribution.forEach(item => {
+    distribution.forEach((item) => {
       result[item.type] = parseInt(item.count);
     });
 
@@ -369,14 +406,16 @@ export class AnalyticsService {
 
   async calculateColumnMetrics(
     projectId: string,
-    timeRange: AnalyticsTimeRange
-  ): Promise<Array<{
-    columnId: string;
-    columnName: string;
-    cardCount: number;
-    averageTimeInColumn: number;
-    bottleneckScore: number;
-  }>> {
+    timeRange: AnalyticsTimeRange,
+  ): Promise<
+    Array<{
+      columnId: string;
+      columnName: string;
+      cardCount: number;
+      averageTimeInColumn: number;
+      bottleneckScore: number;
+    }>
+  > {
     const columns = await this.columnRepo
       .createQueryBuilder('column')
       .leftJoin('column.board', 'board')
@@ -400,25 +439,36 @@ export class AnalyticsService {
       // Calculate average time in column based on history
       const avgTimeQuery = await this.historyRepo
         .createQueryBuilder('history')
-        .select('AVG(EXTRACT(EPOCH FROM (history.createdAt - prev_history.created_at)))', 'avg_time')
-        .leftJoin('card_history', 'prev_history', 
-          'prev_history.card_id = history.card_id AND prev_history.created_at < history.createdAt'
+        .select(
+          'AVG(EXTRACT(EPOCH FROM (history.createdAt - prev_history.created_at)))',
+          'avg_time',
+        )
+        .leftJoin(
+          'card_history',
+          'prev_history',
+          'prev_history.card_id = history.card_id AND prev_history.created_at < history.createdAt',
         )
         .leftJoin('cards', 'card', 'card.id = history.cardId')
         .leftJoin('kanban_boards', 'board', 'board.id = card.board_id')
         .where('board.project_id = :projectId', { projectId })
-        .andWhere('history.metadata->>\'toColumnId\' = :columnId', { columnId: column.id })
+        .andWhere("history.metadata->>'toColumnId' = :columnId", {
+          columnId: column.id,
+        })
         .andWhere('history.createdAt BETWEEN :startDate AND :endDate', {
           startDate: timeRange.startDate,
           endDate: timeRange.endDate,
         })
         .getRawOne();
 
-      const averageTimeInColumn = avgTimeQuery?.avg_time ? 
-        parseFloat(avgTimeQuery.avg_time) / 3600 : 0; // Convert to hours
+      const averageTimeInColumn = avgTimeQuery?.avg_time
+        ? parseFloat(avgTimeQuery.avg_time) / 3600
+        : 0; // Convert to hours
 
       // Calculate bottleneck score (higher = more bottleneck)
-      const bottleneckScore = this.calculateBottleneckScore(cardsInColumn, averageTimeInColumn);
+      const bottleneckScore = this.calculateBottleneckScore(
+        cardsInColumn,
+        averageTimeInColumn,
+      );
 
       columnMetrics.push({
         columnId: column.id,
@@ -434,15 +484,18 @@ export class AnalyticsService {
 
   async calculateTrends(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<{
     cardCreationTrend: Array<{ date: string; count: number }>;
     completionTrend: Array<{ date: string; count: number }>;
     velocityTrend: Array<{ date: string; velocity: number }>;
   }> {
-    const daysDiff = Math.ceil((timeRange.endDate.getTime() - timeRange.startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.ceil(
+      (timeRange.endDate.getTime() - timeRange.startDate.getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
     const dates: string[] = [];
-    
+
     for (let i = 0; i < daysDiff; i++) {
       const date = new Date(timeRange.startDate);
       date.setDate(date.getDate() + i);
@@ -454,7 +507,7 @@ export class AnalyticsService {
     for (const date of dates) {
       const startOfDay = new Date(date + 'T00:00:00.000Z');
       const endOfDay = new Date(date + 'T23:59:59.999Z');
-      
+
       const count = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
@@ -473,7 +526,7 @@ export class AnalyticsService {
     for (const date of dates) {
       const startOfDay = new Date(date + 'T00:00:00.000Z');
       const endOfDay = new Date(date + 'T23:59:59.999Z');
-      
+
       const count = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
@@ -494,7 +547,7 @@ export class AnalyticsService {
       const date = dates[i];
       const weekStart = new Date(dates[i - 6] + 'T00:00:00.000Z');
       const weekEnd = new Date(date + 'T23:59:59.999Z');
-      
+
       const weeklyCompleted = await this.cardRepo
         .createQueryBuilder('card')
         .leftJoin('card.board', 'board')
@@ -519,14 +572,19 @@ export class AnalyticsService {
 
   private async generateBurndownData(
     projectId: string,
-    timeRange: AnalyticsTimeRange
-  ): Promise<Array<{
-    date: string;
-    remaining: number;
-    completed: number;
-    total: number;
-  }>> {
-    const daysDiff = Math.ceil((timeRange.endDate.getTime() - timeRange.startDate.getTime()) / (1000 * 60 * 60 * 24));
+    timeRange: AnalyticsTimeRange,
+  ): Promise<
+    Array<{
+      date: string;
+      remaining: number;
+      completed: number;
+      total: number;
+    }>
+  > {
+    const daysDiff = Math.ceil(
+      (timeRange.endDate.getTime() - timeRange.startDate.getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
     const burndownData: Array<{
       date: string;
       remaining: number;
@@ -542,7 +600,7 @@ export class AnalyticsService {
       .andWhere('card.createdAt <= :endDate', { endDate: timeRange.endDate })
       .getCount();
 
-    let cumulativeCompleted = 0;
+    const cumulativeCompleted = 0;
 
     for (let i = 0; i <= daysDiff; i++) {
       const date = new Date(timeRange.startDate);
@@ -573,7 +631,7 @@ export class AnalyticsService {
 
   private async calculateCollaborationScore(
     projectId: string,
-    timeRange: AnalyticsTimeRange
+    timeRange: AnalyticsTimeRange,
   ): Promise<number> {
     // Calculate collaboration based on comments, card assignments, and interactions
     const commentCount = await this.cardRepo.manager
@@ -600,11 +658,15 @@ export class AnalyticsService {
       .getCount();
 
     // Simple collaboration score: comments per card ratio (0-100)
-    const commentsPerCard = cardCount > 0 ? parseInt(commentCount.count) / cardCount : 0;
+    const commentsPerCard =
+      cardCount > 0 ? parseInt(commentCount.count) / cardCount : 0;
     return Math.min(100, commentsPerCard * 20); // Scale to 0-100
   }
 
-  private calculateBottleneckScore(cardCount: number, averageTime: number): number {
+  private calculateBottleneckScore(
+    cardCount: number,
+    averageTime: number,
+  ): number {
     // Simple bottleneck scoring: higher card count + higher average time = higher bottleneck
     const cardScore = Math.min(cardCount / 10, 1); // Normalize to 0-1
     const timeScore = Math.min(averageTime / 168, 1); // Normalize to 0-1 (168 hours = 1 week)
@@ -615,44 +677,57 @@ export class AnalyticsService {
     projectId: string,
     velocity: VelocityMetrics,
     productivity: TeamProductivityMetrics,
-    columnMetrics: ProjectInsights['columnMetrics']
+    columnMetrics: ProjectInsights['columnMetrics'],
   ): Promise<string[]> {
     const recommendations: string[] = [];
 
     // Velocity recommendations
     if (velocity.throughput < 1) {
-      recommendations.push('Consider breaking down large cards into smaller, more manageable tasks to improve throughput.');
+      recommendations.push(
+        'Consider breaking down large cards into smaller, more manageable tasks to improve throughput.',
+      );
     }
 
-    if (velocity.cycleTime > 168) { // More than a week
-      recommendations.push('Cards are taking too long to complete. Review your workflow and identify bottlenecks.');
+    if (velocity.cycleTime > 168) {
+      // More than a week
+      recommendations.push(
+        'Cards are taking too long to complete. Review your workflow and identify bottlenecks.',
+      );
     }
 
     // Productivity recommendations
     if (productivity.completionRate < 70) {
-      recommendations.push('Low completion rate detected. Consider reviewing card priorities and removing unnecessary work.');
+      recommendations.push(
+        'Low completion rate detected. Consider reviewing card priorities and removing unnecessary work.',
+      );
     }
 
     if (productivity.collaborationScore < 30) {
-      recommendations.push('Low collaboration detected. Encourage more team communication and code reviews.');
+      recommendations.push(
+        'Low collaboration detected. Encourage more team communication and code reviews.',
+      );
     }
 
     // Column bottleneck recommendations
     const bottleneckColumns = columnMetrics
-      .filter(col => col.bottleneckScore > 70)
+      .filter((col) => col.bottleneckScore > 70)
       .sort((a, b) => b.bottleneckScore - a.bottleneckScore);
 
     if (bottleneckColumns.length > 0) {
-      recommendations.push(`Bottleneck detected in "${bottleneckColumns[0].columnName}" column. Consider adding more resources or reviewing the process.`);
+      recommendations.push(
+        `Bottleneck detected in "${bottleneckColumns[0].columnName}" column. Consider adding more resources or reviewing the process.`,
+      );
     }
 
     // Team balance recommendations
     if (productivity.topPerformers.length > 0) {
       const topPerformer = productivity.topPerformers[0];
       const avgPerformance = productivity.averageCardsPerUser;
-      
+
       if (topPerformer.completedCards > avgPerformance * 2) {
-        recommendations.push('Work distribution appears uneven. Consider balancing workload across team members.');
+        recommendations.push(
+          'Work distribution appears uneven. Consider balancing workload across team members.',
+        );
       }
     }
 
@@ -662,7 +737,7 @@ export class AnalyticsService {
   async exportAnalyticsReport(
     projectId: string,
     timeRange: AnalyticsTimeRange,
-    format: 'json' | 'csv' = 'json'
+    format: 'json' | 'csv' = 'json',
   ): Promise<string | Buffer> {
     const insights = await this.getProjectInsights(projectId, timeRange);
 
@@ -674,14 +749,20 @@ export class AnalyticsService {
     const csvRows = [
       ['Metric', 'Value'],
       ['Project Name', insights.projectName],
-      ['Time Range', `${insights.timeRange.startDate.toISOString()} - ${insights.timeRange.endDate.toISOString()}`],
+      [
+        'Time Range',
+        `${insights.timeRange.startDate.toISOString()} - ${insights.timeRange.endDate.toISOString()}`,
+      ],
       ['Completed Cards', insights.velocity.completedCards.toString()],
       ['Throughput (cards/day)', insights.velocity.throughput.toFixed(2)],
       ['Average Cycle Time (hours)', insights.velocity.cycleTime.toFixed(2)],
       ['Completion Rate (%)', insights.productivity.completionRate.toFixed(2)],
-      ['Collaboration Score', insights.productivity.collaborationScore.toFixed(2)],
+      [
+        'Collaboration Score',
+        insights.productivity.collaborationScore.toFixed(2),
+      ],
     ];
 
-    return csvRows.map(row => row.join(',')).join('\n');
+    return csvRows.map((row) => row.join(',')).join('\n');
   }
 }

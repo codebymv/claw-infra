@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -65,7 +75,11 @@ export class PricingController {
     @Param('model') model: string,
     @Param('effectiveDate') effectiveDate: string,
   ) {
-    await this.pricingService.deactivatePricing(provider, model, new Date(effectiveDate));
+    await this.pricingService.deactivatePricing(
+      provider,
+      model,
+      new Date(effectiveDate),
+    );
     return { message: 'Pricing deactivated successfully' };
   }
 

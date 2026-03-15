@@ -1,6 +1,19 @@
-import { Controller, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsString, IsEnum, IsOptional, IsObject, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsObject,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
@@ -38,9 +51,7 @@ class IngestLogBatchDto {
 @RequireApiKeyType(ApiKeyType.AGENT)
 @Throttle({ ingest: { ttl: 60000, limit: 30 } })
 export class LogsIngestController {
-  constructor(
-    private readonly logsService: LogsService,
-  ) {}
+  constructor(private readonly logsService: LogsService) {}
 
   @Post()
   async ingest(@Body() dto: IngestLogDto) {

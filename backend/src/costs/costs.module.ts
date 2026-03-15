@@ -13,9 +13,12 @@ import { PricingController } from './pricing.controller';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CostRecord, CostBudget, ApiKey, ModelPricing]), CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([CostRecord, CostBudget, ApiKey, ModelPricing]),
+    CommonModule,
+  ],
   controllers: [CostsController, CostIngestController, PricingController],
   providers: [CostsService, CostRefreshService, PricingService],
   exports: [CostsService, PricingService],
 })
-export class CostsModule { }
+export class CostsModule {}

@@ -78,9 +78,16 @@ export class CostsController {
   }
 
   @Get('top-runs')
-  getTopExpensiveRuns(@Query() query: PeriodQueryDto, @Query('limit') limit?: string) {
+  getTopExpensiveRuns(
+    @Query() query: PeriodQueryDto,
+    @Query('limit') limit?: string,
+  ) {
     const { from, to } = resolvePeriod(query);
-    return this.costsService.getTopExpensiveRuns(from, to, limit ? parseInt(limit, 10) : 10);
+    return this.costsService.getTopExpensiveRuns(
+      from,
+      to,
+      limit ? parseInt(limit, 10) : 10,
+    );
   }
 
   @Get('budgets')

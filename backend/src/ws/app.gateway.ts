@@ -24,7 +24,9 @@ interface SubscribePayload {
   cors: { credentials: true },
   namespace: '/',
 })
-export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+export class AppGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   @WebSocketServer()
   server: Server;
 
@@ -40,17 +42,27 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   ) {}
 
   afterInit(server: Server) {
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') || 'http://localhost:3001';
     if (server.engine) {
-      server.engine.on('headers', (_headers: unknown, req: { headers: { origin?: string } }) => {
-        const origin = req.headers.origin;
-        if (origin === frontendUrl) {
-          (_headers as Record<string, string>)['Access-Control-Allow-Origin'] = origin;
-          (_headers as Record<string, string>)['Access-Control-Allow-Credentials'] = 'true';
-        }
-      });
+      server.engine.on(
+        'headers',
+        (_headers: unknown, req: { headers: { origin?: string } }) => {
+          const origin = req.headers.origin;
+          if (origin === frontendUrl) {
+            (_headers as Record<string, string>)[
+              'Access-Control-Allow-Origin'
+            ] = origin;
+            (_headers as Record<string, string>)[
+              'Access-Control-Allow-Credentials'
+            ] = 'true';
+          }
+        },
+      );
     } else {
-      this.logger.warn('server.engine not available in afterInit — CORS header hook skipped');
+      this.logger.warn(
+        'server.engine not available in afterInit — CORS header hook skipped',
+      );
     }
 
     // Subscribe to global channels
@@ -77,8 +89,12 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
       server.to(channel).emit(channel, data);
     });
 
-    this.logger.log(`WebSocket gateway initialized (CORS origin: ${frontendUrl})`);
-    this.logger.log('Using wildcard subscriptions for run:*, logs:*, and project:* channels');
+    this.logger.log(
+      `WebSocket gateway initialized (CORS origin: ${frontendUrl})`,
+    );
+    this.logger.log(
+      'Using wildcard subscriptions for run:*, logs:*, and project:* channels',
+    );
   }
 
   handleConnection(client: Socket) {
@@ -110,7 +126,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   @SubscribeMessage('subscribe')
-  handleSubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
+  handleSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: SubscribePayload,
+  ) {
     const channel = payload?.channel;
 
     if (!channel || !this.isValidChannel(channel)) {
@@ -133,7 +152,10 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   @SubscribeMessage('unsubscribe')
-  handleUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() payload: SubscribePayload) {
+  handleUnsubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: SubscribePayload,
+  ) {
     const channel = payload?.channel;
 
     if (!channel || !this.isValidChannel(channel)) {
@@ -161,7 +183,11 @@ export class AppGateway implements OnGatewayConnection, OnGatewayDisconnect, OnG
   }
 
   private isDynamicChannel(channel: string): boolean {
-    return channel.startsWith('run:') || channel.startsWith('logs:') || channel.startsWith('project:');
+    return (
+      channel.startsWith('run:') ||
+      channel.startsWith('logs:') ||
+      channel.startsWith('project:')
+    );
   }
 
   broadcastRunUpdate(runId: string, data: unknown) {

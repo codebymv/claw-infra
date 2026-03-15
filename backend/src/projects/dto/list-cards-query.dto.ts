@@ -1,6 +1,20 @@
-import { IsOptional, IsEnum, IsUUID, IsString, IsArray, IsDateString, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsString,
+  IsArray,
+  IsDateString,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
-import { CardType, CardPriority, CardStatus } from '../../database/entities/card.entity';
+import {
+  CardType,
+  CardPriority,
+  CardStatus,
+} from '../../database/entities/card.entity';
 
 export class ListCardsQueryDto {
   @IsOptional()
@@ -30,7 +44,7 @@ export class ListCardsQueryDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   tags?: string[];
 
   @IsOptional()
@@ -60,7 +74,8 @@ export class ListCardsQueryDto {
 
   @IsOptional()
   @IsString()
-  sortBy?: 'createdAt' | 'updatedAt' | 'dueDate' | 'priority' | 'position' = 'position';
+  sortBy?: 'createdAt' | 'updatedAt' | 'dueDate' | 'priority' | 'position' =
+    'position';
 
   @IsOptional()
   @IsEnum(['ASC', 'DESC'])

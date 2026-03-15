@@ -1,7 +1,21 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions, Between, In, QueryDeepPartialEntity } from 'typeorm';
-import { AgentRun, AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
+import {
+  Repository,
+  FindManyOptions,
+  Between,
+  In,
+  QueryDeepPartialEntity,
+} from 'typeorm';
+import {
+  AgentRun,
+  AgentRunStatus,
+  AgentRunTrigger,
+} from '../database/entities/agent-run.entity';
 import { AgentStep, StepStatus } from '../database/entities/agent-step.entity';
 import { AppGateway } from '../ws/app.gateway';
 import { AlertsService } from '../alerts/alerts.service';
@@ -71,7 +85,11 @@ const TERMINAL_STEP_STATUSES = new Set<StepStatus>([
 
 const ALLOWED_RUN_TRANSITIONS: Record<AgentRunStatus, AgentRunStatus[]> = {
   [AgentRunStatus.QUEUED]: [AgentRunStatus.RUNNING, AgentRunStatus.CANCELLED],
-  [AgentRunStatus.RUNNING]: [AgentRunStatus.COMPLETED, AgentRunStatus.FAILED, AgentRunStatus.CANCELLED],
+  [AgentRunStatus.RUNNING]: [
+    AgentRunStatus.COMPLETED,
+    AgentRunStatus.FAILED,
+    AgentRunStatus.CANCELLED,
+  ],
   [AgentRunStatus.COMPLETED]: [],
   [AgentRunStatus.FAILED]: [],
   [AgentRunStatus.CANCELLED]: [],
@@ -79,7 +97,11 @@ const ALLOWED_RUN_TRANSITIONS: Record<AgentRunStatus, AgentRunStatus[]> = {
 
 const ALLOWED_STEP_TRANSITIONS: Record<StepStatus, StepStatus[]> = {
   [StepStatus.PENDING]: [StepStatus.RUNNING, StepStatus.SKIPPED],
-  [StepStatus.RUNNING]: [StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED],
+  [StepStatus.RUNNING]: [
+    StepStatus.COMPLETED,
+    StepStatus.FAILED,
+    StepStatus.SKIPPED,
+  ],
   [StepStatus.COMPLETED]: [],
   [StepStatus.FAILED]: [],
   [StepStatus.SKIPPED]: [],
@@ -89,7 +111,8 @@ const ALLOWED_STEP_TRANSITIONS: Record<StepStatus, StepStatus[]> = {
 export class AgentsService {
   constructor(
     @InjectRepository(AgentRun) private readonly runRepo: Repository<AgentRun>,
-    @InjectRepository(AgentStep) private readonly stepRepo: Repository<AgentStep>,
+    @InjectRepository(AgentStep)
+    private readonly stepRepo: Repository<AgentStep>,
     private readonly gateway: AppGateway,
     private readonly alerts: AlertsService,
   ) {}
@@ -101,7 +124,10 @@ export class AgentsService {
       startedAt: null,
     });
     const saved = await this.runRepo.save(run);
-    this.gateway.broadcastRunUpdate(saved.id, { type: 'run.created', run: saved });
+    this.gateway.broadcastRunUpdate(saved.id, {
+      type: 'run.created',
+      run: saved,
+    });
     return saved;
   }
 
@@ -109,7 +135,9 @@ export class AgentsService {
     const run = await this.getRunById(id);
 
     if (!ALLOWED_RUN_TRANSITIONS[run.status].includes(AgentRunStatus.RUNNING)) {
-      throw new BadRequestException(`Illegal run transition: ${run.status} -> running`);
+      throw new BadRequestException(
+        `Illegal run transition: ${run.status} -> running`,
+      );
     }
 
     const startedAt = run.startedAt || new Date();
@@ -122,19 +150,34 @@ export class AgentsService {
     });
 
     const updated = await this.getRunById(id);
-    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.started', run: updated });
+    this.gateway.broadcastRunUpdate(updated.id, {
+      type: 'run.started',
+      run: updated,
+    });
     return updated;
   }
 
   async updateRun(id: string, dto: UpdateRunDto): Promise<AgentRun> {
     const existing = await this.getRunById(id);
 
-    if (TERMINAL_RUN_STATUSES.has(existing.status) && dto.status && dto.status !== existing.status) {
-      throw new BadRequestException(`Run ${id} is terminal (${existing.status}) and cannot transition to ${dto.status}`);
+    if (
+      TERMINAL_RUN_STATUSES.has(existing.status) &&
+      dto.status &&
+      dto.status !== existing.status
+    ) {
+      throw new BadRequestException(
+        `Run ${id} is terminal (${existing.status}) and cannot transition to ${dto.status}`,
+      );
     }
 
-    if (dto.status && dto.status !== existing.status && !ALLOWED_RUN_TRANSITIONS[existing.status].includes(dto.status)) {
-      throw new BadRequestException(`Illegal run transition: ${existing.status} -> ${dto.status}`);
+    if (
+      dto.status &&
+      dto.status !== existing.status &&
+      !ALLOWED_RUN_TRANSITIONS[existing.status].includes(dto.status)
+    ) {
+      throw new BadRequestException(
+        `Illegal run transition: ${existing.status} -> ${dto.status}`,
+      );
     }
 
     const nextStatus = dto.status || existing.status;
@@ -154,7 +197,9 @@ export class AgentsService {
       if (startedAt) {
         const computed = completedAt.getTime() - startedAt.getTime();
         if (computed < 0) {
-          throw new BadRequestException('completedAt cannot be earlier than startedAt');
+          throw new BadRequestException(
+            'completedAt cannot be earlier than startedAt',
+          );
         }
         patch.durationMs = dto.durationMs ?? computed;
       } else if (dto.durationMs !== undefined && dto.durationMs < 0) {
@@ -162,7 +207,9 @@ export class AgentsService {
       }
     } else {
       if (dto.completedAt) {
-        throw new BadRequestException('completedAt is only valid for terminal statuses');
+        throw new BadRequestException(
+          'completedAt is only valid for terminal statuses',
+        );
       }
       if (dto.durationMs !== undefined && dto.durationMs < 0) {
         throw new BadRequestException('durationMs cannot be negative');
@@ -172,11 +219,21 @@ export class AgentsService {
     await this.runRepo.update(id, patch as QueryDeepPartialEntity<AgentRun>);
     const updated = await this.getRunById(id);
 
-    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.updated', run: updated });
+    this.gateway.broadcastRunUpdate(updated.id, {
+      type: 'run.updated',
+      run: updated,
+    });
 
-    if (existing.status !== AgentRunStatus.FAILED && updated.status === AgentRunStatus.FAILED) {
+    if (
+      existing.status !== AgentRunStatus.FAILED &&
+      updated.status === AgentRunStatus.FAILED
+    ) {
       this.alerts
-        .runFailed(updated.agentName, updated.id, updated.errorMessage || undefined)
+        .runFailed(
+          updated.agentName,
+          updated.id,
+          updated.errorMessage || undefined,
+        )
         .catch(() => undefined);
     }
 
@@ -198,7 +255,8 @@ export class AgentsService {
     const skip = (page - 1) * limit;
 
     // Build query with eager loading to prevent N+1
-    const queryBuilder = this.runRepo.createQueryBuilder('run')
+    const queryBuilder = this.runRepo
+      .createQueryBuilder('run')
       .leftJoinAndSelect('run.steps', 'steps')
       .orderBy('run.createdAt', 'DESC')
       .skip(skip)
@@ -207,24 +265,33 @@ export class AgentsService {
     // Apply filters
     if (query.status) {
       if (Array.isArray(query.status)) {
-        queryBuilder.andWhere('run.status IN (:...statuses)', { statuses: query.status });
+        queryBuilder.andWhere('run.status IN (:...statuses)', {
+          statuses: query.status,
+        });
       } else {
         queryBuilder.andWhere('run.status = :status', { status: query.status });
       }
     }
-    
+
     if (query.agentName) {
-      queryBuilder.andWhere('run.agent_name = :agentName', { agentName: query.agentName });
+      queryBuilder.andWhere('run.agent_name = :agentName', {
+        agentName: query.agentName,
+      });
     }
-    
+
     if (query.trigger) {
-      queryBuilder.andWhere('run.trigger = :trigger', { trigger: query.trigger });
+      queryBuilder.andWhere('run.trigger = :trigger', {
+        trigger: query.trigger,
+      });
     }
-    
+
     if (query.from || query.to) {
       const from = query.from ? new Date(query.from) : new Date(0);
       const to = query.to ? new Date(query.to) : new Date();
-      queryBuilder.andWhere('run.started_at BETWEEN :from AND :to', { from, to });
+      queryBuilder.andWhere('run.started_at BETWEEN :from AND :to', {
+        from,
+        to,
+      });
     }
 
     // Execute with count
@@ -240,7 +307,9 @@ export class AgentsService {
     }
 
     const completedAt = new Date();
-    const durationMs = run.startedAt ? Math.max(0, completedAt.getTime() - run.startedAt.getTime()) : null;
+    const durationMs = run.startedAt
+      ? Math.max(0, completedAt.getTime() - run.startedAt.getTime())
+      : null;
 
     await this.runRepo.update(id, {
       status: AgentRunStatus.CANCELLED,
@@ -249,7 +318,10 @@ export class AgentsService {
     });
 
     const updated = await this.getRunById(id);
-    this.gateway.broadcastRunUpdate(updated.id, { type: 'run.cancelled', run: updated });
+    this.gateway.broadcastRunUpdate(updated.id, {
+      type: 'run.cancelled',
+      run: updated,
+    });
     return updated;
   }
 
@@ -266,8 +338,15 @@ export class AgentsService {
 
     const [totalToday, activeCount, recentFailed] = await Promise.all([
       this.runRepo.count({ where: { startedAt: Between(dayAgo, now) } }),
-      this.runRepo.count({ where: { status: In([AgentRunStatus.RUNNING, AgentRunStatus.QUEUED]) } }),
-      this.runRepo.count({ where: { status: AgentRunStatus.FAILED, startedAt: Between(dayAgo, now) } }),
+      this.runRepo.count({
+        where: { status: In([AgentRunStatus.RUNNING, AgentRunStatus.QUEUED]) },
+      }),
+      this.runRepo.count({
+        where: {
+          status: AgentRunStatus.FAILED,
+          startedAt: Between(dayAgo, now),
+        },
+      }),
     ]);
 
     const avgLatency = await this.runRepo
@@ -302,7 +381,9 @@ export class AgentsService {
   async createStep(dto: CreateStepDto): Promise<AgentStep> {
     const run = await this.getRunById(dto.runId);
     if (TERMINAL_RUN_STATUSES.has(run.status)) {
-      throw new BadRequestException(`Cannot create step for terminal run ${run.id} (${run.status})`);
+      throw new BadRequestException(
+        `Cannot create step for terminal run ${run.id} (${run.status})`,
+      );
     }
 
     const step = this.stepRepo.create({
@@ -314,7 +395,11 @@ export class AgentsService {
     });
 
     const saved = await this.stepRepo.save(step);
-    this.gateway.broadcastRunUpdate(run.id, { type: 'step.created', runId: run.id, step: saved });
+    this.gateway.broadcastRunUpdate(run.id, {
+      type: 'step.created',
+      runId: run.id,
+      step: saved,
+    });
     return saved;
   }
 
@@ -324,15 +409,29 @@ export class AgentsService {
 
     const run = await this.getRunById(step.runId);
     if (TERMINAL_RUN_STATUSES.has(run.status)) {
-      throw new BadRequestException(`Cannot update step for terminal run ${run.id} (${run.status})`);
+      throw new BadRequestException(
+        `Cannot update step for terminal run ${run.id} (${run.status})`,
+      );
     }
 
-    if (TERMINAL_STEP_STATUSES.has(step.status) && dto.status && dto.status !== step.status) {
-      throw new BadRequestException(`Step ${id} is terminal (${step.status}) and cannot transition to ${dto.status}`);
+    if (
+      TERMINAL_STEP_STATUSES.has(step.status) &&
+      dto.status &&
+      dto.status !== step.status
+    ) {
+      throw new BadRequestException(
+        `Step ${id} is terminal (${step.status}) and cannot transition to ${dto.status}`,
+      );
     }
 
-    if (dto.status && dto.status !== step.status && !ALLOWED_STEP_TRANSITIONS[step.status].includes(dto.status)) {
-      throw new BadRequestException(`Illegal step transition: ${step.status} -> ${dto.status}`);
+    if (
+      dto.status &&
+      dto.status !== step.status &&
+      !ALLOWED_STEP_TRANSITIONS[step.status].includes(dto.status)
+    ) {
+      throw new BadRequestException(
+        `Illegal step transition: ${step.status} -> ${dto.status}`,
+      );
     }
 
     const nextStatus = dto.status || step.status;
@@ -352,7 +451,9 @@ export class AgentsService {
       if (startedAt) {
         const computed = completedAt.getTime() - startedAt.getTime();
         if (computed < 0) {
-          throw new BadRequestException('step.completedAt cannot be earlier than step.startedAt');
+          throw new BadRequestException(
+            'step.completedAt cannot be earlier than step.startedAt',
+          );
         }
         patch.durationMs = dto.durationMs ?? computed;
       } else if (dto.durationMs !== undefined && dto.durationMs < 0) {
@@ -360,7 +461,9 @@ export class AgentsService {
       }
     } else {
       if (dto.completedAt) {
-        throw new BadRequestException('step.completedAt is only valid for terminal statuses');
+        throw new BadRequestException(
+          'step.completedAt is only valid for terminal statuses',
+        );
       }
       if (dto.durationMs !== undefined && dto.durationMs < 0) {
         throw new BadRequestException('step.durationMs cannot be negative');
@@ -372,7 +475,11 @@ export class AgentsService {
     const updated = await this.stepRepo.findOne({ where: { id } });
     if (!updated) throw new NotFoundException(`Step ${id} not found`);
 
-    this.gateway.broadcastRunUpdate(run.id, { type: 'step.updated', runId: run.id, step: updated });
+    this.gateway.broadcastRunUpdate(run.id, {
+      type: 'step.updated',
+      runId: run.id,
+      step: updated,
+    });
     return updated;
   }
 

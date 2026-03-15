@@ -32,19 +32,25 @@ export class CostRefreshService {
       `);
 
       if (!hourlyExists[0].exists) {
-        this.logger.warn('Creating missing hourly_cost_summary materialized view');
+        this.logger.warn(
+          'Creating missing hourly_cost_summary materialized view',
+        );
         await this.createHourlyCostSummary();
       }
 
       if (!dailyExists[0].exists) {
-        this.logger.warn('Creating missing daily_cost_summary materialized view');
+        this.logger.warn(
+          'Creating missing daily_cost_summary materialized view',
+        );
         await this.createDailyCostSummary();
       }
 
       this.materializedViewsCreated = true;
       this.logger.log('Materialized views verified/created successfully');
     } catch (error) {
-      this.logger.error(`Failed to ensure materialized views exist: ${error.message}`);
+      this.logger.error(
+        `Failed to ensure materialized views exist: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -119,14 +125,18 @@ export class CostRefreshService {
   async refreshHourlySummary() {
     try {
       await this.ensureMaterializedViewsExist();
-      
+
       const start = Date.now();
-      await this.dataSource.query('REFRESH MATERIALIZED VIEW CONCURRENTLY hourly_cost_summary');
+      await this.dataSource.query(
+        'REFRESH MATERIALIZED VIEW CONCURRENTLY hourly_cost_summary',
+      );
       const duration = Date.now() - start;
       this.logger.log(`Refreshed hourly_cost_summary in ${duration}ms`);
     } catch (error) {
-      this.logger.error(`Failed to refresh hourly_cost_summary: ${error.message}`);
-      
+      this.logger.error(
+        `Failed to refresh hourly_cost_summary: ${error.message}`,
+      );
+
       // If the error is about missing materialized view, reset the flag to retry creation
       if (error.message.includes('does not exist')) {
         this.materializedViewsCreated = false;
@@ -142,14 +152,18 @@ export class CostRefreshService {
   async refreshDailySummary() {
     try {
       await this.ensureMaterializedViewsExist();
-      
+
       const start = Date.now();
-      await this.dataSource.query('REFRESH MATERIALIZED VIEW CONCURRENTLY daily_cost_summary');
+      await this.dataSource.query(
+        'REFRESH MATERIALIZED VIEW CONCURRENTLY daily_cost_summary',
+      );
       const duration = Date.now() - start;
       this.logger.log(`Refreshed daily_cost_summary in ${duration}ms`);
     } catch (error) {
-      this.logger.error(`Failed to refresh daily_cost_summary: ${error.message}`);
-      
+      this.logger.error(
+        `Failed to refresh daily_cost_summary: ${error.message}`,
+      );
+
       // If the error is about missing materialized view, reset the flag to retry creation
       if (error.message.includes('does not exist')) {
         this.materializedViewsCreated = false;

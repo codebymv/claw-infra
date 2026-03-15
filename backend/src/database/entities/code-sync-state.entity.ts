@@ -25,7 +25,10 @@ export class CodeSyncState {
   @Column({ name: 'repo_id', type: 'uuid', nullable: true })
   repoId: string | null;
 
-  @ManyToOne(() => CodeRepo, (repo) => repo.syncStates, { nullable: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => CodeRepo, (repo) => repo.syncStates, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'repo_id' })
   repo: CodeRepo | null;
 

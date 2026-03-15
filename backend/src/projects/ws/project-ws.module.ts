@@ -24,9 +24,6 @@ import { User } from '../../database/entities/user.entity';
     ProjectAuthService,
     AuditLogService,
   ],
-  exports: [
-    ProjectWebSocketGateway,
-    ProjectPubSubService,
-  ],
+  exports: [ProjectWebSocketGateway, ProjectPubSubService],
 })
 export class ProjectWsModule {}

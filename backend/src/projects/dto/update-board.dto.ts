@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsBoolean, IsObject, Length } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsObject,
+  Length,
+} from 'class-validator';
 import { BoardLayout } from '../../database/entities/kanban-board.entity';
 
 export class UpdateBoardDto {

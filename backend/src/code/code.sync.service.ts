@@ -20,32 +20,47 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
   private reconciliationTimer: NodeJS.Timeout | null = null;
 
   constructor(
-    @InjectRepository(CodeRepo) private readonly repoRepository: Repository<CodeRepo>,
-    @InjectRepository(CodeSyncState) private readonly syncStateRepository: Repository<CodeSyncState>,
+    @InjectRepository(CodeRepo)
+    private readonly repoRepository: Repository<CodeRepo>,
+    @InjectRepository(CodeSyncState)
+    private readonly syncStateRepository: Repository<CodeSyncState>,
     @InjectRepository(CodePr) private readonly prRepository: Repository<CodePr>,
-    @InjectRepository(CodePrReview) private readonly reviewRepository: Repository<CodePrReview>,
-    @InjectRepository(CodeCommit) private readonly commitRepository: Repository<CodeCommit>,
+    @InjectRepository(CodePrReview)
+    private readonly reviewRepository: Repository<CodePrReview>,
+    @InjectRepository(CodeCommit)
+    private readonly commitRepository: Repository<CodeCommit>,
     private readonly githubProvider: CodeProviderGithub,
     private readonly config: ConfigService,
-  ) { }
+  ) {}
 
   onModuleInit() {
-    const enabled = this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
+    const enabled =
+      this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
     if (!enabled) return;
 
     const intervalMinutes = Math.max(
       5,
-      parseInt(this.config.get<string>('CODE_RECONCILIATION_INTERVAL_MINUTES') || '360', 10),
+      parseInt(
+        this.config.get<string>('CODE_RECONCILIATION_INTERVAL_MINUTES') ||
+          '360',
+        10,
+      ),
     );
 
-    this.reconciliationTimer = setInterval(() => {
-      this.reconcileGithubRepos().catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Scheduled reconciliation failed: ${message}`);
-      });
-    }, intervalMinutes * 60 * 1000);
+    this.reconciliationTimer = setInterval(
+      () => {
+        this.reconcileGithubRepos().catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          this.logger.error(`Scheduled reconciliation failed: ${message}`);
+        });
+      },
+      intervalMinutes * 60 * 1000,
+    );
 
-    this.logger.log(`Code reconciliation scheduler started (${intervalMinutes}m interval)`);
+    this.logger.log(
+      `Code reconciliation scheduler started (${intervalMinutes}m interval)`,
+    );
   }
 
   onModuleDestroy() {
@@ -55,13 +70,20 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async listTargetRepos(): Promise<Array<{ owner: string; name: string }>> {
-    const repos = await this.repoRepository.find({ where: { provider: 'github', isActive: true } });
+  private async listTargetRepos(): Promise<
+    Array<{ owner: string; name: string }>
+  > {
+    const repos = await this.repoRepository.find({
+      where: { provider: 'github', isActive: true },
+    });
 
     const byKey = new Map<string, { owner: string; name: string }>();
 
     for (const repo of repos) {
-      byKey.set(`${repo.owner}/${repo.name}`.toLowerCase(), { owner: repo.owner, name: repo.name });
+      byKey.set(`${repo.owner}/${repo.name}`.toLowerCase(), {
+        owner: repo.owner,
+        name: repo.name,
+      });
     }
 
     const configured = (this.config.get<string>('CODE_GITHUB_REPOS') || '')
@@ -103,10 +125,19 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     return this.repoRepository.save(created);
   }
 
-  private async ingestRepoWindow(owner: string, name: string, from: Date, to: Date) {
+  private async ingestRepoWindow(
+    owner: string,
+    name: string,
+    from: Date,
+    to: Date,
+  ) {
     const repo = await this.ensureRepo(owner, name);
 
-    const prs = await this.githubProvider.fetchPullRequests({ owner, name }, from, to);
+    const prs = await this.githubProvider.fetchPullRequests(
+      { owner, name },
+      from,
+      to,
+    );
 
     if (prs.length > 0) {
       for (const pr of prs) {
@@ -149,14 +180,19 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     const persistedPrs = await this.prRepository.find({
       where: { repoId: repo.id },
     });
-    const prByNumber = new Map<number, CodePr>(persistedPrs.map((p) => [p.number, p]));
+    const prByNumber = new Map<number, CodePr>(
+      persistedPrs.map((p) => [p.number, p]),
+    );
 
     let reviewsFetched = 0;
     for (const pr of prs) {
       const persisted = prByNumber.get(pr.number);
       if (!persisted) continue;
 
-      const reviews = await this.githubProvider.fetchPullRequestReviews({ owner, name }, pr.number);
+      const reviews = await this.githubProvider.fetchPullRequestReviews(
+        { owner, name },
+        pr.number,
+      );
       reviewsFetched += reviews.length;
 
       if (reviews.length > 0) {
@@ -171,19 +207,27 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
           ['externalId'],
         );
 
-        const sorted = [...reviews].sort((a, b) => a.submittedAt.getTime() - b.submittedAt.getTime());
+        const sorted = [...reviews].sort(
+          (a, b) => a.submittedAt.getTime() - b.submittedAt.getTime(),
+        );
         const firstReviewAt = sorted[0]?.submittedAt || null;
 
         if (
           (firstReviewAt && !persisted.firstReviewAt) ||
-          (firstReviewAt && persisted.firstReviewAt && firstReviewAt.getTime() !== persisted.firstReviewAt.getTime())
+          (firstReviewAt &&
+            persisted.firstReviewAt &&
+            firstReviewAt.getTime() !== persisted.firstReviewAt.getTime())
         ) {
           await this.prRepository.update(persisted.id, { firstReviewAt });
         }
       }
     }
 
-    const commits = await this.githubProvider.fetchCommits({ owner, name }, from, to);
+    const commits = await this.githubProvider.fetchCommits(
+      { owner, name },
+      from,
+      to,
+    );
 
     if (commits.length > 0) {
       await this.commitRepository.upsert(
@@ -259,11 +303,19 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
       };
     }
 
-    const providerResult = await this.githubProvider.handleWebhookEvent({ event, deliveryId, body });
+    const providerResult = await this.githubProvider.handleWebhookEvent({
+      event,
+      deliveryId,
+      body,
+    });
 
     const lookbackHours = Math.max(
       1,
-      parseInt(this.config.get<string>('CODE_WEBHOOK_RECONCILE_LOOKBACK_HOURS') || '168', 10),
+      parseInt(
+        this.config.get<string>('CODE_WEBHOOK_RECONCILE_LOOKBACK_HOURS') ||
+          '168',
+        10,
+      ),
     );
 
     const to = new Date();
@@ -278,7 +330,12 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
 
     for (const repo of providerResult.repos) {
       try {
-        const summary = await this.ingestRepoWindow(repo.owner, repo.name, from, to);
+        const summary = await this.ingestRepoWindow(
+          repo.owner,
+          repo.name,
+          from,
+          to,
+        );
         ingested.push({
           repo: `${repo.owner}/${repo.name}`,
           pullRequestsFetched: summary.pullRequestsFetched,
@@ -287,7 +344,9 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Webhook reconcile failed for ${repo.owner}/${repo.name}: ${message}`);
+        this.logger.warn(
+          `Webhook reconcile failed for ${repo.owner}/${repo.name}: ${message}`,
+        );
       }
     }
 
@@ -328,7 +387,8 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
   }
 
   async reconcileGithubRepos() {
-    const enabled = this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
+    const enabled =
+      this.config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
     if (!enabled) {
       return {
         scheduled: false,

@@ -35,7 +35,12 @@ export class StructuredLogger implements LoggerService {
     this.context = {};
   }
 
-  private write(level: StructuredLogEntry['level'], event: string, message: string, error?: Error): void {
+  private write(
+    level: StructuredLogEntry['level'],
+    event: string,
+    message: string,
+    error?: Error,
+  ): void {
     const entry: StructuredLogEntry = {
       timestamp: new Date().toISOString(),
       level,

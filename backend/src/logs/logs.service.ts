@@ -55,12 +55,17 @@ export class LogsService {
       .skip(skip)
       .take(limit);
 
-    if (options.level) qb.andWhere('l.level = :level', { level: options.level });
-    if (options.stepId) qb.andWhere('l.step_id = :stepId', { stepId: options.stepId });
+    if (options.level)
+      qb.andWhere('l.level = :level', { level: options.level });
+    if (options.stepId)
+      qb.andWhere('l.step_id = :stepId', { stepId: options.stepId });
     if (options.cursor) {
-      qb.andWhere('l.created_at > (SELECT created_at FROM agent_logs WHERE id = :cursor)', {
-        cursor: options.cursor,
-      });
+      qb.andWhere(
+        'l.created_at > (SELECT created_at FROM agent_logs WHERE id = :cursor)',
+        {
+          cursor: options.cursor,
+        },
+      );
     }
 
     const [items, total] = await qb.getManyAndCount();

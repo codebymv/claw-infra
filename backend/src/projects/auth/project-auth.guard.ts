@@ -25,7 +25,7 @@ export class ProjectAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Try JWT authentication first
     const jwtToken = this.extractJwtToken(request);
     if (jwtToken) {
@@ -58,7 +58,9 @@ export class ProjectAuthGuard implements CanActivate {
   }
 
   private extractApiKey(request: any): string | null {
-    return request.headers['x-agent-token'] || request.headers['x-api-key'] || null;
+    return (
+      request.headers['x-agent-token'] || request.headers['x-api-key'] || null
+    );
   }
 
   private async validateJwtToken(token: string): Promise<any> {
@@ -66,10 +68,13 @@ export class ProjectAuthGuard implements CanActivate {
       // Get JWT secrets from config
       const secretsEnv = this.config.get<string>('JWT_SECRETS');
       const singleSecret = this.config.get<string>('JWT_SECRET');
-      
+
       let secrets: string[];
       if (secretsEnv) {
-        secrets = secretsEnv.split(',').map(s => s.trim()).filter(Boolean);
+        secrets = secretsEnv
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
       } else if (singleSecret) {
         secrets = [singleSecret];
       } else {

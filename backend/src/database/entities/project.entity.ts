@@ -82,7 +82,11 @@ export class Project {
   @Column({ type: 'enum', enum: ProjectStatus, default: ProjectStatus.ACTIVE })
   status: ProjectStatus;
 
-  @Column({ type: 'enum', enum: ProjectVisibility, default: ProjectVisibility.PRIVATE })
+  @Column({
+    type: 'enum',
+    enum: ProjectVisibility,
+    default: ProjectVisibility.PRIVATE,
+  })
   visibility: ProjectVisibility;
 
   @Column({ type: 'jsonb', default: '{}' })

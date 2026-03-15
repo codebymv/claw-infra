@@ -35,9 +35,12 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const insights = await this.analyticsService.getProjectInsights(projectId, timeRange);
+      const insights = await this.analyticsService.getProjectInsights(
+        projectId,
+        timeRange,
+      );
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -69,9 +72,12 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const velocity = await this.analyticsService.calculateVelocityMetrics(projectId, timeRange);
+      const velocity = await this.analyticsService.calculateVelocityMetrics(
+        projectId,
+        timeRange,
+      );
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -105,9 +111,13 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const productivity = await this.analyticsService.calculateTeamProductivityMetrics(projectId, timeRange);
+      const productivity =
+        await this.analyticsService.calculateTeamProductivityMetrics(
+          projectId,
+          timeRange,
+        );
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -141,13 +151,14 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const [statusDistribution, priorityDistribution, typeDistribution] = await Promise.all([
-        this.analyticsService.getStatusDistribution(projectId, timeRange),
-        this.analyticsService.getPriorityDistribution(projectId, timeRange),
-        this.analyticsService.getTypeDistribution(projectId, timeRange),
-      ]);
+      const [statusDistribution, priorityDistribution, typeDistribution] =
+        await Promise.all([
+          this.analyticsService.getStatusDistribution(projectId, timeRange),
+          this.analyticsService.getPriorityDistribution(projectId, timeRange),
+          this.analyticsService.getTypeDistribution(projectId, timeRange),
+        ]);
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -183,9 +194,12 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const trends = await this.analyticsService.calculateTrends(projectId, timeRange);
+      const trends = await this.analyticsService.calculateTrends(
+        projectId,
+        timeRange,
+      );
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -217,9 +231,12 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
-      const columnMetrics = await this.analyticsService.calculateColumnMetrics(projectId, timeRange);
+      const columnMetrics = await this.analyticsService.calculateColumnMetrics(
+        projectId,
+        timeRange,
+      );
 
       await this.auditLogService.logAccess({
         userId: req.user.id,
@@ -253,7 +270,7 @@ export class AnalyticsController {
   ) {
     const timeRange = this.buildTimeRange(queryDto);
     const format = queryDto.format || 'json';
-    
+
     if (!['json', 'csv'].includes(format)) {
       throw new BadRequestException('Format must be either "json" or "csv"');
     }
@@ -262,7 +279,7 @@ export class AnalyticsController {
       const report = await this.analyticsService.exportAnalyticsReport(
         projectId,
         timeRange,
-        format as 'json' | 'csv',
+        format,
       );
 
       await this.auditLogService.logAccess({
@@ -308,11 +325,14 @@ export class AnalyticsController {
     @Request() req: any,
   ) {
     const timeRange = this.buildTimeRange(queryDto);
-    
+
     try {
       const [velocity, productivity, distributions] = await Promise.all([
         this.analyticsService.calculateVelocityMetrics(projectId, timeRange),
-        this.analyticsService.calculateTeamProductivityMetrics(projectId, timeRange),
+        this.analyticsService.calculateTeamProductivityMetrics(
+          projectId,
+          timeRange,
+        ),
         Promise.all([
           this.analyticsService.getStatusDistribution(projectId, timeRange),
           this.analyticsService.getPriorityDistribution(projectId, timeRange),
@@ -368,14 +388,18 @@ export class AnalyticsController {
     if (queryDto.start_date) {
       startDate = new Date(queryDto.start_date);
       if (isNaN(startDate.getTime())) {
-        throw new BadRequestException('Invalid start_date format. Use ISO date string.');
+        throw new BadRequestException(
+          'Invalid start_date format. Use ISO date string.',
+        );
       }
     }
 
     if (queryDto.end_date) {
       endDate = new Date(queryDto.end_date);
       if (isNaN(endDate.getTime())) {
-        throw new BadRequestException('Invalid end_date format. Use ISO date string.');
+        throw new BadRequestException(
+          'Invalid end_date format. Use ISO date string.',
+        );
       }
     }
 

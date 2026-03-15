@@ -12,7 +12,10 @@ export interface PricingInfo {
 @Injectable()
 export class PricingService {
   private readonly logger = new Logger(PricingService.name);
-  private readonly pricingCache = new Map<string, { pricing: PricingInfo; expiresAt: number }>();
+  private readonly pricingCache = new Map<
+    string,
+    { pricing: PricingInfo; expiresAt: number }
+  >();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(
@@ -24,9 +27,13 @@ export class PricingService {
    * Get pricing for a model at a specific date
    * Uses the most recent pricing effective on or before the given date
    */
-  async getPricing(provider: string, model: string, asOfDate: Date = new Date()): Promise<PricingInfo> {
+  async getPricing(
+    provider: string,
+    model: string,
+    asOfDate: Date = new Date(),
+  ): Promise<PricingInfo> {
     const cacheKey = `${provider}:${model}:${asOfDate.toISOString().split('T')[0]}`;
-    
+
     // Check cache
     const cached = this.pricingCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
@@ -59,7 +66,8 @@ export class PricingService {
 
     const result: PricingInfo = {
       inputPricePerMillion: parseFloat(pricing.inputPricePerMillion) / 1000000,
-      outputPricePerMillion: parseFloat(pricing.outputPricePerMillion) / 1000000,
+      outputPricePerMillion:
+        parseFloat(pricing.outputPricePerMillion) / 1000000,
       cacheDiscount: parseFloat(pricing.cacheDiscount),
     };
 
@@ -94,10 +102,10 @@ export class PricingService {
       existing.cacheDiscount = cacheDiscount.toString();
       if (notes !== undefined) existing.notes = notes;
       await this.pricingRepo.save(existing);
-      
+
       // Invalidate cache
       this.invalidateCache(provider, model);
-      
+
       return existing;
     }
 
@@ -112,17 +120,20 @@ export class PricingService {
     });
 
     const saved = await this.pricingRepo.save(pricing);
-    
+
     // Invalidate cache
     this.invalidateCache(provider, model);
-    
+
     return saved;
   }
 
   /**
    * List all pricing entries for a model
    */
-  async listPricing(provider?: string, model?: string): Promise<ModelPricing[]> {
+  async listPricing(
+    provider?: string,
+    model?: string,
+  ): Promise<ModelPricing[]> {
     const where: any = { isActive: true };
     if (provider) where.provider = provider;
     if (model) where.model = model;
@@ -140,12 +151,16 @@ export class PricingService {
   /**
    * Deactivate a pricing entry
    */
-  async deactivatePricing(provider: string, model: string, effectiveDate: Date): Promise<void> {
+  async deactivatePricing(
+    provider: string,
+    model: string,
+    effectiveDate: Date,
+  ): Promise<void> {
     await this.pricingRepo.update(
       { provider, model, effectiveDate },
       { isActive: false },
     );
-    
+
     // Invalidate cache
     this.invalidateCache(provider, model);
   }

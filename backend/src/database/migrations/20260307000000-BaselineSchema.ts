@@ -66,7 +66,9 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         "updated_at" timestamptz NOT NULL DEFAULT now()
       )
     `);
-    await queryRunner.query('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_users_email_unique" ON "users" ("email")');
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_users_email_unique" ON "users" ("email")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "api_keys" (
@@ -81,7 +83,9 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         "created_at" timestamptz NOT NULL DEFAULT now()
       )
     `);
-    await queryRunner.query('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_api_keys_key_hash_unique" ON "api_keys" ("key_hash")');
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_api_keys_key_hash_unique" ON "api_keys" ("key_hash")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "agent_runs" (
@@ -104,9 +108,15 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         CONSTRAINT "FK_agent_runs_parent_run_id" FOREIGN KEY ("parent_run_id") REFERENCES "agent_runs"("id") ON DELETE NO ACTION ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_runs_status" ON "agent_runs" ("status")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_runs_agent_name" ON "agent_runs" ("agent_name")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_runs_started_at" ON "agent_runs" ("started_at")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_runs_status" ON "agent_runs" ("status")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_runs_agent_name" ON "agent_runs" ("agent_name")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_runs_started_at" ON "agent_runs" ("started_at")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "agent_steps" (
@@ -132,8 +142,12 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         CONSTRAINT "FK_agent_steps_run_id" FOREIGN KEY ("run_id") REFERENCES "agent_runs"("id") ON DELETE CASCADE ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_steps_run_id" ON "agent_steps" ("run_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_steps_status" ON "agent_steps" ("status")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_steps_run_id" ON "agent_steps" ("run_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_steps_status" ON "agent_steps" ("status")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "agent_logs" (
@@ -148,9 +162,15 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         CONSTRAINT "FK_agent_logs_step_id" FOREIGN KEY ("step_id") REFERENCES "agent_steps"("id") ON DELETE SET NULL ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_logs_run_id" ON "agent_logs" ("run_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_logs_level" ON "agent_logs" ("level")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_agent_logs_created_at" ON "agent_logs" ("created_at")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_logs_run_id" ON "agent_logs" ("run_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_logs_level" ON "agent_logs" ("level")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_agent_logs_created_at" ON "agent_logs" ("created_at")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "resource_snapshots" (
@@ -168,8 +188,12 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         CONSTRAINT "FK_resource_snapshots_run_id" FOREIGN KEY ("run_id") REFERENCES "agent_runs"("id") ON DELETE SET NULL ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_resource_snapshots_run_id" ON "resource_snapshots" ("run_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_resource_snapshots_recorded_at" ON "resource_snapshots" ("recorded_at")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_resource_snapshots_run_id" ON "resource_snapshots" ("run_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_resource_snapshots_recorded_at" ON "resource_snapshots" ("recorded_at")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "cost_records" (
@@ -187,10 +211,18 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
         CONSTRAINT "FK_cost_records_step_id" FOREIGN KEY ("step_id") REFERENCES "agent_steps"("id") ON DELETE SET NULL ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_cost_records_run_id" ON "cost_records" ("run_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_cost_records_recorded_at" ON "cost_records" ("recorded_at")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_cost_records_provider" ON "cost_records" ("provider")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_cost_records_model" ON "cost_records" ("model")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_cost_records_run_id" ON "cost_records" ("run_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_cost_records_recorded_at" ON "cost_records" ("recorded_at")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_cost_records_provider" ON "cost_records" ("provider")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_cost_records_model" ON "cost_records" ("model")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "cost_budgets" (
@@ -211,12 +243,18 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
 
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_cost_records_model"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_cost_records_provider"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_cost_records_recorded_at"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_cost_records_recorded_at"',
+    );
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_cost_records_run_id"');
     await queryRunner.query('DROP TABLE IF EXISTS "cost_records"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_resource_snapshots_recorded_at"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_resource_snapshots_run_id"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_resource_snapshots_recorded_at"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_resource_snapshots_run_id"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "resource_snapshots"');
 
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_agent_logs_created_at"');
@@ -233,7 +271,9 @@ export class BaselineSchema20260307000000 implements MigrationInterface {
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_agent_runs_status"');
     await queryRunner.query('DROP TABLE IF EXISTS "agent_runs"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_api_keys_key_hash_unique"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_api_keys_key_hash_unique"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "api_keys"');
 
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_users_email_unique"');

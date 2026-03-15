@@ -45,7 +45,11 @@ export class AlertsService {
     await this.telegram.send(message);
   }
 
-  async runFailed(agentName: string, runId: string, error?: string): Promise<void> {
+  async runFailed(
+    agentName: string,
+    runId: string,
+    error?: string,
+  ): Promise<void> {
     await this.fire({
       type: AlertType.RUN_FAILED,
       title: `Agent run failed: ${agentName}`,
@@ -54,7 +58,11 @@ export class AlertsService {
     });
   }
 
-  async budgetExceeded(agentName: string, spent: string, limit: string): Promise<void> {
+  async budgetExceeded(
+    agentName: string,
+    spent: string,
+    limit: string,
+  ): Promise<void> {
     await this.fire({
       type: AlertType.BUDGET_EXCEEDED,
       title: `Budget threshold exceeded`,

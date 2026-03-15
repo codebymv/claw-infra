@@ -57,4 +57,4 @@ import { buildTypeOrmConfig } from './config/database.config';
     ProjectsModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

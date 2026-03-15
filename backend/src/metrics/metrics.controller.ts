@@ -21,7 +21,9 @@ export class MetricsController {
 
   @Get('by-agent')
   getByAgent(@Query('from') from?: string, @Query('to') to?: string) {
-    const f = from ? new Date(from) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const f = from
+      ? new Date(from)
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const t = to ? new Date(to) : new Date();
     return this.metricsService.getByAgent(f, t);
   }

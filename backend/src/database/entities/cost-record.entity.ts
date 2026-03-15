@@ -24,14 +24,20 @@ export class CostRecord {
   @Column({ name: 'run_id', type: 'uuid', nullable: true })
   runId: string | null;
 
-  @ManyToOne(() => AgentRun, (run) => run.costRecords, { nullable: true, onDelete: 'CASCADE' })
+  @ManyToOne(() => AgentRun, (run) => run.costRecords, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'run_id' })
   run: AgentRun | null;
 
   @Column({ name: 'step_id', type: 'uuid', nullable: true })
   stepId: string | null;
 
-  @ManyToOne(() => AgentStep, (step) => step.costRecords, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => AgentStep, (step) => step.costRecords, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'step_id' })
   step: AgentStep | null;
 

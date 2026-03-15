@@ -37,7 +37,10 @@ export class AgentLog {
   @Column({ name: 'step_id', type: 'uuid', nullable: true })
   stepId: string | null;
 
-  @ManyToOne(() => AgentStep, (step) => step.logs, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => AgentStep, (step) => step.logs, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'step_id' })
   step: AgentStep | null;
 

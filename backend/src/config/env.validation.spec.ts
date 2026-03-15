@@ -38,7 +38,9 @@ describe('validateStartupEnv', () => {
         }),
         logger,
       ),
-    ).toThrow('JWT_SECRET is too weak for production. Use a strong random value (>= 32 chars).');
+    ).toThrow(
+      'JWT_SECRET is too weak for production. Use a strong random value (>= 32 chars).',
+    );
   });
 
   it('warns in non-production when JWT secret is weak', () => {
@@ -65,7 +67,9 @@ describe('validateStartupEnv', () => {
         }),
         logger,
       ),
-    ).toThrow('Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)');
+    ).toThrow(
+      'Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)',
+    );
   });
 
   it('throws in production when webhook secret is weak', () => {
@@ -79,7 +83,9 @@ describe('validateStartupEnv', () => {
         }),
         logger,
       ),
-    ).toThrow('GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).');
+    ).toThrow(
+      'GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).',
+    );
   });
 
   it('passes with strong secrets', () => {
@@ -121,7 +127,9 @@ describe('validateStartupEnv', () => {
         }),
         logger,
       ),
-    ).toThrow('RETENTION_SWEEP_INTERVAL_MINUTES must be an integer >= 15 when set');
+    ).toThrow(
+      'RETENTION_SWEEP_INTERVAL_MINUTES must be an integer >= 15 when set',
+    );
   });
 
   it('throws when idempotency ttl is invalid', () => {

@@ -1,6 +1,16 @@
-import { IsOptional, IsEnum, IsString, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsString,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ProjectStatus, ProjectVisibility } from '../../database/entities/project.entity';
+import {
+  ProjectStatus,
+  ProjectVisibility,
+} from '../../database/entities/project.entity';
 
 export class ListProjectsQueryDto {
   @IsOptional()

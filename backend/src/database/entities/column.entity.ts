@@ -36,7 +36,9 @@ export class Column {
   @TypeOrmColumn({ name: 'board_id', type: 'uuid' })
   boardId: string;
 
-  @ManyToOne(() => KanbanBoard, (board) => board.columns, { onDelete: 'CASCADE' })
+  @ManyToOne(() => KanbanBoard, (board) => board.columns, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'board_id' })
   board: KanbanBoard;
 

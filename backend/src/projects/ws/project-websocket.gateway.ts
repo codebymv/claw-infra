@@ -43,7 +43,9 @@ export interface PresencePayload {
   namespace: '/projects',
   cors: { credentials: true },
 })
-export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ProjectWebSocketGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -51,13 +53,16 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
 
   // Track client subscriptions and presence
   private readonly clientSubscriptions = new Map<string, Set<string>>();
-  private readonly clientPresence = new Map<string, {
-    userId: string;
-    projectId?: string;
-    boardId?: string;
-    cardId?: string;
-    lastActivity: Date;
-  }>();
+  private readonly clientPresence = new Map<
+    string,
+    {
+      userId: string;
+      projectId?: string;
+      boardId?: string;
+      cardId?: string;
+      lastActivity: Date;
+    }
+  >();
 
   constructor(
     private readonly pubSub: PubSubService,
@@ -80,7 +85,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     try {
       const secret = this.config.get<string>('JWT_SECRET');
       const payload = this.jwtService.verify(token, { secret });
-      
+
       // Store client info
       this.clientSubscriptions.set(client.id, new Set());
       this.clientPresence.set(client.id, {
@@ -88,17 +93,20 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
         lastActivity: new Date(),
       });
 
-      this.logger.log(`Project WS client authenticated: ${client.id} (user: ${payload.sub})`);
-      
+      this.logger.log(
+        `Project WS client authenticated: ${client.id} (user: ${payload.sub})`,
+      );
+
       // Send connection confirmation
       client.emit('connected', {
         status: 'authenticated',
         userId: payload.sub,
         timestamp: new Date().toISOString(),
       });
-
     } catch (error) {
-      this.logger.warn(`Project WS auth rejected: invalid token (${client.id})`);
+      this.logger.warn(
+        `Project WS auth rejected: invalid token (${client.id})`,
+      );
       client.emit('error', { message: 'Invalid or expired token' });
       client.disconnect(true);
     }
@@ -106,7 +114,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
 
   async handleDisconnect(client: Socket) {
     const presence = this.clientPresence.get(client.id);
-    
+
     if (presence) {
       // Broadcast user leaving if they were in a project
       if (presence.projectId) {
@@ -124,7 +132,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
         action: 'websocket.disconnect',
         resource: 'websocket',
         resourceId: client.id,
-        metadata: { 
+        metadata: {
           projectId: presence.projectId,
           sessionDuration: Date.now() - presence.lastActivity.getTime(),
         },
@@ -134,14 +142,14 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     // Clean up tracking
     this.clientSubscriptions.delete(client.id);
     this.clientPresence.delete(client.id);
-    
+
     this.logger.log(`Project WS client disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('subscribe_project')
   async handleProjectSubscribe(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: ProjectSubscribePayload
+    @MessageBody() payload: ProjectSubscribePayload,
   ) {
     const presence = this.clientPresence.get(client.id);
     if (!presence) {
@@ -152,22 +160,27 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
 
     try {
       // Validate project access
-      const projectContext = await this.projectAuthService.validateProjectAccess(projectId, presence.userId);
-      
+      const projectContext =
+        await this.projectAuthService.validateProjectAccess(
+          projectId,
+          presence.userId,
+        );
+
       if (!projectContext.permissions.canRead) {
         return { status: 'error', message: 'Access denied' };
       }
 
       // Build channel name
-      const channelName = resourceId 
+      const channelName = resourceId
         ? `project:${projectId}:${channel}:${resourceId}`
         : `project:${projectId}:${channel}`;
 
       // Join Socket.IO room
       client.join(channelName);
-      
+
       // Track subscription
-      const subscriptions = this.clientSubscriptions.get(client.id) || new Set();
+      const subscriptions =
+        this.clientSubscriptions.get(client.id) || new Set();
       subscriptions.add(channelName);
       this.clientSubscriptions.set(client.id, subscriptions);
 
@@ -186,16 +199,17 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
       });
 
       this.logger.log(`Client ${client.id} subscribed to ${channelName}`);
-      
-      return { 
-        status: 'ok', 
+
+      return {
+        status: 'ok',
         channel: channelName,
         projectId,
         permissions: projectContext.permissions,
       };
-
     } catch (error) {
-      this.logger.error(`Project subscription failed for ${client.id}: ${error.message}`);
+      this.logger.error(
+        `Project subscription failed for ${client.id}: ${error.message}`,
+      );
       return { status: 'error', message: 'Subscription failed' };
     }
   }
@@ -203,10 +217,10 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
   @SubscribeMessage('unsubscribe_project')
   async handleProjectUnsubscribe(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: ProjectSubscribePayload
+    @MessageBody() payload: ProjectSubscribePayload,
   ) {
     const { projectId, channel, resourceId } = payload;
-    const channelName = resourceId 
+    const channelName = resourceId
       ? `project:${projectId}:${channel}:${resourceId}`
       : `project:${projectId}:${channel}`;
 
@@ -223,7 +237,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
   @SubscribeMessage('presence_update')
   async handlePresenceUpdate(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: PresencePayload
+    @MessageBody() payload: PresencePayload,
   ) {
     const presence = this.clientPresence.get(client.id);
     if (!presence) {
@@ -234,7 +248,10 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
 
     try {
       // Validate project access
-      await this.projectAuthService.validateProjectAccess(projectId, presence.userId);
+      await this.projectAuthService.validateProjectAccess(
+        projectId,
+        presence.userId,
+      );
 
       // Update presence tracking
       presence.projectId = projectId;
@@ -253,7 +270,6 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
       });
 
       return { status: 'ok' };
-
     } catch (error) {
       return { status: 'error', message: 'Access denied' };
     }
@@ -262,7 +278,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
   @SubscribeMessage('get_online_users')
   async handleGetOnlineUsers(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: { projectId: string }
+    @MessageBody() payload: { projectId: string },
   ) {
     const presence = this.clientPresence.get(client.id);
     if (!presence) {
@@ -271,25 +287,27 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
 
     try {
       // Validate project access
-      await this.projectAuthService.validateProjectAccess(payload.projectId, presence.userId);
+      await this.projectAuthService.validateProjectAccess(
+        payload.projectId,
+        presence.userId,
+      );
 
       // Get all users currently in this project
       const onlineUsers = Array.from(this.clientPresence.values())
-        .filter(p => p.projectId === payload.projectId)
-        .map(p => ({
+        .filter((p) => p.projectId === payload.projectId)
+        .map((p) => ({
           userId: p.userId,
           boardId: p.boardId,
           cardId: p.cardId,
           lastActivity: p.lastActivity,
         }));
 
-      return { 
-        status: 'ok', 
+      return {
+        status: 'ok',
         projectId: payload.projectId,
         onlineUsers,
         count: onlineUsers.length,
       };
-
     } catch (error) {
       return { status: 'error', message: 'Access denied' };
     }
@@ -298,7 +316,7 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
   // Broadcasting methods for services to use
   async broadcastProjectEvent(event: ProjectEventPayload): Promise<void> {
     const { projectId, resource, type } = event;
-    
+
     // Broadcast to general project channel
     const projectChannel = `project:${projectId}:activity`;
     this.server.to(projectChannel).emit('project_event', event);
@@ -316,16 +334,21 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     // Publish to Redis for cross-instance communication
     await this.pubSub.publish(`project:${projectId}`, event);
 
-    this.logger.debug(`Broadcasted ${resource}_${type} event for project ${projectId}`);
+    this.logger.debug(
+      `Broadcasted ${resource}_${type} event for project ${projectId}`,
+    );
   }
 
-  async broadcastPresence(projectId: string, presence: {
-    userId: string;
-    action: string;
-    projectId: string;
-    boardId?: string;
-    cardId?: string;
-  }): Promise<void> {
+  async broadcastPresence(
+    projectId: string,
+    presence: {
+      userId: string;
+      action: string;
+      projectId: string;
+      boardId?: string;
+      cardId?: string;
+    },
+  ): Promise<void> {
     const presenceChannel = `project:${projectId}:presence`;
     const presenceEvent = {
       ...presence,
@@ -336,13 +359,17 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     await this.pubSub.publish(`project:${projectId}:presence`, presenceEvent);
   }
 
-  async broadcastCardMove(projectId: string, cardId: string, moveData: {
-    fromColumnId: string;
-    toColumnId: string;
-    fromPosition: number;
-    toPosition: number;
-    userId: string;
-  }): Promise<void> {
+  async broadcastCardMove(
+    projectId: string,
+    cardId: string,
+    moveData: {
+      fromColumnId: string;
+      toColumnId: string;
+      fromPosition: number;
+      toPosition: number;
+      userId: string;
+    },
+  ): Promise<void> {
     const event: ProjectEventPayload = {
       type: 'move',
       resource: 'card',
@@ -356,7 +383,12 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     await this.broadcastProjectEvent(event);
   }
 
-  async broadcastBoardUpdate(projectId: string, boardId: string, updateData: any, userId: string): Promise<void> {
+  async broadcastBoardUpdate(
+    projectId: string,
+    boardId: string,
+    updateData: any,
+    userId: string,
+  ): Promise<void> {
     const event: ProjectEventPayload = {
       type: 'update',
       resource: 'board',
@@ -370,7 +402,12 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     await this.broadcastProjectEvent(event);
   }
 
-  async broadcastCommentUpdate(projectId: string, commentId: string, commentData: any, userId: string): Promise<void> {
+  async broadcastCommentUpdate(
+    projectId: string,
+    commentId: string,
+    commentData: any,
+    userId: string,
+  ): Promise<void> {
     const event: ProjectEventPayload = {
       type: commentData.isNew ? 'create' : 'update',
       resource: 'comment',
@@ -384,7 +421,12 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     await this.broadcastProjectEvent(event);
   }
 
-  async broadcastMemberUpdate(projectId: string, memberId: string, memberData: any, userId: string): Promise<void> {
+  async broadcastMemberUpdate(
+    projectId: string,
+    memberId: string,
+    memberData: any,
+    userId: string,
+  ): Promise<void> {
     const event: ProjectEventPayload = {
       type: memberData.isNew ? 'create' : 'update',
       resource: 'member',
@@ -422,14 +464,17 @@ export class ProjectWebSocketGateway implements OnGatewayConnection, OnGatewayDi
     activeProjects: string[];
     subscriptionCount: number;
   } {
-    const activeProjects = Array.from(new Set(
-      Array.from(this.clientPresence.values())
-        .map(p => p.projectId)
-        .filter((projectId): projectId is string => Boolean(projectId))
-    ));
+    const activeProjects = Array.from(
+      new Set(
+        Array.from(this.clientPresence.values())
+          .map((p) => p.projectId)
+          .filter((projectId): projectId is string => Boolean(projectId)),
+      ),
+    );
 
-    const subscriptionCount = Array.from(this.clientSubscriptions.values())
-      .reduce((total, subs) => total + subs.size, 0);
+    const subscriptionCount = Array.from(
+      this.clientSubscriptions.values(),
+    ).reduce((total, subs) => total + subs.size, 0);
 
     return {
       totalConnections: this.clientPresence.size,

@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not } from 'typeorm';
 import { Comment } from '../database/entities/comment.entity';
@@ -17,7 +23,8 @@ export class CommentsService {
   private readonly logger = new Logger(CommentsService.name);
 
   constructor(
-    @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
+    @InjectRepository(Comment)
+    private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly gateway: ProjectWebSocketGateway,
@@ -30,7 +37,11 @@ export class CommentsService {
     });
   }
 
-  async createComment(cardId: string, dto: CreateCommentDto, authorId: string): Promise<Comment> {
+  async createComment(
+    cardId: string,
+    dto: CreateCommentDto,
+    authorId: string,
+  ): Promise<Comment> {
     // Validate card exists
     const card = await this.cardRepo.findOne({
       where: { id: cardId },
@@ -53,7 +64,9 @@ export class CommentsService {
 
       // Prevent deeply nested replies (max 2 levels)
       if (parentComment.parentId) {
-        throw new BadRequestException('Cannot reply to a reply. Maximum nesting level is 2.');
+        throw new BadRequestException(
+          'Cannot reply to a reply. Maximum nesting level is 2.',
+        );
       }
     }
 
@@ -83,10 +96,12 @@ export class CommentsService {
       saved.id,
       'create',
       result,
-      authorId
+      authorId,
     );
 
-    this.logger.log(`Created comment ${saved.id} on card ${cardId} by user ${authorId}`);
+    this.logger.log(
+      `Created comment ${saved.id} on card ${cardId} by user ${authorId}`,
+    );
     return result;
   }
 
@@ -112,7 +127,8 @@ export class CommentsService {
     const skip = (page - 1) * limit;
 
     // Build base query
-    const queryBuilder = this.commentRepo.createQueryBuilder('comment')
+    const queryBuilder = this.commentRepo
+      .createQueryBuilder('comment')
       .leftJoinAndSelect('comment.author', 'author')
       .leftJoinAndSelect('comment.replies', 'replies')
       .leftJoinAndSelect('replies.author', 'replyAuthor')
@@ -125,7 +141,9 @@ export class CommentsService {
 
     // Filter by parent (for threading)
     if (query.parentId) {
-      queryBuilder.andWhere('comment.parentId = :parentId', { parentId: query.parentId });
+      queryBuilder.andWhere('comment.parentId = :parentId', {
+        parentId: query.parentId,
+      });
     } else {
       // Only get top-level comments (no parent)
       queryBuilder.andWhere('comment.parentId IS NULL');
@@ -142,12 +160,18 @@ export class CommentsService {
     };
   }
 
-  async updateComment(id: string, dto: UpdateCommentDto, userId: string): Promise<Comment> {
+  async updateComment(
+    id: string,
+    dto: UpdateCommentDto,
+    userId: string,
+  ): Promise<Comment> {
     const comment = await this.getCommentById(id);
 
     // Check permissions - only author can edit
     if (comment.authorId !== userId) {
-      throw new ForbiddenException('Only the comment author can edit this comment');
+      throw new ForbiddenException(
+        'Only the comment author can edit this comment',
+      );
     }
 
     // Process updated markdown and extract mentions
@@ -163,7 +187,9 @@ export class CommentsService {
     const updated = await this.getCommentById(id);
 
     // Send notifications for new mentions
-    const newMentions = mentions.filter(mention => !comment.mentions.includes(mention));
+    const newMentions = mentions.filter(
+      (mention) => !comment.mentions.includes(mention),
+    );
     if (newMentions.length > 0) {
       await this.sendMentionNotifications(updated, newMentions);
     }
@@ -174,7 +200,7 @@ export class CommentsService {
       id,
       'update',
       updated,
-      userId
+      userId,
     );
 
     this.logger.log(`Updated comment ${id} by user ${userId}`);
@@ -186,7 +212,9 @@ export class CommentsService {
 
     // Check permissions - only author can delete
     if (comment.authorId !== userId) {
-      throw new ForbiddenException('Only the comment author can delete this comment');
+      throw new ForbiddenException(
+        'Only the comment author can delete this comment',
+      );
     }
 
     // Soft delete
@@ -203,7 +231,7 @@ export class CommentsService {
       id,
       'delete',
       { cardId: comment.cardId },
-      userId
+      userId,
     );
 
     this.logger.log(`Deleted comment ${id} by user ${userId}`);
@@ -213,7 +241,13 @@ export class CommentsService {
     // Get the root comment and all its replies
     const comment = await this.commentRepo.findOne({
       where: { id: commentId, deletedAt: IsNull() },
-      relations: ['author', 'card', 'replies', 'replies.author', 'replies.replies'],
+      relations: [
+        'author',
+        'card',
+        'replies',
+        'replies.author',
+        'replies.replies',
+      ],
       order: {
         replies: { createdAt: 'ASC' },
       },
@@ -232,7 +266,9 @@ export class CommentsService {
   }
 
   // Private helper methods
-  private async processMarkdown(content: string): Promise<{ contentHtml: string; mentions: string[] }> {
+  private async processMarkdown(
+    content: string,
+  ): Promise<{ contentHtml: string; mentions: string[] }> {
     // Extract mentions before processing markdown
     const mentions = this.extractMentions(content);
 
@@ -242,14 +278,36 @@ export class CommentsService {
     // Sanitize HTML to prevent XSS
     contentHtml = DOMPurify.sanitize(contentHtml, {
       ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'ul', 'ol', 'li',
-        'a', 'img',
-        'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        'p',
+        'br',
+        'strong',
+        'em',
+        'u',
+        's',
+        'code',
+        'pre',
+        'blockquote',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'ul',
+        'ol',
+        'li',
+        'a',
+        'img',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'th',
+        'td',
       ],
       ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      ALLOWED_URI_REGEXP:
+        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     });
 
     // Process mentions to add proper links/styling
@@ -274,7 +332,10 @@ export class CommentsService {
     return mentions;
   }
 
-  private async processMentions(html: string, mentions: string[]): Promise<string> {
+  private async processMentions(
+    html: string,
+    mentions: string[],
+  ): Promise<string> {
     let processedHtml = html;
 
     for (const mention of mentions) {
@@ -282,7 +343,9 @@ export class CommentsService {
       const user = await this.userRepo
         .createQueryBuilder('user')
         .where('user.email ILIKE :mention', { mention: `%${mention}%` })
-        .orWhere('user.display_name ILIKE :mention', { mention: `%${mention}%` })
+        .orWhere('user.display_name ILIKE :mention', {
+          mention: `%${mention}%`,
+        })
         .getOne();
 
       if (user) {
@@ -290,7 +353,7 @@ export class CommentsService {
         const mentionRegex = new RegExp(`@${mention}\\b`, 'g');
         processedHtml = processedHtml.replace(
           mentionRegex,
-          `<span class="mention" data-user-id="${user.id}">@${mention}</span>`
+          `<span class="mention" data-user-id="${user.id}">@${mention}</span>`,
         );
       }
     }
@@ -298,18 +361,23 @@ export class CommentsService {
     return processedHtml;
   }
 
-  private async sendMentionNotifications(comment: Comment, mentions: string[]): Promise<void> {
+  private async sendMentionNotifications(
+    comment: Comment,
+    mentions: string[],
+  ): Promise<void> {
     // Get mentioned users by email or display name
     const mentionedUsers: User[] = [];
-    
+
     for (const mention of mentions) {
       const user = await this.userRepo
         .createQueryBuilder('user')
         .where('user.email ILIKE :mention', { mention: `%${mention}%` })
-        .orWhere('user.display_name ILIKE :mention', { mention: `%${mention}%` })
+        .orWhere('user.display_name ILIKE :mention', {
+          mention: `%${mention}%`,
+        })
         .getOne();
-      
-      if (user && !mentionedUsers.find(u => u.id === user.id)) {
+
+      if (user && !mentionedUsers.find((u) => u.id === user.id)) {
         mentionedUsers.push(user);
       }
     }
@@ -319,8 +387,10 @@ export class CommentsService {
       if (user.id === comment.authorId) continue;
 
       // Send notification (this would integrate with a notification service)
-      this.logger.log(`Sending mention notification to user ${user.id} for comment ${comment.id}`);
-      
+      this.logger.log(
+        `Sending mention notification to user ${user.id} for comment ${comment.id}`,
+      );
+
       // Broadcast mention notification
       await this.pubSub.publishProjectEvent({
         type: 'create',
@@ -351,7 +421,9 @@ export class CommentsService {
     });
   }
 
-  async getCommentStats(cardId: string): Promise<{ total: number; authors: number }> {
+  async getCommentStats(
+    cardId: string,
+  ): Promise<{ total: number; authors: number }> {
     const [total, authors] = await Promise.all([
       this.commentRepo.count({
         where: { cardId, deletedAt: IsNull() },

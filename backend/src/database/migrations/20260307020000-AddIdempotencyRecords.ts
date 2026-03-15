@@ -26,8 +26,12 @@ export class AddIdempotencyRecords20260307020000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_idempotency_records_expires_at"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_idempotency_records_key_hash_unique"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_idempotency_records_expires_at"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_idempotency_records_key_hash_unique"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "idempotency_records"');
   }
 }

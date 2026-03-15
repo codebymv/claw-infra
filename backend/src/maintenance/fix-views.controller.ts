@@ -76,14 +76,13 @@ export class FixViewsController {
       return {
         success: true,
         message: 'Materialized views created and refreshed successfully',
-        views: ['daily_cost_summary', 'hourly_cost_summary']
+        views: ['daily_cost_summary', 'hourly_cost_summary'],
       };
-
     } catch (error) {
       return {
         success: false,
         message: 'Failed to create materialized views',
-        error: error.message
+        error: error.message,
       };
     } finally {
       await queryRunner.release();

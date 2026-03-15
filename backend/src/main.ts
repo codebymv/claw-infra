@@ -49,16 +49,16 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: isProd
         ? {
-          directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", 'data:'],
-            connectSrc: ["'self'", config.get<string>('FRONTEND_URL') || ''],
-            frameSrc: ["'none'"],
-            objectSrc: ["'none'"],
-          },
-        }
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:'],
+              connectSrc: ["'self'", config.get<string>('FRONTEND_URL') || ''],
+              frameSrc: ["'none'"],
+              objectSrc: ["'none'"],
+            },
+          }
         : false,
       crossOriginEmbedderPolicy: isProd,
       hsts: isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
@@ -81,8 +81,12 @@ async function bootstrap() {
   app.useGlobalInterceptors(new LoggingInterceptor());
 
   const frontendUrl = (config.get<string>('FRONTEND_URL') || '').trim();
-  const additionalCorsOrigins = parseCsvOrigins(config.get<string>('CORS_ORIGINS'));
-  const allowedOrigins = new Set([frontendUrl, ...additionalCorsOrigins].filter(Boolean));
+  const additionalCorsOrigins = parseCsvOrigins(
+    config.get<string>('CORS_ORIGINS'),
+  );
+  const allowedOrigins = new Set(
+    [frontendUrl, ...additionalCorsOrigins].filter(Boolean),
+  );
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -93,7 +97,8 @@ async function bootstrap() {
       if (allowedOrigins.has(origin)) return callback(null, true);
 
       // Allow localhost only outside production
-      if (!isProd && /^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      if (!isProd && /^https?:\/\/localhost(:\d+)?$/.test(origin))
+        return callback(null, true);
 
       console.warn(`[CORS] Blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
@@ -108,7 +113,7 @@ async function bootstrap() {
   // Graceful shutdown handling
   const gracefulShutdown = async (signal: string) => {
     console.log(`Received ${signal}, starting graceful shutdown...`);
-    
+
     const shutdownTimeout = setTimeout(() => {
       console.error('Graceful shutdown timeout exceeded, forcing exit');
       process.exit(1);

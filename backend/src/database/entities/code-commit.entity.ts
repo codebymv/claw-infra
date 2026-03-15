@@ -30,7 +30,10 @@ export class CodeCommit {
   @Column({ name: 'pr_id', type: 'uuid', nullable: true })
   prId: string | null;
 
-  @ManyToOne(() => CodePr, (pr) => pr.commits, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => CodePr, (pr) => pr.commits, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'pr_id' })
   pr: CodePr | null;
 

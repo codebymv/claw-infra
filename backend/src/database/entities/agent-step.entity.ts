@@ -73,7 +73,13 @@ export class AgentStep {
   @Column({ name: 'provider', type: 'varchar', nullable: true })
   provider: string | null;
 
-  @Column({ name: 'cost_usd', type: 'decimal', precision: 12, scale: 6, default: 0 })
+  @Column({
+    name: 'cost_usd',
+    type: 'decimal',
+    precision: 12,
+    scale: 6,
+    default: 0,
+  })
   costUsd: string;
 
   @Column({ name: 'error_message', type: 'text', nullable: true })

@@ -42,10 +42,18 @@ export class AgentRun {
   @Column({ name: 'agent_name', type: 'varchar' })
   agentName: string;
 
-  @Column({ type: 'enum', enum: AgentRunStatus, default: AgentRunStatus.QUEUED })
+  @Column({
+    type: 'enum',
+    enum: AgentRunStatus,
+    default: AgentRunStatus.QUEUED,
+  })
   status: AgentRunStatus;
 
-  @Column({ type: 'enum', enum: AgentRunTrigger, default: AgentRunTrigger.MANUAL })
+  @Column({
+    type: 'enum',
+    enum: AgentRunTrigger,
+    default: AgentRunTrigger.MANUAL,
+  })
   trigger: AgentRunTrigger;
 
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
@@ -76,7 +84,13 @@ export class AgentRun {
   @Column({ name: 'total_tokens_out', type: 'int', default: 0 })
   totalTokensOut: number;
 
-  @Column({ name: 'total_cost_usd', type: 'decimal', precision: 12, scale: 6, default: 0 })
+  @Column({
+    name: 'total_cost_usd',
+    type: 'decimal',
+    precision: 12,
+    scale: 6,
+    default: 0,
+  })
   totalCostUsd: string;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })

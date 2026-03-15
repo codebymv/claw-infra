@@ -17,7 +17,10 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { ListCommentsQueryDto } from './dto/list-comments-query.dto';
 import { ProjectAuthGuard } from './auth/project-auth.guard';
-import { ResourceAccessGuard, RequireResourcePermission } from './auth/resource-access.guard';
+import {
+  ResourceAccessGuard,
+  RequireResourcePermission,
+} from './auth/resource-access.guard';
 import { AuditLogService } from './auth/audit-log.service';
 
 @Controller('projects/:projectId/boards/:boardId/cards/:cardId/comments')
@@ -35,8 +38,12 @@ export class CommentsController {
     @Body() dto: CreateCommentDto,
     @Request() req,
   ) {
-    const result = await this.commentsService.createComment(cardId, dto, req.user.id);
-    
+    const result = await this.commentsService.createComment(
+      cardId,
+      dto,
+      req.user.id,
+    );
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.create',
@@ -57,7 +64,7 @@ export class CommentsController {
     @Request() req,
   ) {
     const result = await this.commentsService.listComments(cardId, query);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.list',
@@ -74,7 +81,7 @@ export class CommentsController {
   @RequireResourcePermission('card', 'read')
   async getCommentStats(@Param('cardId') cardId: string, @Request() req) {
     const result = await this.commentsService.getCommentStats(cardId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.get_stats',
@@ -91,7 +98,7 @@ export class CommentsController {
   @RequireResourcePermission('comment', 'read')
   async getComment(@Param('commentId') commentId: string, @Request() req) {
     const result = await this.commentsService.getCommentById(commentId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.get',
@@ -105,16 +112,22 @@ export class CommentsController {
 
   @Get(':commentId/thread')
   @RequireResourcePermission('comment', 'read')
-  async getCommentThread(@Param('commentId') commentId: string, @Request() req) {
+  async getCommentThread(
+    @Param('commentId') commentId: string,
+    @Request() req,
+  ) {
     const result = await this.commentsService.getCommentThread(commentId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.get_thread',
       resource: 'comment',
       resourceId: commentId,
       projectId: req.projectContext.project.id,
-      metadata: { threadRootId: result.id, repliesCount: result.replies?.length || 0 },
+      metadata: {
+        threadRootId: result.id,
+        repliesCount: result.replies?.length || 0,
+      },
     });
 
     return result;
@@ -127,8 +140,12 @@ export class CommentsController {
     @Body() dto: UpdateCommentDto,
     @Request() req,
   ) {
-    const result = await this.commentsService.updateComment(commentId, dto, req.user.id);
-    
+    const result = await this.commentsService.updateComment(
+      commentId,
+      dto,
+      req.user.id,
+    );
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.update',
@@ -146,7 +163,7 @@ export class CommentsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteComment(@Param('commentId') commentId: string, @Request() req) {
     await this.commentsService.deleteComment(commentId, req.user.id);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'comment.delete',

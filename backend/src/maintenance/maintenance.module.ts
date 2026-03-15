@@ -10,7 +10,12 @@ import { FixViewsController } from './fix-views.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AgentLog, ResourceSnapshot, CostRecord, CodeDailyMetric]),
+    TypeOrmModule.forFeature([
+      AgentLog,
+      ResourceSnapshot,
+      CostRecord,
+      CodeDailyMetric,
+    ]),
     CommonModule,
   ],
   providers: [DataRetentionService],

@@ -29,14 +29,18 @@ export interface CodePrsFilters extends CodeOverviewFilters {
 @Injectable()
 export class CodeService {
   constructor(
-    @InjectRepository(CodeRepo) private readonly repoRepository: Repository<CodeRepo>,
+    @InjectRepository(CodeRepo)
+    private readonly repoRepository: Repository<CodeRepo>,
     @InjectRepository(CodePr) private readonly prRepository: Repository<CodePr>,
-    @InjectRepository(CodePrReview) private readonly reviewRepository: Repository<CodePrReview>,
-    @InjectRepository(CodeCommit) private readonly commitRepository: Repository<CodeCommit>,
-    @InjectRepository(CodeSyncState) private readonly syncStateRepository: Repository<CodeSyncState>,
+    @InjectRepository(CodePrReview)
+    private readonly reviewRepository: Repository<CodePrReview>,
+    @InjectRepository(CodeCommit)
+    private readonly commitRepository: Repository<CodeCommit>,
+    @InjectRepository(CodeSyncState)
+    private readonly syncStateRepository: Repository<CodeSyncState>,
     private readonly codeSyncService: CodeSyncService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async getOverview(filters: CodeOverviewFilters) {
     const { from, to, repo, author } = filters;
@@ -46,26 +50,42 @@ export class CodeService {
       .leftJoin('pr.repo', 'repo')
       .where('pr.opened_at BETWEEN :from AND :to', { from, to });
 
-    if (repo) prsQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
+    if (repo)
+      prsQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
     if (author) prsQb.andWhere('pr.author = :author', { author });
 
     const prAgg = await prsQb
-      .select('COUNT(*) FILTER (WHERE pr.opened_at BETWEEN :from AND :to)', 'prsOpened')
-      .addSelect('COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL AND pr.merged_at BETWEEN :from AND :to)', 'prsMerged')
+      .select(
+        'COUNT(*) FILTER (WHERE pr.opened_at BETWEEN :from AND :to)',
+        'prsOpened',
+      )
+      .addSelect(
+        'COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL AND pr.merged_at BETWEEN :from AND :to)',
+        'prsMerged',
+      )
       .addSelect('COALESCE(SUM(pr.additions), 0)', 'additions')
       .addSelect('COALESCE(SUM(pr.deletions), 0)', 'deletions')
       .addSelect('COALESCE(SUM(pr.changed_files), 0)', 'changedFiles')
-      .addSelect('COUNT(*) FILTER (WHERE pr.first_review_at IS NOT NULL)', 'reviewedPrs')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE pr.first_review_at IS NOT NULL)',
+        'reviewedPrs',
+      )
       .addSelect(
         'COALESCE(SUM(EXTRACT(EPOCH FROM (pr.merged_at - pr.opened_at))) FILTER (WHERE pr.merged_at IS NOT NULL), 0)',
         'mergeLatencySecondsTotal',
       )
-      .addSelect('COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL)', 'mergeLatencyCount')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL)',
+        'mergeLatencyCount',
+      )
       .addSelect(
         'COALESCE(SUM(EXTRACT(EPOCH FROM (pr.first_review_at - pr.opened_at))) FILTER (WHERE pr.first_review_at IS NOT NULL), 0)',
         'firstReviewLatencySecondsTotal',
       )
-      .addSelect('COUNT(*) FILTER (WHERE pr.first_review_at IS NOT NULL)', 'firstReviewLatencyCount')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE pr.first_review_at IS NOT NULL)',
+        'firstReviewLatencyCount',
+      )
       .getRawOne<{
         prsOpened: string;
         prsMerged: string;
@@ -84,7 +104,10 @@ export class CodeService {
       .leftJoin('c.repo', 'repo')
       .where('c.committed_at BETWEEN :from AND :to', { from, to });
 
-    if (repo) commitsQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
+    if (repo)
+      commitsQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", {
+        repo,
+      });
     if (author) commitsQb.andWhere('c.author = :author', { author });
 
     const commitAgg = await commitsQb
@@ -106,16 +129,16 @@ export class CodeService {
       averageMergeLatencySeconds:
         parseInt(prAgg?.mergeLatencyCount || '0', 10) > 0
           ? Math.round(
-            parseFloat(prAgg?.mergeLatencySecondsTotal || '0') /
-            parseInt(prAgg?.mergeLatencyCount || '1', 10),
-          )
+              parseFloat(prAgg?.mergeLatencySecondsTotal || '0') /
+                parseInt(prAgg?.mergeLatencyCount || '1', 10),
+            )
           : null,
       averageFirstReviewLatencySeconds:
         parseInt(prAgg?.firstReviewLatencyCount || '0', 10) > 0
           ? Math.round(
-            parseFloat(prAgg?.firstReviewLatencySecondsTotal || '0') /
-            parseInt(prAgg?.firstReviewLatencyCount || '1', 10),
-          )
+              parseFloat(prAgg?.firstReviewLatencySecondsTotal || '0') /
+                parseInt(prAgg?.firstReviewLatencyCount || '1', 10),
+            )
           : null,
     };
   }
@@ -128,13 +151,17 @@ export class CodeService {
       .leftJoin('pr.repo', 'repo')
       .where('pr.opened_at BETWEEN :from AND :to', { from, to });
 
-    if (repo) qb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
+    if (repo)
+      qb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
     if (author) qb.andWhere('pr.author = :author', { author });
 
     return qb
       .select("DATE_TRUNC('day', pr.opened_at)", 'day')
       .addSelect('COUNT(*)', 'prsOpened')
-      .addSelect('COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL)', 'prsMerged')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE pr.merged_at IS NOT NULL)',
+        'prsMerged',
+      )
       .addSelect('COALESCE(SUM(pr.additions), 0)', 'additions')
       .addSelect('COALESCE(SUM(pr.deletions), 0)', 'deletions')
       .addSelect('COALESCE(SUM(pr.changed_files), 0)', 'changedFiles')
@@ -160,14 +187,17 @@ export class CodeService {
       .leftJoinAndSelect('pr.reviews', 'reviews')
       .where(
         new Brackets((wqb) => {
-          wqb.where('pr.opened_at BETWEEN :from AND :to', { from, to }).orWhere(
-            'pr.merged_at IS NOT NULL AND pr.merged_at BETWEEN :from AND :to',
-            { from, to },
-          );
+          wqb
+            .where('pr.opened_at BETWEEN :from AND :to', { from, to })
+            .orWhere(
+              'pr.merged_at IS NOT NULL AND pr.merged_at BETWEEN :from AND :to',
+              { from, to },
+            );
         }),
       );
 
-    if (repo) qb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
+    if (repo)
+      qb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
     if (author) qb.andWhere('pr.author = :author', { author });
     if (state) qb.andWhere('pr.state = :state', { state });
 
@@ -215,12 +245,16 @@ export class CodeService {
       .leftJoin('pr.repo', 'repo')
       .where('pr.merged_at BETWEEN :from AND :to', { from, to });
 
-    if (repo) mergedQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
+    if (repo)
+      mergedQb.andWhere("CONCAT(repo.owner, '/', repo.name) = :repo", { repo });
 
-    const mergedAgg = await mergedQb.select('COUNT(*)', 'mergedCount').getRawOne<{ mergedCount: string }>();
+    const mergedAgg = await mergedQb
+      .select('COUNT(*)', 'mergedCount')
+      .getRawOne<{ mergedCount: string }>();
 
     const followUpWindowHours = parseInt(
-      this.configService.get<string>('CODE_QUALITY_HOTFIX_WINDOW_HOURS') || '48',
+      this.configService.get<string>('CODE_QUALITY_HOTFIX_WINDOW_HOURS') ||
+        '48',
       10,
     );
 
@@ -241,13 +275,17 @@ export class CodeService {
         { windowHours: String(followUpWindowHours) },
       )
       .where('merged.merged_at BETWEEN :from AND :to', { from, to })
-      .andWhere(repo ? "CONCAT(repo.owner, '/', repo.name) = :repo" : '1=1', { repo })
+      .andWhere(repo ? "CONCAT(repo.owner, '/', repo.name) = :repo" : '1=1', {
+        repo,
+      })
       .select('merged.id', 'mergedId')
       .addSelect('COUNT(followup.id)', 'followups')
       .groupBy('merged.id')
       .getRawMany<{ mergedId: string; followups: string }>();
 
-    const revertedOrHotfixed = hotfixRows.filter((row) => parseInt(row.followups || '0', 10) > 0).length;
+    const revertedOrHotfixed = hotfixRows.filter(
+      (row) => parseInt(row.followups || '0', 10) > 0,
+    ).length;
     const merged = parseInt(mergedAgg?.mergedCount || '0', 10);
 
     return {
@@ -262,7 +300,10 @@ export class CodeService {
     const now = new Date();
     const lookbackDays = Math.max(
       1,
-      parseInt(this.configService.get<string>('CODE_BACKFILL_DAYS') || '30', 10),
+      parseInt(
+        this.configService.get<string>('CODE_BACKFILL_DAYS') || '30',
+        10,
+      ),
     );
     const from = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000);
 
@@ -283,7 +324,12 @@ export class CodeService {
         };
       }
 
-      const summary = await this.codeSyncService.backfillRepo(owner, name, from, now);
+      const summary = await this.codeSyncService.backfillRepo(
+        owner,
+        name,
+        from,
+        now,
+      );
       summaries.push({
         repo: `${owner}/${name}`,
         pullRequestsFetched: summary.pullRequestsFetched,
@@ -324,7 +370,9 @@ export class CodeService {
         });
       }
 
-      const configuredRepos = (this.configService.get<string>('CODE_GITHUB_REPOS') || '')
+      const configuredRepos = (
+        this.configService.get<string>('CODE_GITHUB_REPOS') || ''
+      )
         .split(',')
         .map((v) => v.trim())
         .filter(Boolean);

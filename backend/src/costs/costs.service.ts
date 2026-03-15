@@ -19,7 +19,7 @@ export interface IngestCostDto {
 }
 
 // ZeroClaw sends massive repeating system prompts, resulting in ~90% cache hits on OpenRouter
-const ASSUMED_CACHE_HIT_RATE = 0.90;
+const ASSUMED_CACHE_HIT_RATE = 0.9;
 
 @Injectable()
 export class CostsService {
@@ -30,26 +30,33 @@ export class CostsService {
   private readonly budgetAlertState = new Map<string, boolean>();
 
   constructor(
-    @InjectRepository(CostRecord) private readonly costRepo: Repository<CostRecord>,
-    @InjectRepository(CostBudget) private readonly budgetRepo: Repository<CostBudget>,
+    @InjectRepository(CostRecord)
+    private readonly costRepo: Repository<CostRecord>,
+    @InjectRepository(CostBudget)
+    private readonly budgetRepo: Repository<CostBudget>,
     private readonly alerts: AlertsService,
     private readonly pricingService: PricingService,
-  ) { }
+  ) {}
 
   async ingest(dto: IngestCostDto): Promise<CostRecord> {
     const recordedAt = dto.recordedAt ? new Date(dto.recordedAt) : new Date();
     let costUsd = parseFloat(dto.costUsd || '0');
-    
+
     if (costUsd === 0 || isNaN(costUsd)) {
       // Get pricing from database
-      const pricing = await this.pricingService.getPricing(dto.provider, dto.model, recordedAt);
+      const pricing = await this.pricingService.getPricing(
+        dto.provider,
+        dto.model,
+        recordedAt,
+      );
 
       const cachedTokensIn = dto.tokensIn * ASSUMED_CACHE_HIT_RATE;
       const uncachedTokensIn = dto.tokensIn * (1 - ASSUMED_CACHE_HIT_RATE);
-      const tokensInCost = (uncachedTokensIn * pricing.inputPricePerMillion) + 
-                           (cachedTokensIn * (pricing.inputPricePerMillion * pricing.cacheDiscount));
+      const tokensInCost =
+        uncachedTokensIn * pricing.inputPricePerMillion +
+        cachedTokensIn * (pricing.inputPricePerMillion * pricing.cacheDiscount);
 
-      costUsd = tokensInCost + (dto.tokensOut * pricing.outputPricePerMillion);
+      costUsd = tokensInCost + dto.tokensOut * pricing.outputPricePerMillion;
     }
 
     const record = this.costRepo.create({
@@ -98,7 +105,8 @@ export class CostsService {
       // Use materialized views for historical data (older than 24 hours)
       if (to < oneDayAgo) {
         // Query daily summary for old data
-        return await this.costRepo.manager.query(`
+        return await this.costRepo.manager.query(
+          `
           SELECT 
             provider,
             model,
@@ -109,10 +117,13 @@ export class CostsService {
           WHERE day BETWEEN $1 AND $2
           GROUP BY provider, model
           ORDER BY SUM(total_cost_usd) DESC
-        `, [from, to]);
+        `,
+          [from, to],
+        );
       } else if (from >= oneDayAgo) {
         // Query hourly summary for recent data
-        return await this.costRepo.manager.query(`
+        return await this.costRepo.manager.query(
+          `
           SELECT 
             provider,
             model,
@@ -123,10 +134,13 @@ export class CostsService {
           WHERE hour BETWEEN $1 AND $2
           GROUP BY provider, model
           ORDER BY SUM(total_cost_usd) DESC
-        `, [from, to]);
+        `,
+          [from, to],
+        );
       } else {
         // Mixed query - combine both sources
-        const historicalData = await this.costRepo.manager.query(`
+        const historicalData = await this.costRepo.manager.query(
+          `
           SELECT 
             provider,
             model,
@@ -136,9 +150,12 @@ export class CostsService {
           FROM daily_cost_summary
           WHERE day BETWEEN $1 AND $2
           GROUP BY provider, model
-        `, [from, oneDayAgo]);
+        `,
+          [from, oneDayAgo],
+        );
 
-        const recentData = await this.costRepo.manager.query(`
+        const recentData = await this.costRepo.manager.query(
+          `
           SELECT 
             provider,
             model,
@@ -148,17 +165,23 @@ export class CostsService {
           FROM hourly_cost_summary
           WHERE hour BETWEEN $1 AND $2
           GROUP BY provider, model
-        `, [oneDayAgo, to]);
+        `,
+          [oneDayAgo, to],
+        );
 
         // Merge results
         const merged = new Map();
-        [...historicalData, ...recentData].forEach(row => {
+        [...historicalData, ...recentData].forEach((row) => {
           const key = `${row.provider}:${row.model}`;
           if (merged.has(key)) {
             const existing = merged.get(key);
-            existing.totalCostUsd = parseFloat(existing.totalCostUsd) + parseFloat(row.total_cost_usd);
-            existing.totalTokens = parseInt(existing.totalTokens) + parseInt(row.total_tokens);
-            existing.callCount = parseInt(existing.callCount) + parseInt(row.call_count);
+            existing.totalCostUsd =
+              parseFloat(existing.totalCostUsd) +
+              parseFloat(row.total_cost_usd);
+            existing.totalTokens =
+              parseInt(existing.totalTokens) + parseInt(row.total_tokens);
+            existing.callCount =
+              parseInt(existing.callCount) + parseInt(row.call_count);
           } else {
             merged.set(key, {
               provider: row.provider,
@@ -170,12 +193,16 @@ export class CostsService {
           }
         });
 
-        return Array.from(merged.values()).sort((a, b) => b.totalCostUsd - a.totalCostUsd);
+        return Array.from(merged.values()).sort(
+          (a, b) => b.totalCostUsd - a.totalCostUsd,
+        );
       }
     } catch (error) {
       // If materialized views don't exist, fall back to direct cost_records query
       if (error.message.includes('does not exist')) {
-        this.logger.warn(`Materialized views not available, falling back to direct query: ${error.message}`);
+        this.logger.warn(
+          `Materialized views not available, falling back to direct query: ${error.message}`,
+        );
         return this.getCostByModelFallback(from, to);
       }
       throw error;
@@ -246,13 +273,29 @@ export class CostsService {
     return this.budgetRepo.find({ where: { isActive: true } });
   }
 
-  async upsertBudget(agentName: string | null, dailyLimitUsd: string | null, monthlyLimitUsd: string | null, alertThresholdPercent = 80) {
-    const existing = await this.budgetRepo.findOne({ where: { agentName: agentName ?? undefined } });
+  async upsertBudget(
+    agentName: string | null,
+    dailyLimitUsd: string | null,
+    monthlyLimitUsd: string | null,
+    alertThresholdPercent = 80,
+  ) {
+    const existing = await this.budgetRepo.findOne({
+      where: { agentName: agentName ?? undefined },
+    });
     if (existing) {
-      await this.budgetRepo.update(existing.id, { dailyLimitUsd, monthlyLimitUsd, alertThresholdPercent });
+      await this.budgetRepo.update(existing.id, {
+        dailyLimitUsd,
+        monthlyLimitUsd,
+        alertThresholdPercent,
+      });
       return this.budgetRepo.findOne({ where: { id: existing.id } });
     }
-    const budget = this.budgetRepo.create({ agentName, dailyLimitUsd, monthlyLimitUsd, alertThresholdPercent });
+    const budget = this.budgetRepo.create({
+      agentName,
+      dailyLimitUsd,
+      monthlyLimitUsd,
+      alertThresholdPercent,
+    });
     return this.budgetRepo.save(budget);
   }
 
@@ -261,18 +304,30 @@ export class CostsService {
   }
 
   async getRunCosts(runId: string) {
-    return this.costRepo.find({ where: { runId }, order: { recordedAt: 'ASC' } });
+    return this.costRepo.find({
+      where: { runId },
+      order: { recordedAt: 'ASC' },
+    });
   }
 
-  async notifyBudgetThreshold(agentName: string, spent: number, limit: string): Promise<void> {
+  async notifyBudgetThreshold(
+    agentName: string,
+    spent: number,
+    limit: string,
+  ): Promise<void> {
     await this.alerts.budgetExceeded(agentName, spent.toFixed(2), limit);
   }
 
   async getProjectedSpend() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const daysElapsed = (now.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000);
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed =
+      (now.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000);
+    const daysInMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+    ).getDate();
 
     const spent = await this.costRepo
       .createQueryBuilder('c')
@@ -303,8 +358,20 @@ export class CostsService {
       const dayKey = `${agent}:day`;
       const monthKey = `${agent}:month`;
 
-      await this.handleThreshold(dayKey, item.dayAlert, agent, item.daySpend, budget.dailyLimitUsd);
-      await this.handleThreshold(monthKey, item.monthAlert, agent, item.monthSpend, budget.monthlyLimitUsd);
+      await this.handleThreshold(
+        dayKey,
+        item.dayAlert,
+        agent,
+        item.daySpend,
+        budget.dailyLimitUsd,
+      );
+      await this.handleThreshold(
+        monthKey,
+        item.monthAlert,
+        agent,
+        item.monthSpend,
+        budget.monthlyLimitUsd,
+      );
     }
   }
 
@@ -346,7 +413,9 @@ export class CostsService {
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
           .where(`c.recorded_at >= :start`, { start: dayStart });
         if (budget.agentName) {
-          dayQuery = dayQuery.andWhere('run.agent_name = :agentName', { agentName: budget.agentName });
+          dayQuery = dayQuery.andWhere('run.agent_name = :agentName', {
+            agentName: budget.agentName,
+          });
         }
         const daySpend = await dayQuery.getRawOne<{ total: string }>();
 
@@ -356,14 +425,20 @@ export class CostsService {
           .select('SUM(CAST(c.cost_usd AS DECIMAL))', 'total')
           .where(`c.recorded_at >= :start`, { start: monthStart });
         if (budget.agentName) {
-          monthQuery = monthQuery.andWhere('run.agent_name = :agentName', { agentName: budget.agentName });
+          monthQuery = monthQuery.andWhere('run.agent_name = :agentName', {
+            agentName: budget.agentName,
+          });
         }
         const monthSpend = await monthQuery.getRawOne<{ total: string }>();
 
         const dayTotal = parseFloat(daySpend?.total || '0');
         const monthTotal = parseFloat(monthSpend?.total || '0');
-        const dailyLimit = budget.dailyLimitUsd ? parseFloat(budget.dailyLimitUsd) : null;
-        const monthlyLimit = budget.monthlyLimitUsd ? parseFloat(budget.monthlyLimitUsd) : null;
+        const dailyLimit = budget.dailyLimitUsd
+          ? parseFloat(budget.dailyLimitUsd)
+          : null;
+        const monthlyLimit = budget.monthlyLimitUsd
+          ? parseFloat(budget.monthlyLimitUsd)
+          : null;
 
         return {
           budget,
@@ -371,8 +446,12 @@ export class CostsService {
           monthSpend: monthTotal,
           dayPercent: dailyLimit ? (dayTotal / dailyLimit) * 100 : null,
           monthPercent: monthlyLimit ? (monthTotal / monthlyLimit) * 100 : null,
-          dayAlert: dailyLimit ? dayTotal / dailyLimit >= budget.alertThresholdPercent / 100 : false,
-          monthAlert: monthlyLimit ? monthTotal / monthlyLimit >= budget.alertThresholdPercent / 100 : false,
+          dayAlert: dailyLimit
+            ? dayTotal / dailyLimit >= budget.alertThresholdPercent / 100
+            : false,
+          monthAlert: monthlyLimit
+            ? monthTotal / monthlyLimit >= budget.alertThresholdPercent / 100
+            : false,
         };
       }),
     );

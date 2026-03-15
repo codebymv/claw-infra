@@ -77,7 +77,7 @@ export class AgentProjectController {
       projectId,
       req.user.id,
       dto.agentName,
-      dto.maxConcurrentOperations
+      dto.maxConcurrentOperations,
     );
 
     await this.auditLogService.logAccess({
@@ -93,13 +93,13 @@ export class AgentProjectController {
   }
 
   @Get(':projectId/workspace')
-  async getWorkspace(
-    @Param('projectId') projectId: string,
-    @Request() req,
-  ) {
-    const workspaces = await this.agentOrchestrator.listWorkspaces(projectId, req.user.id);
-    const activeWorkspace = workspaces.find(ws => ws.status === 'active');
-    
+  async getWorkspace(@Param('projectId') projectId: string, @Request() req) {
+    const workspaces = await this.agentOrchestrator.listWorkspaces(
+      projectId,
+      req.user.id,
+    );
+    const activeWorkspace = workspaces.find((ws) => ws.status === 'active');
+
     if (!activeWorkspace) {
       return null;
     }
@@ -302,7 +302,11 @@ export class AgentProjectController {
     @Body() dto: BulkCardOperationDto,
     @Request() req,
   ) {
-    const result = await this.cardsService.bulkOperation(boardId, dto, req.user.id);
+    const result = await this.cardsService.bulkOperation(
+      boardId,
+      dto,
+      req.user.id,
+    );
 
     await this.auditLogService.logAccess({
       userId: req.user.id,
@@ -324,15 +328,18 @@ export class AgentProjectController {
     @Request() req,
   ) {
     // Get or create workspace for this agent
-    let workspaces = await this.agentOrchestrator.listWorkspaces(projectId, req.user.id);
-    let workspace = workspaces.find(ws => ws.status === 'active');
-    
+    const workspaces = await this.agentOrchestrator.listWorkspaces(
+      projectId,
+      req.user.id,
+    );
+    let workspace = workspaces.find((ws) => ws.status === 'active');
+
     if (!workspace) {
       workspace = await this.agentOrchestrator.createWorkspace(
         projectId,
         req.user.id,
         'Agent API',
-        10
+        10,
       );
     }
 
@@ -345,7 +352,7 @@ export class AgentProjectController {
         op.resourceType,
         op.resourceId || 'new',
         op.data || {},
-        op.priority || 0
+        op.priority || 0,
       );
       operations.push(operation);
     }
@@ -357,7 +364,11 @@ export class AgentProjectController {
         await this.agentOrchestrator.executeOperation(operation.id);
         results.push({ operationId: operation.id, status: 'completed' });
       } catch (error) {
-        results.push({ operationId: operation.id, status: 'failed', error: error.message });
+        results.push({
+          operationId: operation.id,
+          status: 'failed',
+          error: error.message,
+        });
       }
     }
 
@@ -367,7 +378,10 @@ export class AgentProjectController {
       resource: 'batch',
       resourceId: 'batch',
       projectId,
-      metadata: { operationCount: dto.operations.length, workspaceId: workspace.id },
+      metadata: {
+        operationCount: dto.operations.length,
+        workspaceId: workspace.id,
+      },
     });
 
     return {
@@ -375,8 +389,8 @@ export class AgentProjectController {
       operations: results,
       summary: {
         total: results.length,
-        completed: results.filter(r => r.status === 'completed').length,
-        failed: results.filter(r => r.status === 'failed').length,
+        completed: results.filter((r) => r.status === 'completed').length,
+        failed: results.filter((r) => r.status === 'failed').length,
       },
     };
   }
@@ -391,7 +405,11 @@ export class AgentProjectController {
     @Body() dto: CreateCommentDto,
     @Request() req,
   ) {
-    const result = await this.commentsService.createComment(cardId, dto, req.user.id);
+    const result = await this.commentsService.createComment(
+      cardId,
+      dto,
+      req.user.id,
+    );
 
     await this.auditLogService.logAccess({
       userId: req.user.id,
@@ -435,12 +453,17 @@ export class AgentProjectController {
   @Get(':projectId/health')
   @UseGuards(ProjectAccessGuard)
   async getHealth(@Param('projectId') projectId: string, @Request() req) {
-    const workspaces = await this.agentOrchestrator.listWorkspaces(projectId, req.user.id);
-    const activeWorkspace = workspaces.find(ws => ws.status === 'active');
+    const workspaces = await this.agentOrchestrator.listWorkspaces(
+      projectId,
+      req.user.id,
+    );
+    const activeWorkspace = workspaces.find((ws) => ws.status === 'active');
 
     let workspaceStats: any = null;
     if (activeWorkspace) {
-      workspaceStats = await this.agentOrchestrator.getWorkspaceStats(activeWorkspace.id);
+      workspaceStats = await this.agentOrchestrator.getWorkspaceStats(
+        activeWorkspace.id,
+      );
     }
 
     return {

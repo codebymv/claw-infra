@@ -138,30 +138,58 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
     `);
 
     // Create optimized indexes using CONCURRENTLY to avoid write locks
-    
+
     // Projects indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_owner_status" ON "projects" ("owner_id", "status")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_team_status" ON "projects" ("team_id", "status") WHERE "team_id" IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_slug_active" ON "projects" ("slug") WHERE "status" = 'active'`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_owner_status" ON "projects" ("owner_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_team_status" ON "projects" ("team_id", "status") WHERE "team_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_projects_slug_active" ON "projects" ("slug") WHERE "status" = 'active'`,
+    );
 
     // Project members indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_project_members_project" ON "project_members" ("project_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_project_members_user" ON "project_members" ("user_id")`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_project_members_project" ON "project_members" ("project_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_project_members_user" ON "project_members" ("user_id")`,
+    );
 
     // Kanban boards indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_kanban_boards_project" ON "kanban_boards" ("project_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_kanban_boards_project_default" ON "kanban_boards" ("project_id", "is_default")`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_kanban_boards_project" ON "kanban_boards" ("project_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_kanban_boards_project_default" ON "kanban_boards" ("project_id", "is_default")`,
+    );
 
     // Columns indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_columns_board" ON "columns" ("board_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_columns_board_order" ON "columns" ("board_id", "order")`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_columns_board" ON "columns" ("board_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_columns_board_order" ON "columns" ("board_id", "order")`,
+    );
 
     // Cards indexes - critical for performance
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_column" ON "cards" ("board_id", "column_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_assignee_status" ON "cards" ("assignee_id", "status") WHERE "assignee_id" IS NOT NULL`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_column_position" ON "cards" ("board_id", "column_id", "position")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_status" ON "cards" ("board_id", "status")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_created_at" ON "cards" ("created_at")`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_column" ON "cards" ("board_id", "column_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_assignee_status" ON "cards" ("assignee_id", "status") WHERE "assignee_id" IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_column_position" ON "cards" ("board_id", "column_id", "position")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_board_status" ON "cards" ("board_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_cards_created_at" ON "cards" ("created_at")`,
+    );
 
     // Full-text search index for cards
     await queryRunner.query(`
@@ -170,14 +198,26 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
     `);
 
     // Comments indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_card_created" ON "comments" ("card_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_author" ON "comments" ("author_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_parent" ON "comments" ("parent_id") WHERE "parent_id" IS NOT NULL`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_card_created" ON "comments" ("card_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_author" ON "comments" ("author_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_comments_parent" ON "comments" ("parent_id") WHERE "parent_id" IS NOT NULL`,
+    );
 
     // Card history indexes
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_card_created" ON "card_history" ("card_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_user" ON "card_history" ("user_id")`);
-    await queryRunner.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_action" ON "card_history" ("action")`);
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_card_created" ON "card_history" ("card_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_user" ON "card_history" ("user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_card_history_action" ON "card_history" ("action")`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -185,22 +225,30 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_projects_owner_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_projects_team_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_projects_slug_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_project_members_project"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_project_members_project"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_project_members_user"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_kanban_boards_project"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_kanban_boards_project_default"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_kanban_boards_project_default"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_columns_board"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_columns_board_order"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_board_column"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_assignee_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_board_column_position"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_cards_board_column_position"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_board_status"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_created_at"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_cards_search"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_comments_card_created"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_comments_author"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_comments_parent"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_card_history_card_created"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_card_history_card_created"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_card_history_user"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_card_history_action"`);
 

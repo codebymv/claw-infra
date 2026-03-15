@@ -21,7 +21,10 @@ export interface ProjectChannelSubscription {
 @Injectable()
 export class ProjectPubSubService implements OnModuleInit {
   private readonly logger = new Logger(ProjectPubSubService.name);
-  private readonly subscriptions = new Map<string, ProjectChannelSubscription>();
+  private readonly subscriptions = new Map<
+    string,
+    ProjectChannelSubscription
+  >();
   private subscriptionCounter = 0;
 
   constructor(private readonly pubSub: PubSubService) {}
@@ -47,28 +50,31 @@ export class ProjectPubSubService implements OnModuleInit {
       const event = data as ProjectEventPayload;
 
       // Find matching subscriptions
-      const matchingSubscriptions = Array.from(this.subscriptions.values()).filter(sub => 
-        this.matchesFilter(sub, projectId, event)
-      );
+      const matchingSubscriptions = Array.from(
+        this.subscriptions.values(),
+      ).filter((sub) => this.matchesFilter(sub, projectId, event));
 
       // Execute handlers
       for (const subscription of matchingSubscriptions) {
         try {
           await subscription.handler(event);
         } catch (error) {
-          this.logger.error(`Error in subscription handler ${subscription.id}: ${error.message}`);
+          this.logger.error(
+            `Error in subscription handler ${subscription.id}: ${error.message}`,
+          );
         }
       }
-
     } catch (error) {
-      this.logger.error(`Error handling project event from ${channel}: ${error.message}`);
+      this.logger.error(
+        `Error handling project event from ${channel}: ${error.message}`,
+      );
     }
   }
 
   private matchesFilter(
     subscription: ProjectChannelSubscription,
     projectId: string,
-    event: ProjectEventPayload
+    event: ProjectEventPayload,
   ): boolean {
     // Check project ID match
     if (subscription.projectId !== projectId) {
@@ -106,10 +112,10 @@ export class ProjectPubSubService implements OnModuleInit {
     options?: {
       channel?: string;
       filter?: ProjectEventFilter;
-    }
+    },
   ): string {
     const subscriptionId = `sub_${++this.subscriptionCounter}_${Date.now()}`;
-    
+
     const subscription: ProjectChannelSubscription = {
       id: subscriptionId,
       projectId,
@@ -121,7 +127,9 @@ export class ProjectPubSubService implements OnModuleInit {
 
     this.subscriptions.set(subscriptionId, subscription);
 
-    this.logger.log(`Created project subscription ${subscriptionId} for project ${projectId}`);
+    this.logger.log(
+      `Created project subscription ${subscriptionId} for project ${projectId}`,
+    );
     return subscriptionId;
   }
 
@@ -134,7 +142,7 @@ export class ProjectPubSubService implements OnModuleInit {
       resourceId?: string;
       eventTypes?: string[];
       userId?: string;
-    }
+    },
   ): string {
     const filter: ProjectEventFilter = {
       projectId,
@@ -142,18 +150,22 @@ export class ProjectPubSubService implements OnModuleInit {
       userId: options?.userId,
     };
 
-    return this.subscribeToProject(projectId, (event) => {
-      // Additional filtering for resource ID and event types
-      if (options?.resourceId && event.resourceId !== options.resourceId) {
-        return;
-      }
+    return this.subscribeToProject(
+      projectId,
+      (event) => {
+        // Additional filtering for resource ID and event types
+        if (options?.resourceId && event.resourceId !== options.resourceId) {
+          return;
+        }
 
-      if (options?.eventTypes && !options.eventTypes.includes(event.type)) {
-        return;
-      }
+        if (options?.eventTypes && !options.eventTypes.includes(event.type)) {
+          return;
+        }
 
-      return handler(event);
-    }, { filter });
+        return handler(event);
+      },
+      { filter },
+    );
   }
 
   // Subscribe to card events specifically
@@ -163,7 +175,7 @@ export class ProjectPubSubService implements OnModuleInit {
     options?: {
       cardId?: string;
       eventTypes?: ('create' | 'update' | 'delete' | 'move')[];
-    }
+    },
   ): string {
     return this.subscribeToResource(projectId, 'card', handler, {
       resourceId: options?.cardId,
@@ -178,7 +190,7 @@ export class ProjectPubSubService implements OnModuleInit {
     options?: {
       cardId?: string;
       commentId?: string;
-    }
+    },
   ): string {
     return this.subscribeToResource(projectId, 'comment', (event) => {
       // Additional filtering for card-specific comments
@@ -209,8 +221,10 @@ export class ProjectPubSubService implements OnModuleInit {
   async publishProjectEvent(event: ProjectEventPayload): Promise<void> {
     const channel = `project:${event.projectId}`;
     await this.pubSub.publish(channel as any, event);
-    
-    this.logger.debug(`Published ${event.resource}_${event.type} event to ${channel}`);
+
+    this.logger.debug(
+      `Published ${event.resource}_${event.type} event to ${channel}`,
+    );
   }
 
   // Publish card-specific events
@@ -220,7 +234,7 @@ export class ProjectPubSubService implements OnModuleInit {
     eventType: 'create' | 'update' | 'delete' | 'move',
     data: any,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     const event: ProjectEventPayload = {
       type: eventType,
@@ -243,7 +257,7 @@ export class ProjectPubSubService implements OnModuleInit {
     eventType: 'create' | 'update' | 'delete',
     data: any,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     const event: ProjectEventPayload = {
       type: eventType,
@@ -266,7 +280,7 @@ export class ProjectPubSubService implements OnModuleInit {
     eventType: 'create' | 'update' | 'delete',
     data: any,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     const event: ProjectEventPayload = {
       type: eventType,
@@ -289,7 +303,7 @@ export class ProjectPubSubService implements OnModuleInit {
     eventType: 'create' | 'update' | 'delete',
     data: any,
     userId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     const event: ProjectEventPayload = {
       type: eventType,
@@ -307,9 +321,11 @@ export class ProjectPubSubService implements OnModuleInit {
 
   // Batch publish multiple events
   async publishBatch(events: ProjectEventPayload[]): Promise<void> {
-    const publishPromises = events.map(event => this.publishProjectEvent(event));
+    const publishPromises = events.map((event) =>
+      this.publishProjectEvent(event),
+    );
     await Promise.all(publishPromises);
-    
+
     this.logger.debug(`Published batch of ${events.length} project events`);
   }
 
@@ -321,19 +337,21 @@ export class ProjectPubSubService implements OnModuleInit {
     oldestSubscription: Date | null;
   } {
     const subscriptions = Array.from(this.subscriptions.values());
-    
+
     const subscriptionsByProject: Record<string, number> = {};
     const subscriptionsByResource: Record<string, number> = {};
     let oldestSubscription: Date | null = null;
 
     for (const sub of subscriptions) {
       // Count by project
-      subscriptionsByProject[sub.projectId] = (subscriptionsByProject[sub.projectId] || 0) + 1;
-      
+      subscriptionsByProject[sub.projectId] =
+        (subscriptionsByProject[sub.projectId] || 0) + 1;
+
       // Count by resource type
       const resourceType = sub.filter?.resourceType || 'all';
-      subscriptionsByResource[resourceType] = (subscriptionsByResource[resourceType] || 0) + 1;
-      
+      subscriptionsByResource[resourceType] =
+        (subscriptionsByResource[resourceType] || 0) + 1;
+
       // Track oldest subscription
       if (!oldestSubscription || sub.createdAt < oldestSubscription) {
         oldestSubscription = sub.createdAt;
@@ -368,7 +386,10 @@ export class ProjectPubSubService implements OnModuleInit {
   }
 
   // Test method for development/debugging
-  async testProjectEvent(projectId: string, eventType: string = 'test'): Promise<void> {
+  async testProjectEvent(
+    projectId: string,
+    eventType: string = 'test',
+  ): Promise<void> {
     const testEvent: ProjectEventPayload = {
       type: 'update',
       resource: 'project',

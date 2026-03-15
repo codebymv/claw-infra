@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -19,7 +24,8 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit() {
-    const url = this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    const url =
+      this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
     this.pub = new Redis(url);
     this.sub = new Redis(url);
 
@@ -36,26 +42,33 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
     });
 
     // Handle pattern subscription messages
-    this.sub.on('pmessage', (pattern: string, channel: string, message: string) => {
-      const handlers = this.handlers.get(pattern) || [];
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(message);
-      } catch {
-        parsed = message;
-      }
-      // Pass both channel and data to pattern handlers
-      handlers.forEach((h) => (h as any)(channel, parsed));
-    });
+    this.sub.on(
+      'pmessage',
+      (pattern: string, channel: string, message: string) => {
+        const handlers = this.handlers.get(pattern) || [];
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(message);
+        } catch {
+          parsed = message;
+        }
+        // Pass both channel and data to pattern handlers
+        handlers.forEach((h) => (h as any)(channel, parsed));
+      },
+    );
 
     // Activate any channels registered before this init ran (e.g. from afterInit hooks)
     for (const channel of this.handlers.keys()) {
       if (channel.includes('*')) {
         // Pattern subscription
-        this.sub.psubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        this.sub
+          .psubscribe(channel)
+          .catch((err: Error) => this.logger.error(err.message));
       } else {
         // Regular subscription
-        this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        this.sub
+          .subscribe(channel)
+          .catch((err: Error) => this.logger.error(err.message));
       }
     }
 
@@ -84,9 +97,13 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
       // If sub is already initialized, subscribe immediately; otherwise onModuleInit will pick it up
       if (this.sub) {
         if (channel.includes('*')) {
-          this.sub.psubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+          this.sub
+            .psubscribe(channel)
+            .catch((err: Error) => this.logger.error(err.message));
         } else {
-          this.sub.subscribe(channel).catch((err: Error) => this.logger.error(err.message));
+          this.sub
+            .subscribe(channel)
+            .catch((err: Error) => this.logger.error(err.message));
         }
       }
     }
@@ -97,11 +114,16 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
    * Subscribe to a pattern (e.g., "run:*")
    * Handler receives (channel, data) instead of just (data)
    */
-  psubscribe(pattern: string, handler: (channel: string, data: unknown) => void) {
+  psubscribe(
+    pattern: string,
+    handler: (channel: string, data: unknown) => void,
+  ) {
     if (!this.handlers.has(pattern)) {
       this.handlers.set(pattern, []);
       if (this.sub) {
-        this.sub.psubscribe(pattern).catch((err: Error) => this.logger.error(err.message));
+        this.sub
+          .psubscribe(pattern)
+          .catch((err: Error) => this.logger.error(err.message));
       }
     }
     this.handlers.get(pattern)!.push(handler as any);
@@ -113,9 +135,13 @@ export class PubSubService implements OnModuleInit, OnModuleDestroy {
     if (updated.length === 0) {
       this.handlers.delete(channel);
       if (channel.includes('*')) {
-        this.sub.punsubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        this.sub
+          .punsubscribe(channel)
+          .catch((err: Error) => this.logger.error(err.message));
       } else {
-        this.sub.unsubscribe(channel).catch((err: Error) => this.logger.error(err.message));
+        this.sub
+          .unsubscribe(channel)
+          .catch((err: Error) => this.logger.error(err.message));
       }
     } else {
       this.handlers.set(channel, updated);

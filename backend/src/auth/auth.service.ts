@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -35,7 +39,9 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.userRepo.findOne({ where: { email, isActive: true } });
+    const user = await this.userRepo.findOne({
+      where: { email, isActive: true },
+    });
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -46,13 +52,23 @@ export class AuthService {
 
   private signToken(user: User) {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    
+
     // Use JWT_SIGNING_SECRET if set, otherwise use JWT_SECRET
-    const signingSecret = this.config.get<string>('JWT_SIGNING_SECRET') || this.config.get<string>('JWT_SECRET');
-    
+    const signingSecret =
+      this.config.get<string>('JWT_SIGNING_SECRET') ||
+      this.config.get<string>('JWT_SECRET');
+
     return {
-      access_token: this.jwtService.sign(payload, signingSecret ? { secret: signingSecret } : undefined),
-      user: { id: user.id, email: user.email, role: user.role, displayName: user.displayName },
+      access_token: this.jwtService.sign(
+        payload,
+        signingSecret ? { secret: signingSecret } : undefined,
+      ),
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        displayName: user.displayName,
+      },
     };
   }
 
@@ -61,10 +77,21 @@ export class AuthService {
     const prefix = rawKey.substring(0, 8);
     const keyHash = CryptoUtil.hmacHash(rawKey, this.apiKeySecret);
 
-    const apiKey = this.apiKeyRepo.create({ name, keyHash, keyPrefix: prefix, type });
+    const apiKey = this.apiKeyRepo.create({
+      name,
+      keyHash,
+      keyPrefix: prefix,
+      type,
+    });
     await this.apiKeyRepo.save(apiKey);
 
-    return { id: apiKey.id, name, key: rawKey, prefix, createdAt: apiKey.createdAt };
+    return {
+      id: apiKey.id,
+      name,
+      key: rawKey,
+      prefix,
+      createdAt: apiKey.createdAt,
+    };
   }
 
   async validateApiKey(providedKey: string): Promise<ApiKey | null> {
@@ -75,7 +102,13 @@ export class AuthService {
 
     for (const candidate of candidates) {
       // Try HMAC validation first (new method)
-      if (CryptoUtil.validateHmac(providedKey, candidate.keyHash, this.apiKeySecret)) {
+      if (
+        CryptoUtil.validateHmac(
+          providedKey,
+          candidate.keyHash,
+          this.apiKeySecret,
+        )
+      ) {
         // Update last used timestamp
         await this.apiKeyRepo.update(candidate.id, { lastUsedAt: new Date() });
         return candidate;
@@ -84,7 +117,10 @@ export class AuthService {
       // Fallback to bcrypt for backward compatibility (30-day grace period)
       // TODO: Remove after 2026-04-11
       try {
-        const bcryptValid = await bcrypt.compare(providedKey, candidate.keyHash);
+        const bcryptValid = await bcrypt.compare(
+          providedKey,
+          candidate.keyHash,
+        );
         if (bcryptValid) {
           // Re-hash with HMAC for future requests
           const newHash = CryptoUtil.hmacHash(providedKey, this.apiKeySecret);
@@ -103,7 +139,18 @@ export class AuthService {
   }
 
   async listApiKeys() {
-    return this.apiKeyRepo.find({ select: ['id', 'name', 'keyPrefix', 'type', 'isActive', 'lastUsedAt', 'expiresAt', 'createdAt'] });
+    return this.apiKeyRepo.find({
+      select: [
+        'id',
+        'name',
+        'keyPrefix',
+        'type',
+        'isActive',
+        'lastUsedAt',
+        'expiresAt',
+        'createdAt',
+      ],
+    });
   }
 
   async revokeApiKey(id: string) {

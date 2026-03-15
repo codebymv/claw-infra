@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsInt, IsBoolean, IsArray, Length, Min, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsInt,
+  IsBoolean,
+  IsArray,
+  Length,
+  Min,
+  Matches,
+} from 'class-validator';
 import { ColumnRule } from '../../database/entities/column.entity';
 
 export class CreateColumnDto {
@@ -13,7 +22,9 @@ export class CreateColumnDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^#[0-9A-Fa-f]{6}$/, { message: 'Color must be a valid hex color (e.g., #FF0000)' })
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'Color must be a valid hex color (e.g., #FF0000)',
+  })
   color?: string;
 
   @IsOptional()

@@ -1,6 +1,19 @@
-import { Controller, Post, Body, UseGuards, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsString, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDateString,
+  Min,
+} from 'class-validator';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyRateLimitGuard } from '../common/guards/api-key-rate-limit.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
@@ -60,14 +73,17 @@ export class CostIngestController {
       tokensOut: dto.tokensOut,
       recordedAt: dto.recordedAt || new Date().toISOString(),
     };
-    
+
     const idempotencyKey = this.idempotencyService.generateKey(idempotencyData);
-    
+
     // Check if this request has already been processed
-    const isDuplicate = await this.idempotencyService.checkAndMark(idempotencyKey);
-    
+    const isDuplicate =
+      await this.idempotencyService.checkAndMark(idempotencyKey);
+
     if (isDuplicate) {
-      this.logger.log(`Duplicate cost record detected, returning success without creating: ${idempotencyKey.substring(0, 16)}...`);
+      this.logger.log(
+        `Duplicate cost record detected, returning success without creating: ${idempotencyKey.substring(0, 16)}...`,
+      );
       // Return success without creating duplicate record
       return { message: 'Cost record already processed', idempotencyKey };
     }

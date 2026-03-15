@@ -1,5 +1,20 @@
-import { IsString, IsOptional, IsEnum, IsUUID, IsArray, IsObject, IsDateString, IsDecimal, Length, Min } from 'class-validator';
-import { CardType, CardPriority, CardStatus } from '../../database/entities/card.entity';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsArray,
+  IsObject,
+  IsDateString,
+  IsDecimal,
+  Length,
+  Min,
+} from 'class-validator';
+import {
+  CardType,
+  CardPriority,
+  CardStatus,
+} from '../../database/entities/card.entity';
 
 export class CreateCardDto {
   @IsString()

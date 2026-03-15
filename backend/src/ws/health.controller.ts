@@ -49,7 +49,11 @@ export class HealthController {
     }
 
     const values = Object.values(checks);
-    const status = values.every((s) => s === 'ok') ? 'ok' : values.some((s) => s === 'ok') ? 'degraded' : 'down';
+    const status = values.every((s) => s === 'ok')
+      ? 'ok'
+      : values.some((s) => s === 'ok')
+        ? 'degraded'
+        : 'down';
 
     return {
       status,

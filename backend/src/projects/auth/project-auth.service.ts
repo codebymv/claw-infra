@@ -1,8 +1,19 @@
-import { Injectable, Logger, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Project, ProjectVisibility } from '../../database/entities/project.entity';
-import { ProjectMember, ProjectRole } from '../../database/entities/project-member.entity';
+import {
+  Project,
+  ProjectVisibility,
+} from '../../database/entities/project.entity';
+import {
+  ProjectMember,
+  ProjectRole,
+} from '../../database/entities/project-member.entity';
 import { User, UserRole } from '../../database/entities/user.entity';
 import { AuthService } from '../../auth/auth.service';
 import { CryptoUtil } from '../../auth/crypto.util';
@@ -25,13 +36,18 @@ export class ProjectAuthService {
   private readonly logger = new Logger(ProjectAuthService.name);
 
   constructor(
-    @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
-    @InjectRepository(ProjectMember) private readonly memberRepo: Repository<ProjectMember>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
+    @InjectRepository(ProjectMember)
+    private readonly memberRepo: Repository<ProjectMember>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly authService: AuthService,
   ) {}
 
-  async validateProjectAccess(projectId: string, userId: string): Promise<ProjectContext> {
+  async validateProjectAccess(
+    projectId: string,
+    userId: string,
+  ): Promise<ProjectContext> {
     const project = await this.projectRepo.findOne({
       where: { id: projectId },
       relations: ['owner'],
@@ -104,7 +120,11 @@ export class ProjectAuthService {
     };
   }
 
-  async validateCardAccess(cardId: string, userId: string, requiredPermission: 'read' | 'write' | 'admin' = 'read'): Promise<ProjectContext> {
+  async validateCardAccess(
+    cardId: string,
+    userId: string,
+    requiredPermission: 'read' | 'write' | 'admin' = 'read',
+  ): Promise<ProjectContext> {
     // Get card with project information
     const card = await this.projectRepo.manager
       .createQueryBuilder()
@@ -120,15 +140,21 @@ export class ProjectAuthService {
     }
 
     const context = await this.validateProjectAccess(card.id, userId);
-    
+
     if (!this.hasPermission(context.permissions, requiredPermission)) {
-      throw new ForbiddenException(`Access denied: insufficient permissions (${requiredPermission} required)`);
+      throw new ForbiddenException(
+        `Access denied: insufficient permissions (${requiredPermission} required)`,
+      );
     }
 
     return context;
   }
 
-  async validateBoardAccess(boardId: string, userId: string, requiredPermission: 'read' | 'write' | 'admin' = 'read'): Promise<ProjectContext> {
+  async validateBoardAccess(
+    boardId: string,
+    userId: string,
+    requiredPermission: 'read' | 'write' | 'admin' = 'read',
+  ): Promise<ProjectContext> {
     // Get board with project information
     const board = await this.projectRepo.manager
       .createQueryBuilder()
@@ -143,15 +169,21 @@ export class ProjectAuthService {
     }
 
     const context = await this.validateProjectAccess(board.id, userId);
-    
+
     if (!this.hasPermission(context.permissions, requiredPermission)) {
-      throw new ForbiddenException(`Access denied: insufficient permissions (${requiredPermission} required)`);
+      throw new ForbiddenException(
+        `Access denied: insufficient permissions (${requiredPermission} required)`,
+      );
     }
 
     return context;
   }
 
-  async validateCommentAccess(commentId: string, userId: string, requiredPermission: 'read' | 'write' | 'admin' = 'read'): Promise<ProjectContext> {
+  async validateCommentAccess(
+    commentId: string,
+    userId: string,
+    requiredPermission: 'read' | 'write' | 'admin' = 'read',
+  ): Promise<ProjectContext> {
     // Get comment with project information
     const comment = await this.projectRepo.manager
       .createQueryBuilder()
@@ -168,15 +200,20 @@ export class ProjectAuthService {
     }
 
     const context = await this.validateProjectAccess(comment.id, userId);
-    
+
     if (!this.hasPermission(context.permissions, requiredPermission)) {
-      throw new ForbiddenException(`Access denied: insufficient permissions (${requiredPermission} required)`);
+      throw new ForbiddenException(
+        `Access denied: insufficient permissions (${requiredPermission} required)`,
+      );
     }
 
     return context;
   }
 
-  async canUserAccessProject(projectId: string, userId: string): Promise<boolean> {
+  async canUserAccessProject(
+    projectId: string,
+    userId: string,
+  ): Promise<boolean> {
     try {
       await this.validateProjectAccess(projectId, userId);
       return true;
@@ -185,8 +222,13 @@ export class ProjectAuthService {
     }
   }
 
-  async getUserProjectRole(projectId: string, userId: string): Promise<ProjectRole | null> {
-    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+  async getUserProjectRole(
+    projectId: string,
+    userId: string,
+  ): Promise<ProjectRole | null> {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    });
     if (!project) return null;
 
     // Check if user is owner
@@ -221,22 +263,34 @@ export class ProjectAuthService {
       .leftJoin('project.members', 'member')
       .where('project.ownerId = :userId', { userId })
       .orWhere('member.userId = :userId', { userId })
-      .orWhere('project.visibility = :visibility', { visibility: ProjectVisibility.PUBLIC })
+      .orWhere('project.visibility = :visibility', {
+        visibility: ProjectVisibility.PUBLIC,
+      })
       .orderBy('project.updatedAt', 'DESC')
       .getMany();
   }
 
-  async createProjectApiKey(projectId: string, userId: string, name: string): Promise<{ key: string; id: string }> {
+  async createProjectApiKey(
+    projectId: string,
+    userId: string,
+    name: string,
+  ): Promise<{ key: string; id: string }> {
     // Validate user has admin access to project
     const context = await this.validateProjectAccess(projectId, userId);
     if (!context.permissions.canAdmin) {
-      throw new ForbiddenException('Admin access required to create project API keys');
+      throw new ForbiddenException(
+        'Admin access required to create project API keys',
+      );
     }
 
     // Create API key with project context
-    const result = await this.authService.createApiKey(`${name} (Project: ${context.project.name})`);
-    
-    this.logger.log(`Created project API key for project ${projectId} by user ${userId}`);
+    const result = await this.authService.createApiKey(
+      `${name} (Project: ${context.project.name})`,
+    );
+
+    this.logger.log(
+      `Created project API key for project ${projectId} by user ${userId}`,
+    );
     return result;
   }
 
@@ -280,7 +334,10 @@ export class ProjectAuthService {
     }
   }
 
-  private hasPermission(permissions: ProjectPermissions, required: 'read' | 'write' | 'admin'): boolean {
+  private hasPermission(
+    permissions: ProjectPermissions,
+    required: 'read' | 'write' | 'admin',
+  ): boolean {
     switch (required) {
       case 'read':
         return permissions.canRead;

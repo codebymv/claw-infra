@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,7 +38,10 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
 
     const intervalMinutes = Math.max(
       15,
-      parseInt(this.config.get<string>('RETENTION_SWEEP_INTERVAL_MINUTES') || '60', 10),
+      parseInt(
+        this.config.get<string>('RETENTION_SWEEP_INTERVAL_MINUTES') || '60',
+        10,
+      ),
     );
 
     const runSweep = () => {
@@ -75,36 +83,39 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
     const costsBefore = new Date(now - costsDays * 24 * 60 * 60 * 1000);
     const codeDailyBefore = new Date(now - codeDailyDays * 24 * 60 * 60 * 1000);
 
-    const [logsDeleted, metricsDeleted, costsDeleted, codeDailyDeleted] = await Promise.all([
-      this.logsRepo
-        .createQueryBuilder()
-        .delete()
-        .from(AgentLog)
-        .where('created_at < :before', { before: logsBefore })
-        .execute()
-        .then((res) => res.affected || 0),
-      this.metricsRepo
-        .createQueryBuilder()
-        .delete()
-        .from(ResourceSnapshot)
-        .where('recorded_at < :before', { before: metricsBefore })
-        .execute()
-        .then((res) => res.affected || 0),
-      this.costsRepo
-        .createQueryBuilder()
-        .delete()
-        .from(CostRecord)
-        .where('recorded_at < :before', { before: costsBefore })
-        .execute()
-        .then((res) => res.affected || 0),
-      this.codeDailyMetricsRepo
-        .createQueryBuilder()
-        .delete()
-        .from(CodeDailyMetric)
-        .where('day < :beforeDate', { beforeDate: codeDailyBefore.toISOString().slice(0, 10) })
-        .execute()
-        .then((res) => res.affected || 0),
-    ]);
+    const [logsDeleted, metricsDeleted, costsDeleted, codeDailyDeleted] =
+      await Promise.all([
+        this.logsRepo
+          .createQueryBuilder()
+          .delete()
+          .from(AgentLog)
+          .where('created_at < :before', { before: logsBefore })
+          .execute()
+          .then((res) => res.affected || 0),
+        this.metricsRepo
+          .createQueryBuilder()
+          .delete()
+          .from(ResourceSnapshot)
+          .where('recorded_at < :before', { before: metricsBefore })
+          .execute()
+          .then((res) => res.affected || 0),
+        this.costsRepo
+          .createQueryBuilder()
+          .delete()
+          .from(CostRecord)
+          .where('recorded_at < :before', { before: costsBefore })
+          .execute()
+          .then((res) => res.affected || 0),
+        this.codeDailyMetricsRepo
+          .createQueryBuilder()
+          .delete()
+          .from(CodeDailyMetric)
+          .where('day < :beforeDate', {
+            beforeDate: codeDailyBefore.toISOString().slice(0, 10),
+          })
+          .execute()
+          .then((res) => res.affected || 0),
+      ]);
 
     await this.downsampleOldMetrics(metricsBefore);
 
@@ -129,7 +140,9 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
   private async downsampleOldMetrics(before: Date): Promise<number> {
     // Placeholder for future rollup table implementation.
     // We keep this hook explicit to satisfy phased rollout requirements.
-    this.logger.debug(`Downsampling hook evaluated for metrics older than ${before.toISOString()}`);
+    this.logger.debug(
+      `Downsampling hook evaluated for metrics older than ${before.toISOString()}`,
+    );
     return 0;
   }
 }

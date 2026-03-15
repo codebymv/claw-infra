@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('model_pricing')
 export class ModelPricing {
@@ -11,13 +17,29 @@ export class ModelPricing {
   @PrimaryColumn({ name: 'effective_date', type: 'timestamp with time zone' })
   effectiveDate: Date;
 
-  @Column({ name: 'input_price_per_million', type: 'decimal', precision: 12, scale: 6 })
+  @Column({
+    name: 'input_price_per_million',
+    type: 'decimal',
+    precision: 12,
+    scale: 6,
+  })
   inputPricePerMillion: string;
 
-  @Column({ name: 'output_price_per_million', type: 'decimal', precision: 12, scale: 6 })
+  @Column({
+    name: 'output_price_per_million',
+    type: 'decimal',
+    precision: 12,
+    scale: 6,
+  })
   outputPricePerMillion: string;
 
-  @Column({ name: 'cache_discount', type: 'decimal', precision: 5, scale: 4, default: '1.0000' })
+  @Column({
+    name: 'cache_discount',
+    type: 'decimal',
+    precision: 5,
+    scale: 4,
+    default: '1.0000',
+  })
   cacheDiscount: string;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })

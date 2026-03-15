@@ -7,11 +7,19 @@ import {
   Request,
   BadRequestException,
 } from '@nestjs/common';
-import { SearchService, SearchQuery, AutocompleteQuery } from './search.service';
+import {
+  SearchService,
+  SearchQuery,
+  AutocompleteQuery,
+} from './search.service';
 import { ProjectAuthGuard } from '../auth/project-auth.guard';
 import { ProjectAccessGuard } from '../auth/project-access.guard';
 import { AuditLogService } from '../auth/audit-log.service';
-import { CardStatus, CardPriority, CardType } from '../../database/entities/card.entity';
+import {
+  CardStatus,
+  CardPriority,
+  CardType,
+} from '../../database/entities/card.entity';
 
 export class SearchQueryDto {
   q?: string; // search query
@@ -57,7 +65,7 @@ export class SearchController {
     @Request() req,
   ) {
     const searchQuery = this.buildSearchQuery(queryDto, projectId);
-    
+
     const result = await this.searchService.searchCards(searchQuery);
 
     await this.auditLogService.logAccess({
@@ -83,7 +91,7 @@ export class SearchController {
     @Request() req,
   ) {
     const searchQuery = this.buildSearchQuery(queryDto, projectId);
-    
+
     const result = await this.searchService.searchComments(searchQuery);
 
     await this.auditLogService.logAccess({
@@ -109,7 +117,7 @@ export class SearchController {
     @Request() req,
   ) {
     const searchQuery = this.buildSearchQuery(queryDto, projectId);
-    
+
     const result = await this.searchService.searchAll(searchQuery);
 
     await this.auditLogService.logAccess({
@@ -177,7 +185,10 @@ export class SearchController {
     }
 
     // Generate search suggestions based on query patterns
-    const suggestions = await this.generateAdvancedSuggestions(query, projectId);
+    const suggestions = await this.generateAdvancedSuggestions(
+      query,
+      projectId,
+    );
 
     await this.auditLogService.logAccess({
       userId: req.user.id,
@@ -198,9 +209,12 @@ export class SearchController {
     @Request() req,
   ) {
     const searchQuery = this.buildSearchQuery(queryDto, projectId);
-    
+
     // Get facets by running a search with no results (limit 0)
-    const result = await this.searchService.searchCards({ ...searchQuery, limit: 0 });
+    const result = await this.searchService.searchCards({
+      ...searchQuery,
+      limit: 0,
+    });
 
     await this.auditLogService.logAccess({
       userId: req.user.id,
@@ -217,7 +231,10 @@ export class SearchController {
     };
   }
 
-  private buildSearchQuery(queryDto: SearchQueryDto, projectId: string): SearchQuery {
+  private buildSearchQuery(
+    queryDto: SearchQueryDto,
+    projectId: string,
+  ): SearchQuery {
     const searchQuery: SearchQuery = {
       query: queryDto.q || '',
       projectId,
@@ -246,19 +263,25 @@ export class SearchController {
 
     // Parse array filters
     if (queryDto.status) {
-      searchQuery.status = queryDto.status.split(',').map(s => s.trim() as CardStatus);
+      searchQuery.status = queryDto.status
+        .split(',')
+        .map((s) => s.trim() as CardStatus);
     }
 
     if (queryDto.priority) {
-      searchQuery.priority = queryDto.priority.split(',').map(p => p.trim() as CardPriority);
+      searchQuery.priority = queryDto.priority
+        .split(',')
+        .map((p) => p.trim() as CardPriority);
     }
 
     if (queryDto.type) {
-      searchQuery.type = queryDto.type.split(',').map(t => t.trim() as CardType);
+      searchQuery.type = queryDto.type
+        .split(',')
+        .map((t) => t.trim() as CardType);
     }
 
     if (queryDto.tags) {
-      searchQuery.tags = queryDto.tags.split(',').map(t => t.trim());
+      searchQuery.tags = queryDto.tags.split(',').map((t) => t.trim());
     }
 
     // Parse date filters
@@ -289,13 +312,22 @@ export class SearchController {
     return searchQuery;
   }
 
-  private async generateAdvancedSuggestions(query: string, projectId: string): Promise<string[]> {
+  private async generateAdvancedSuggestions(
+    query: string,
+    projectId: string,
+  ): Promise<string[]> {
     const suggestions: string[] = [];
     const lowerQuery = query.toLowerCase();
 
     // Status suggestions
-    const statuses = ['open', 'in_progress', 'completed', 'blocked', 'cancelled'];
-    statuses.forEach(status => {
+    const statuses = [
+      'open',
+      'in_progress',
+      'completed',
+      'blocked',
+      'cancelled',
+    ];
+    statuses.forEach((status) => {
       if (status.includes(lowerQuery)) {
         suggestions.push(`status:${status}`);
       }
@@ -303,7 +335,7 @@ export class SearchController {
 
     // Priority suggestions
     const priorities = ['urgent', 'high', 'medium', 'low'];
-    priorities.forEach(priority => {
+    priorities.forEach((priority) => {
       if (priority.includes(lowerQuery)) {
         suggestions.push(`priority:${priority}`);
       }
@@ -311,7 +343,7 @@ export class SearchController {
 
     // Type suggestions
     const types = ['task', 'feature', 'bug', 'epic', 'story'];
-    types.forEach(type => {
+    types.forEach((type) => {
       if (type.includes(lowerQuery)) {
         suggestions.push(`type:${type}`);
       }
@@ -322,10 +354,18 @@ export class SearchController {
       suggestions.push('created:today', 'updated:today', 'due:today');
     }
     if (lowerQuery.includes('week')) {
-      suggestions.push('created:this-week', 'updated:this-week', 'due:this-week');
+      suggestions.push(
+        'created:this-week',
+        'updated:this-week',
+        'due:this-week',
+      );
     }
     if (lowerQuery.includes('month')) {
-      suggestions.push('created:this-month', 'updated:this-month', 'due:this-month');
+      suggestions.push(
+        'created:this-month',
+        'updated:this-month',
+        'due:this-month',
+      );
     }
 
     // User suggestions
@@ -341,7 +381,7 @@ export class SearchController {
       limit: 5,
     });
 
-    autocompleteResults.forEach(result => {
+    autocompleteResults.forEach((result) => {
       if (result.type === 'tag') {
         suggestions.push(`tag:${result.text}`);
       }

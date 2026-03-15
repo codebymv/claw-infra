@@ -1,4 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import Redis from 'ioredis';
@@ -16,13 +23,15 @@ export class ApiKeyRateLimitGuard implements CanActivate {
     private readonly config: ConfigService,
     private readonly reflector: Reflector,
   ) {
-    const redisUrl = this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    const redisUrl =
+      this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
     this.redis = new Redis(redisUrl);
     this.rateLimit = parseInt(
       this.config.get<string>('INGEST_RATE_LIMIT_PER_KEY') || '100',
       10,
     );
-    this.exemptAdminKeys = this.config.get<string>('ADMIN_API_KEY_EXEMPT') === 'true';
+    this.exemptAdminKeys =
+      this.config.get<string>('ADMIN_API_KEY_EXEMPT') === 'true';
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -46,21 +55,21 @@ export class ApiKeyRateLimitGuard implements CanActivate {
     try {
       // Use Redis sorted set to track requests in sliding window
       const multi = this.redis.multi();
-      
+
       // Remove old entries outside the window
       multi.zremrangebyscore(key, 0, windowStart);
-      
+
       // Add current request
       multi.zadd(key, now, `${now}:${Math.random()}`);
-      
+
       // Count requests in window
       multi.zcard(key);
-      
+
       // Set expiration
       multi.expire(key, Math.ceil(this.windowMs / 1000));
-      
+
       const results = await multi.exec();
-      
+
       if (!results) {
         this.logger.warn('Redis multi command failed');
         // Fail open - allow request if Redis unavailable
@@ -73,13 +82,19 @@ export class ApiKeyRateLimitGuard implements CanActivate {
       // Set rate limit headers
       const response = context.switchToHttp().getResponse();
       response.setHeader('X-RateLimit-Limit', this.rateLimit);
-      response.setHeader('X-RateLimit-Remaining', Math.max(0, this.rateLimit - count));
-      response.setHeader('X-RateLimit-Reset', new Date(now + this.windowMs).toISOString());
+      response.setHeader(
+        'X-RateLimit-Remaining',
+        Math.max(0, this.rateLimit - count),
+      );
+      response.setHeader(
+        'X-RateLimit-Reset',
+        new Date(now + this.windowMs).toISOString(),
+      );
 
       if (count > this.rateLimit) {
         const retryAfter = Math.ceil(this.windowMs / 1000);
         response.setHeader('Retry-After', retryAfter);
-        
+
         throw new HttpException(
           {
             statusCode: HttpStatus.TOO_MANY_REQUESTS,
@@ -95,7 +110,7 @@ export class ApiKeyRateLimitGuard implements CanActivate {
       if (error instanceof HttpException) {
         throw error;
       }
-      
+
       this.logger.error('Rate limiting error:', error);
       // Fail open - allow request if Redis error
       return true;

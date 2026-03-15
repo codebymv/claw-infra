@@ -60,7 +60,11 @@ export class AddCostMaterializedViews1710173000000 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP MATERIALIZED VIEW IF EXISTS hourly_cost_summary`);
-    await queryRunner.query(`DROP MATERIALIZED VIEW IF EXISTS daily_cost_summary`);
+    await queryRunner.query(
+      `DROP MATERIALIZED VIEW IF EXISTS hourly_cost_summary`,
+    );
+    await queryRunner.query(
+      `DROP MATERIALIZED VIEW IF EXISTS daily_cost_summary`,
+    );
   }
 }

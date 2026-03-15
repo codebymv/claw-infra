@@ -9,7 +9,11 @@ import { WsModule } from '../ws/ws.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ResourceSnapshot, ApiKey]), WsModule, CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([ResourceSnapshot, ApiKey]),
+    WsModule,
+    CommonModule,
+  ],
   controllers: [MetricsController, MetricsIngestController],
   providers: [MetricsService],
   exports: [MetricsService],

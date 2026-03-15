@@ -9,7 +9,11 @@ import { WsModule } from '../ws/ws.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AgentLog, ApiKey]), WsModule, CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([AgentLog, ApiKey]),
+    WsModule,
+    CommonModule,
+  ],
   controllers: [LogsController, LogsIngestController],
   providers: [LogsService],
   exports: [LogsService],

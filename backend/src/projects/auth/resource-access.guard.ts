@@ -13,12 +13,24 @@ export const RESOURCE_TYPE_KEY = 'resourceType';
 
 export const RequireResourcePermission = (
   resourceType: 'card' | 'board' | 'comment',
-  permission: 'read' | 'write' | 'admin' = 'read'
+  permission: 'read' | 'write' | 'admin' = 'read',
 ) => {
-  return (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
+  return (
+    target: any,
+    propertyKey?: string | symbol,
+    descriptor?: PropertyDescriptor,
+  ) => {
     if (propertyKey !== undefined && descriptor !== undefined) {
-      SetMetadata(RESOURCE_TYPE_KEY, resourceType)(target, propertyKey, descriptor);
-      SetMetadata(RESOURCE_PERMISSION_KEY, permission)(target, propertyKey, descriptor);
+      SetMetadata(RESOURCE_TYPE_KEY, resourceType)(
+        target,
+        propertyKey,
+        descriptor,
+      );
+      SetMetadata(RESOURCE_PERMISSION_KEY, permission)(
+        target,
+        propertyKey,
+        descriptor,
+      );
     } else {
       SetMetadata(RESOURCE_TYPE_KEY, resourceType)(target);
       SetMetadata(RESOURCE_PERMISSION_KEY, permission)(target);
@@ -41,15 +53,15 @@ export class ResourceAccessGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    const resourceType = this.reflector.getAllAndOverride<'card' | 'board' | 'comment'>(
-      RESOURCE_TYPE_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const resourceType = this.reflector.getAllAndOverride<
+      'card' | 'board' | 'comment'
+    >(RESOURCE_TYPE_KEY, [context.getHandler(), context.getClass()]);
 
-    const requiredPermission = this.reflector.getAllAndOverride<'read' | 'write' | 'admin'>(
-      RESOURCE_PERMISSION_KEY,
-      [context.getHandler(), context.getClass()],
-    ) || 'read';
+    const requiredPermission =
+      this.reflector.getAllAndOverride<'read' | 'write' | 'admin'>(
+        RESOURCE_PERMISSION_KEY,
+        [context.getHandler(), context.getClass()],
+      ) || 'read';
 
     if (!resourceType) {
       // If no resource type specified, fall back to project-level access
@@ -58,7 +70,8 @@ export class ResourceAccessGuard implements CanActivate {
         throw new ForbiddenException('Project ID required');
       }
 
-      const projectContext = await this.projectAuthService.validateProjectAccess(projectId, user.id);
+      const projectContext =
+        await this.projectAuthService.validateProjectAccess(projectId, user.id);
       request.projectContext = projectContext;
       return true;
     }
@@ -72,7 +85,11 @@ export class ResourceAccessGuard implements CanActivate {
           if (!cardId) {
             throw new ForbiddenException('Card ID required');
           }
-          projectContext = await this.projectAuthService.validateCardAccess(cardId, user.id, requiredPermission);
+          projectContext = await this.projectAuthService.validateCardAccess(
+            cardId,
+            user.id,
+            requiredPermission,
+          );
           break;
 
         case 'board':
@@ -80,7 +97,11 @@ export class ResourceAccessGuard implements CanActivate {
           if (!boardId) {
             throw new ForbiddenException('Board ID required');
           }
-          projectContext = await this.projectAuthService.validateBoardAccess(boardId, user.id, requiredPermission);
+          projectContext = await this.projectAuthService.validateBoardAccess(
+            boardId,
+            user.id,
+            requiredPermission,
+          );
           break;
 
         case 'comment':
@@ -88,7 +109,11 @@ export class ResourceAccessGuard implements CanActivate {
           if (!commentId) {
             throw new ForbiddenException('Comment ID required');
           }
-          projectContext = await this.projectAuthService.validateCommentAccess(commentId, user.id, requiredPermission);
+          projectContext = await this.projectAuthService.validateCommentAccess(
+            commentId,
+            user.id,
+            requiredPermission,
+          );
           break;
 
         default:
@@ -97,7 +122,7 @@ export class ResourceAccessGuard implements CanActivate {
 
       // Attach project context to request for use in controllers
       request.projectContext = projectContext;
-      
+
       return true;
     } catch (error) {
       if (error instanceof ForbiddenException) {

@@ -19,7 +19,10 @@ function assertMinInt(config: ConfigService, name: string, min: number) {
   }
 }
 
-export function validateStartupEnv(config: ConfigService, logger = new Logger('StartupValidation')) {
+export function validateStartupEnv(
+  config: ConfigService,
+  logger = new Logger('StartupValidation'),
+) {
   const nodeEnv = config.get<string>('NODE_ENV') || 'development';
   const isProd = nodeEnv === 'production';
 
@@ -28,25 +31,35 @@ export function validateStartupEnv(config: ConfigService, logger = new Logger('S
     throw new Error('Missing required environment variable: JWT_SECRET');
   }
 
-  const isWeakSecret = WEAK_JWT_SECRETS.has(jwtSecret.toLowerCase()) || jwtSecret.length < 32;
+  const isWeakSecret =
+    WEAK_JWT_SECRETS.has(jwtSecret.toLowerCase()) || jwtSecret.length < 32;
 
   if (isProd && isWeakSecret) {
-    throw new Error('JWT_SECRET is too weak for production. Use a strong random value (>= 32 chars).');
+    throw new Error(
+      'JWT_SECRET is too weak for production. Use a strong random value (>= 32 chars).',
+    );
   }
 
   if (!isProd && isWeakSecret) {
-    logger.warn('JWT_SECRET is weak for non-production. Use a strong random value to mirror production security.');
+    logger.warn(
+      'JWT_SECRET is weak for non-production. Use a strong random value to mirror production security.',
+    );
   }
 
-  const codeWebhooksEnabled = config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
+  const codeWebhooksEnabled =
+    config.get<string>('CODE_WEBHOOKS_ENABLED') !== 'false';
   if (codeWebhooksEnabled) {
     const webhookSecret = config.get<string>('GITHUB_WEBHOOK_SECRET');
     if (!webhookSecret) {
-      throw new Error('Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)');
+      throw new Error(
+        'Missing required environment variable: GITHUB_WEBHOOK_SECRET (when CODE_WEBHOOKS_ENABLED=true)',
+      );
     }
 
     if (isProd && webhookSecret.length < 16) {
-      throw new Error('GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).');
+      throw new Error(
+        'GITHUB_WEBHOOK_SECRET is too weak for production. Use a strong random value (>= 16 chars).',
+      );
     }
   }
 

@@ -52,14 +52,22 @@ export const DATABASE_ENTITIES = [
   CardHistory,
 ];
 
-export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions {
+export function buildTypeOrmConfig(
+  config: ConfigService,
+): TypeOrmModuleOptions {
   const nodeEnv = config.get<string>('NODE_ENV') || 'development';
 
   // Connection pool configuration
   const poolMax = parseInt(config.get<string>('DB_POOL_MAX') || '20', 10);
   const poolMin = parseInt(config.get<string>('DB_POOL_MIN') || '5', 10);
-  const poolIdleTimeout = parseInt(config.get<string>('DB_POOL_IDLE_TIMEOUT') || '30000', 10);
-  const connectionTimeout = parseInt(config.get<string>('DB_POOL_CONNECTION_TIMEOUT') || '2000', 10);
+  const poolIdleTimeout = parseInt(
+    config.get<string>('DB_POOL_IDLE_TIMEOUT') || '30000',
+    10,
+  );
+  const connectionTimeout = parseInt(
+    config.get<string>('DB_POOL_CONNECTION_TIMEOUT') || '2000',
+    10,
+  );
 
   return {
     type: 'postgres',
@@ -70,7 +78,7 @@ export function buildTypeOrmConfig(config: ConfigService): TypeOrmModuleOptions 
     logging: nodeEnv === 'development',
     ssl: nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
     migrations: ['dist/database/migrations/*.js'],
-    
+
     // Connection pool settings
     extra: {
       max: poolMax,

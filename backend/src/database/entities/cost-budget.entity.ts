@@ -14,10 +14,22 @@ export class CostBudget {
   @Column({ name: 'agent_name', type: 'varchar', nullable: true })
   agentName: string | null;
 
-  @Column({ name: 'daily_limit_usd', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'daily_limit_usd',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   dailyLimitUsd: string | null;
 
-  @Column({ name: 'monthly_limit_usd', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({
+    name: 'monthly_limit_usd',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+  })
   monthlyLimitUsd: string | null;
 
   @Column({ name: 'alert_threshold_percent', type: 'int', default: 80 })

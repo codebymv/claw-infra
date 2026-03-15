@@ -39,7 +39,7 @@ export class KanbanController {
     @Request() req,
   ) {
     const result = await this.kanbanService.createBoard(projectId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.create',
@@ -53,9 +53,12 @@ export class KanbanController {
   }
 
   @Get()
-  async getBoardsByProject(@Param('projectId') projectId: string, @Request() req) {
+  async getBoardsByProject(
+    @Param('projectId') projectId: string,
+    @Request() req,
+  ) {
     const result = await this.kanbanService.getBoardsByProject(projectId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.list',
@@ -71,7 +74,7 @@ export class KanbanController {
   @Get('default')
   async getDefaultBoard(@Param('projectId') projectId: string, @Request() req) {
     const result = await this.kanbanService.getDefaultBoard(projectId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.get_default',
@@ -87,7 +90,7 @@ export class KanbanController {
   @RequireResourcePermission('board', 'read')
   async getBoard(@Param('boardId') boardId: string, @Request() req) {
     const result = await this.kanbanService.getBoardById(boardId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.get',
@@ -107,7 +110,7 @@ export class KanbanController {
     @Request() req,
   ) {
     const result = await this.kanbanService.updateBoard(boardId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.update',
@@ -125,7 +128,7 @@ export class KanbanController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteBoard(@Param('boardId') boardId: string, @Request() req) {
     await this.kanbanService.deleteBoard(boardId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'board.delete',
@@ -144,7 +147,7 @@ export class KanbanController {
     @Request() req,
   ) {
     const result = await this.kanbanService.createColumn(boardId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.create',
@@ -161,7 +164,7 @@ export class KanbanController {
   @RequireResourcePermission('board', 'read')
   async getColumnsByBoard(@Param('boardId') boardId: string, @Request() req) {
     const result = await this.kanbanService.getColumnsByBoard(boardId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.list',
@@ -178,7 +181,7 @@ export class KanbanController {
   @RequireResourcePermission('board', 'read')
   async getColumn(@Param('columnId') columnId: string, @Request() req) {
     const result = await this.kanbanService.getColumnById(columnId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.get',
@@ -198,7 +201,7 @@ export class KanbanController {
     @Request() req,
   ) {
     const result = await this.kanbanService.updateColumn(columnId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.update',
@@ -216,7 +219,7 @@ export class KanbanController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteColumn(@Param('columnId') columnId: string, @Request() req) {
     await this.kanbanService.deleteColumn(columnId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.delete',
@@ -234,7 +237,7 @@ export class KanbanController {
     @Request() req,
   ) {
     const result = await this.kanbanService.reorderColumns(boardId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'column.reorder',

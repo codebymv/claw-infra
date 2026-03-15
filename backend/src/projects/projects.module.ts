@@ -38,39 +38,41 @@ import { AuthModule } from '../auth/auth.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Project, 
-      KanbanBoard, 
-      Column, 
-      Card, 
-      Comment, 
-      CardHistory, 
-      ProjectMember, 
+      Project,
+      KanbanBoard,
+      Column,
+      Card,
+      Comment,
+      CardHistory,
+      ProjectMember,
       User,
-      ApiKey
+      ApiKey,
     ]),
     WsModule,
     AuthModule,
     ProjectWsModule, // Add the project WebSocket module
     JwtModule.register({}), // Empty config, will use global JWT config
-    ThrottlerModule.forRoot([{
-      name: 'agent-api',
-      ttl: 60000, // 1 minute
-      limit: 100, // 100 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'agent-api',
+        ttl: 60000, // 1 minute
+        limit: 100, // 100 requests per minute
+      },
+    ]),
   ],
   controllers: [
-    ProjectsController, 
-    KanbanController, 
-    CardsController, 
+    ProjectsController,
+    KanbanController,
+    CardsController,
     CommentsController,
     AgentProjectController,
     SearchController,
     AnalyticsController,
   ],
   providers: [
-    ProjectsService, 
-    KanbanService, 
-    CardsService, 
+    ProjectsService,
+    KanbanService,
+    CardsService,
     CommentsService,
     SearchService,
     AnalyticsService,
@@ -83,9 +85,9 @@ import { AuthModule } from '../auth/auth.module';
     AgentRateLimiterService,
   ],
   exports: [
-    ProjectsService, 
-    KanbanService, 
-    CardsService, 
+    ProjectsService,
+    KanbanService,
+    CardsService,
     CommentsService,
     SearchService,
     AnalyticsService,

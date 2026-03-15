@@ -32,7 +32,7 @@ export class AuditLogService {
       {
         ...logEntry,
         type: 'audit',
-      }
+      },
     );
 
     // TODO: In the future, store in dedicated audit log table
@@ -45,7 +45,7 @@ export class AuditLogService {
     resourceId: string,
     permission: string,
     granted: boolean,
-    reason?: string
+    reason?: string,
   ): Promise<void> {
     await this.logAccess({
       userId,
@@ -63,7 +63,7 @@ export class AuditLogService {
     userId: string,
     projectId: string,
     action: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     await this.logAccess({
       userId,
@@ -80,7 +80,7 @@ export class AuditLogService {
     cardId: string,
     projectId: string,
     action: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     await this.logAccess({
       userId,
@@ -97,7 +97,7 @@ export class AuditLogService {
     boardId: string,
     projectId: string,
     action: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     await this.logAccess({
       userId,
@@ -114,7 +114,7 @@ export class AuditLogService {
     commentId: string,
     projectId: string,
     action: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     await this.logAccess({
       userId,
@@ -131,7 +131,7 @@ export class AuditLogService {
     action: string,
     resource: string,
     resourceId: string,
-    metadata?: Record<string, any>
+    metadata?: Record<string, any>,
   ): Promise<void> {
     await this.logAccess({
       userId: `api_key:${apiKeyId}`,

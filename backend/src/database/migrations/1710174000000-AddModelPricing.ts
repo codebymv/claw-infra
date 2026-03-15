@@ -29,7 +29,7 @@ export class AddModelPricing1710174000000 implements MigrationInterface {
     // Migrate existing hardcoded pricing to database
     // Based on PRICING_MAP from costs.service.ts
     const now = new Date().toISOString();
-    
+
     await queryRunner.query(`
       INSERT INTO model_pricing 
         (provider, model, effective_date, input_price_per_million, output_price_per_million, cache_discount, notes)
@@ -39,7 +39,9 @@ export class AddModelPricing1710174000000 implements MigrationInterface {
       ON CONFLICT (provider, model, effective_date) DO NOTHING;
     `);
 
-    console.log('✅ Model pricing table created and seeded with existing pricing');
+    console.log(
+      '✅ Model pricing table created and seeded with existing pricing',
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

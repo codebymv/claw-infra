@@ -11,13 +11,18 @@ export class IdempotencyService {
   private readonly ttlHours: number;
 
   constructor(private readonly config: ConfigService) {
-    const redisUrl = this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
+    const redisUrl =
+      this.config.get<string>('REDIS_URL') || 'redis://localhost:6379';
     if (!redisUrl) {
       throw new Error('REDIS_URL environment variable is required');
     }
     this.redis = new Redis(redisUrl);
-    this.enabled = this.config.get<string>('INGEST_IDEMPOTENCY_ENABLED') === 'true';
-    this.ttlHours = parseInt(this.config.get<string>('INGEST_IDEMPOTENCY_TTL_HOURS') || '24', 10);
+    this.enabled =
+      this.config.get<string>('INGEST_IDEMPOTENCY_ENABLED') === 'true';
+    this.ttlHours = parseInt(
+      this.config.get<string>('INGEST_IDEMPOTENCY_TTL_HOURS') || '24',
+      10,
+    );
   }
 
   /**
@@ -81,7 +86,13 @@ export class IdempotencyService {
     try {
       const ttlSeconds = this.ttlHours * 3600;
       // SET NX (set if not exists) returns 1 if key was set, null if it already existed
-      const result = await this.redis.set(`idempotency:${key}`, '1', 'EX', ttlSeconds, 'NX');
+      const result = await this.redis.set(
+        `idempotency:${key}`,
+        '1',
+        'EX',
+        ttlSeconds,
+        'NX',
+      );
       return result === null; // null means key already existed (duplicate)
     } catch (error) {
       this.logger.error(`Idempotency check-and-mark failed: ${error.message}`);

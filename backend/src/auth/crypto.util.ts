@@ -8,9 +8,7 @@ export class CryptoUtil {
    * @returns Hex-encoded HMAC hash
    */
   static hmacHash(key: string, secret: string): string {
-    return createHmac('sha256', secret)
-      .update(key)
-      .digest('hex');
+    return createHmac('sha256', secret).update(key).digest('hex');
   }
 
   /**
@@ -20,18 +18,22 @@ export class CryptoUtil {
    * @param secret The HMAC secret from environment
    * @returns True if the key is valid
    */
-  static validateHmac(providedKey: string, storedHash: string, secret: string): boolean {
+  static validateHmac(
+    providedKey: string,
+    storedHash: string,
+    secret: string,
+  ): boolean {
     const computedHash = this.hmacHash(providedKey, secret);
-    
+
     // Use timing-safe comparison to prevent timing attacks
     try {
       const computedBuffer = Buffer.from(computedHash, 'hex');
       const storedBuffer = Buffer.from(storedHash, 'hex');
-      
+
       if (computedBuffer.length !== storedBuffer.length) {
         return false;
       }
-      
+
       return timingSafeEqual(computedBuffer, storedBuffer);
     } catch {
       return false;

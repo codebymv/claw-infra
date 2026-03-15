@@ -1,4 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsObject, Length, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsObject,
+  Length,
+  Matches,
+} from 'class-validator';
 import { ProjectVisibility } from '../../database/entities/project.entity';
 
 export class CreateProjectDto {
@@ -14,7 +21,9 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   @Length(1, 100)
-  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must contain only lowercase letters, numbers, and hyphens' })
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'Slug must contain only lowercase letters, numbers, and hyphens',
+  })
   slug?: string;
 
   @IsOptional()

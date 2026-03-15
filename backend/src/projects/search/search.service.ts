@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { Card, CardStatus, CardPriority, CardType } from '../../database/entities/card.entity';
+import {
+  Card,
+  CardStatus,
+  CardPriority,
+  CardType,
+} from '../../database/entities/card.entity';
 import { Comment } from '../../database/entities/comment.entity';
 import { Project } from '../../database/entities/project.entity';
 import { KanbanBoard } from '../../database/entities/kanban-board.entity';
@@ -74,16 +79,25 @@ export class SearchService {
 
   constructor(
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
-    @InjectRepository(Comment) private readonly commentRepo: Repository<Comment>,
-    @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
-    @InjectRepository(KanbanBoard) private readonly boardRepo: Repository<KanbanBoard>,
+    @InjectRepository(Comment)
+    private readonly commentRepo: Repository<Comment>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
+    @InjectRepository(KanbanBoard)
+    private readonly boardRepo: Repository<KanbanBoard>,
     @InjectRepository(Column) private readonly columnRepo: Repository<Column>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
   ) {}
 
   async searchCards(searchQuery: SearchQuery): Promise<SearchResponse<Card>> {
     const startTime = Date.now();
-    const { query, limit = 50, offset = 0, sortBy = 'relevance', sortOrder = 'DESC' } = searchQuery;
+    const {
+      query,
+      limit = 50,
+      offset = 0,
+      sortBy = 'relevance',
+      sortOrder = 'DESC',
+    } = searchQuery;
 
     // Build the base query with full-text search
     let queryBuilder = this.cardRepo
@@ -97,7 +111,7 @@ export class SearchService {
     // Add full-text search if query is provided
     if (query && query.trim()) {
       const searchTerms = this.preprocessSearchQuery(query);
-      
+
       // Use PostgreSQL full-text search with ranking
       queryBuilder = queryBuilder
         .addSelect(
@@ -109,7 +123,7 @@ export class SearchService {
             ), 
             plainto_tsquery('english', :searchTerms)
           )`,
-          'relevance'
+          'relevance',
         )
         .where(
           `to_tsvector('english', 
@@ -117,7 +131,7 @@ export class SearchService {
             coalesce(card.description, '') || ' ' || 
             array_to_string(card.tags, ' ')
           ) @@ plainto_tsquery('english', :searchTerms)`,
-          { searchTerms }
+          { searchTerms },
         );
     }
 
@@ -125,7 +139,12 @@ export class SearchService {
     queryBuilder = this.applyCardFilters(queryBuilder, searchQuery);
 
     // Apply sorting
-    queryBuilder = this.applyCardSorting(queryBuilder, sortBy, sortOrder, !!query);
+    queryBuilder = this.applyCardSorting(
+      queryBuilder,
+      sortBy,
+      sortOrder,
+      !!query,
+    );
 
     // Get total count for pagination
     const totalQuery = queryBuilder.clone();
@@ -141,7 +160,7 @@ export class SearchService {
 
     // Build search results with highlights and relevance
     const searchResults: SearchResult<Card>[] = cards.map((card, index) => {
-      const relevance = query ? (rawResults[index]?.relevance || 0) : 1;
+      const relevance = query ? rawResults[index]?.relevance || 0 : 1;
       const highlights = query ? this.generateHighlights(card, query) : [];
 
       return {
@@ -161,7 +180,9 @@ export class SearchService {
     const facets = await this.generateCardFacets(searchQuery);
 
     // Generate suggestions
-    const suggestions = query ? await this.generateSearchSuggestions(query, searchQuery.projectId) : [];
+    const suggestions = query
+      ? await this.generateSearchSuggestions(query, searchQuery.projectId)
+      : [];
 
     const executionTime = Date.now() - startTime;
 
@@ -175,9 +196,17 @@ export class SearchService {
     };
   }
 
-  async searchComments(searchQuery: SearchQuery): Promise<SearchResponse<Comment>> {
+  async searchComments(
+    searchQuery: SearchQuery,
+  ): Promise<SearchResponse<Comment>> {
     const startTime = Date.now();
-    const { query, limit = 50, offset = 0, sortBy = 'relevance', sortOrder = 'DESC' } = searchQuery;
+    const {
+      query,
+      limit = 50,
+      offset = 0,
+      sortBy = 'relevance',
+      sortOrder = 'DESC',
+    } = searchQuery;
 
     let queryBuilder = this.commentRepo
       .createQueryBuilder('comment')
@@ -190,44 +219,55 @@ export class SearchService {
     // Add full-text search
     if (query && query.trim()) {
       const searchTerms = this.preprocessSearchQuery(query);
-      
+
       queryBuilder = queryBuilder
         .addSelect(
           `ts_rank_cd(
             to_tsvector('english', coalesce(comment.content, '')), 
             plainto_tsquery('english', :searchTerms)
           )`,
-          'relevance'
+          'relevance',
         )
         .andWhere(
           `to_tsvector('english', coalesce(comment.content, '')) @@ plainto_tsquery('english', :searchTerms)`,
-          { searchTerms }
+          { searchTerms },
         );
     }
 
     // Apply project filter
     if (searchQuery.projectId) {
-      queryBuilder = queryBuilder.andWhere('project.id = :projectId', { projectId: searchQuery.projectId });
+      queryBuilder = queryBuilder.andWhere('project.id = :projectId', {
+        projectId: searchQuery.projectId,
+      });
     }
 
     // Apply board filter
     if (searchQuery.boardId) {
-      queryBuilder = queryBuilder.andWhere('board.id = :boardId', { boardId: searchQuery.boardId });
+      queryBuilder = queryBuilder.andWhere('board.id = :boardId', {
+        boardId: searchQuery.boardId,
+      });
     }
 
     // Apply date filters
     if (searchQuery.createdAfter) {
-      queryBuilder = queryBuilder.andWhere('comment.createdAt >= :createdAfter', { createdAfter: searchQuery.createdAfter });
+      queryBuilder = queryBuilder.andWhere(
+        'comment.createdAt >= :createdAfter',
+        { createdAfter: searchQuery.createdAfter },
+      );
     }
     if (searchQuery.createdBefore) {
-      queryBuilder = queryBuilder.andWhere('comment.createdAt <= :createdBefore', { createdBefore: searchQuery.createdBefore });
+      queryBuilder = queryBuilder.andWhere(
+        'comment.createdAt <= :createdBefore',
+        { createdBefore: searchQuery.createdBefore },
+      );
     }
 
     // Apply sorting
     if (query && sortBy === 'relevance') {
       queryBuilder = queryBuilder.orderBy('relevance', sortOrder);
     } else {
-      const sortField = sortBy === 'created' ? 'comment.createdAt' : 'comment.updatedAt';
+      const sortField =
+        sortBy === 'created' ? 'comment.createdAt' : 'comment.updatedAt';
       queryBuilder = queryBuilder.orderBy(sortField, sortOrder);
     }
 
@@ -238,22 +278,26 @@ export class SearchService {
     const comments = results.entities;
     const rawResults = results.raw;
 
-    const searchResults: SearchResult<Comment>[] = comments.map((comment, index) => {
-      const relevance = query ? (rawResults[index]?.relevance || 0) : 1;
-      const highlights = query ? this.generateCommentHighlights(comment, query) : [];
+    const searchResults: SearchResult<Comment>[] = comments.map(
+      (comment, index) => {
+        const relevance = query ? rawResults[index]?.relevance || 0 : 1;
+        const highlights = query
+          ? this.generateCommentHighlights(comment, query)
+          : [];
 
-      return {
-        item: comment,
-        type: 'comment' as const,
-        relevance: parseFloat(relevance.toString()),
-        highlights,
-        context: {
-          projectName: comment.card?.board?.project?.name,
-          boardName: comment.card?.board?.name,
-          cardTitle: comment.card?.title,
-        },
-      };
-    });
+        return {
+          item: comment,
+          type: 'comment' as const,
+          relevance: parseFloat(relevance.toString()),
+          highlights,
+          context: {
+            projectName: comment.card?.board?.project?.name,
+            boardName: comment.card?.board?.name,
+            cardTitle: comment.card?.title,
+          },
+        };
+      },
+    );
 
     const executionTime = Date.now() - startTime;
 
@@ -280,10 +324,9 @@ export class SearchService {
     ]);
 
     // Combine and sort results by relevance
-    const allResults = [
-      ...cardResults.results,
-      ...commentResults.results,
-    ].sort((a, b) => b.relevance - a.relevance);
+    const allResults = [...cardResults.results, ...commentResults.results].sort(
+      (a, b) => b.relevance - a.relevance,
+    );
 
     // Apply pagination to combined results
     const { limit = 50, offset = 0 } = searchQuery;
@@ -293,13 +336,18 @@ export class SearchService {
       results: paginatedResults,
       total: cardResults.total + commentResults.total,
       query: searchQuery.query || '',
-      executionTime: Math.max(cardResults.executionTime, commentResults.executionTime),
+      executionTime: Math.max(
+        cardResults.executionTime,
+        commentResults.executionTime,
+      ),
       facets: cardResults.facets, // Use card facets as primary
       suggestions: cardResults.suggestions,
     };
   }
 
-  async autocomplete(autocompleteQuery: AutocompleteQuery): Promise<AutocompleteResult[]> {
+  async autocomplete(
+    autocompleteQuery: AutocompleteQuery,
+  ): Promise<AutocompleteResult[]> {
     const { query, projectId, type = 'all', limit = 10 } = autocompleteQuery;
     const results: AutocompleteResult[] = [];
 
@@ -319,32 +367,41 @@ export class SearchService {
         .take(limit);
 
       if (projectId) {
-        cardQuery = cardQuery.andWhere('project.id = :projectId', { projectId });
+        cardQuery = cardQuery.andWhere('project.id = :projectId', {
+          projectId,
+        });
       }
 
       const cards = await cardQuery.getMany();
-      results.push(...cards.map(card => ({
-        text: card.title,
-        type: 'card' as const,
-        id: card.id,
-        context: `${card.board?.project?.name} > ${card.board?.name}`,
-      })));
+      results.push(
+        ...cards.map((card) => ({
+          text: card.title,
+          type: 'card' as const,
+          id: card.id,
+          context: `${card.board?.project?.name} > ${card.board?.name}`,
+        })),
+      );
     }
 
     // Search users
     if (type === 'all' || type === 'users') {
       const users = await this.userRepo
         .createQueryBuilder('user')
-        .where('LOWER(user.email) LIKE :searchTerm OR LOWER(user.display_name) LIKE :searchTerm', { searchTerm })
+        .where(
+          'LOWER(user.email) LIKE :searchTerm OR LOWER(user.display_name) LIKE :searchTerm',
+          { searchTerm },
+        )
         .take(limit)
         .getMany();
 
-      results.push(...users.map(user => ({
-        text: user.email,
-        type: 'user' as const,
-        id: user.id,
-        context: user.displayName || user.email,
-      })));
+      results.push(
+        ...users.map((user) => ({
+          text: user.email,
+          type: 'user' as const,
+          id: user.id,
+          context: user.displayName || user.email,
+        })),
+      );
     }
 
     // Search tags
@@ -352,7 +409,10 @@ export class SearchService {
       let tagQuery = this.cardRepo
         .createQueryBuilder('card')
         .select('DISTINCT unnest(card.tags)', 'tag')
-        .where('EXISTS (SELECT 1 FROM unnest(card.tags) AS tag WHERE LOWER(tag) LIKE :searchTerm)', { searchTerm })
+        .where(
+          'EXISTS (SELECT 1 FROM unnest(card.tags) AS tag WHERE LOWER(tag) LIKE :searchTerm)',
+          { searchTerm },
+        )
         .take(limit);
 
       if (projectId) {
@@ -363,10 +423,12 @@ export class SearchService {
       }
 
       const tagResults = await tagQuery.getRawMany();
-      results.push(...tagResults.map(result => ({
-        text: result.tag,
-        type: 'tag' as const,
-      })));
+      results.push(
+        ...tagResults.map((result) => ({
+          text: result.tag,
+          type: 'tag' as const,
+        })),
+      );
     }
 
     // Sort by relevance (exact matches first, then partial matches)
@@ -375,9 +437,13 @@ export class SearchService {
         const aExact = a.text.toLowerCase() === query.toLowerCase() ? 1 : 0;
         const bExact = b.text.toLowerCase() === query.toLowerCase() ? 1 : 0;
         if (aExact !== bExact) return bExact - aExact;
-        
-        const aStarts = a.text.toLowerCase().startsWith(query.toLowerCase()) ? 1 : 0;
-        const bStarts = b.text.toLowerCase().startsWith(query.toLowerCase()) ? 1 : 0;
+
+        const aStarts = a.text.toLowerCase().startsWith(query.toLowerCase())
+          ? 1
+          : 0;
+        const bStarts = b.text.toLowerCase().startsWith(query.toLowerCase())
+          ? 1
+          : 0;
         return bStarts - aStarts;
       })
       .slice(0, limit);
@@ -385,7 +451,7 @@ export class SearchService {
 
   private applyCardFilters(
     queryBuilder: SelectQueryBuilder<Card>,
-    searchQuery: SearchQuery
+    searchQuery: SearchQuery,
   ): SelectQueryBuilder<Card> {
     const {
       projectId,
@@ -406,7 +472,9 @@ export class SearchService {
     } = searchQuery;
 
     if (projectId) {
-      queryBuilder = queryBuilder.andWhere('project.id = :projectId', { projectId });
+      queryBuilder = queryBuilder.andWhere('project.id = :projectId', {
+        projectId,
+      });
     }
 
     if (boardId) {
@@ -414,23 +482,33 @@ export class SearchService {
     }
 
     if (columnId) {
-      queryBuilder = queryBuilder.andWhere('card.columnId = :columnId', { columnId });
+      queryBuilder = queryBuilder.andWhere('card.columnId = :columnId', {
+        columnId,
+      });
     }
 
     if (assigneeId) {
-      queryBuilder = queryBuilder.andWhere('card.assigneeId = :assigneeId', { assigneeId });
+      queryBuilder = queryBuilder.andWhere('card.assigneeId = :assigneeId', {
+        assigneeId,
+      });
     }
 
     if (reporterId) {
-      queryBuilder = queryBuilder.andWhere('card.reporterId = :reporterId', { reporterId });
+      queryBuilder = queryBuilder.andWhere('card.reporterId = :reporterId', {
+        reporterId,
+      });
     }
 
     if (status && status.length > 0) {
-      queryBuilder = queryBuilder.andWhere('card.status IN (:...status)', { status });
+      queryBuilder = queryBuilder.andWhere('card.status IN (:...status)', {
+        status,
+      });
     }
 
     if (priority && priority.length > 0) {
-      queryBuilder = queryBuilder.andWhere('card.priority IN (:...priority)', { priority });
+      queryBuilder = queryBuilder.andWhere('card.priority IN (:...priority)', {
+        priority,
+      });
     }
 
     if (type && type.length > 0) {
@@ -442,27 +520,39 @@ export class SearchService {
     }
 
     if (dueBefore) {
-      queryBuilder = queryBuilder.andWhere('card.due_date <= :dueBefore', { dueBefore });
+      queryBuilder = queryBuilder.andWhere('card.due_date <= :dueBefore', {
+        dueBefore,
+      });
     }
 
     if (dueAfter) {
-      queryBuilder = queryBuilder.andWhere('card.due_date >= :dueAfter', { dueAfter });
+      queryBuilder = queryBuilder.andWhere('card.due_date >= :dueAfter', {
+        dueAfter,
+      });
     }
 
     if (createdBefore) {
-      queryBuilder = queryBuilder.andWhere('card.createdAt <= :createdBefore', { createdBefore });
+      queryBuilder = queryBuilder.andWhere('card.createdAt <= :createdBefore', {
+        createdBefore,
+      });
     }
 
     if (createdAfter) {
-      queryBuilder = queryBuilder.andWhere('card.createdAt >= :createdAfter', { createdAfter });
+      queryBuilder = queryBuilder.andWhere('card.createdAt >= :createdAfter', {
+        createdAfter,
+      });
     }
 
     if (updatedBefore) {
-      queryBuilder = queryBuilder.andWhere('card.updatedAt <= :updatedBefore', { updatedBefore });
+      queryBuilder = queryBuilder.andWhere('card.updatedAt <= :updatedBefore', {
+        updatedBefore,
+      });
     }
 
     if (updatedAfter) {
-      queryBuilder = queryBuilder.andWhere('card.updatedAt >= :updatedAfter', { updatedAfter });
+      queryBuilder = queryBuilder.andWhere('card.updatedAt >= :updatedAfter', {
+        updatedAfter,
+      });
     }
 
     return queryBuilder;
@@ -472,7 +562,7 @@ export class SearchService {
     queryBuilder: SelectQueryBuilder<Card>,
     sortBy: string,
     sortOrder: 'ASC' | 'DESC',
-    hasQuery: boolean
+    hasQuery: boolean,
   ): SelectQueryBuilder<Card> {
     if (hasQuery && sortBy === 'relevance') {
       queryBuilder = queryBuilder.orderBy('relevance', sortOrder);
@@ -485,7 +575,11 @@ export class SearchService {
           queryBuilder = queryBuilder.orderBy('card.updatedAt', sortOrder);
           break;
         case 'due':
-          queryBuilder = queryBuilder.orderBy('card.due_date', sortOrder, 'NULLS LAST');
+          queryBuilder = queryBuilder.orderBy(
+            'card.due_date',
+            sortOrder,
+            'NULLS LAST',
+          );
           break;
         case 'priority':
           queryBuilder = queryBuilder.orderBy(
@@ -495,7 +589,7 @@ export class SearchService {
               WHEN 'medium' THEN 2 
               WHEN 'low' THEN 1 
               ELSE 0 END`,
-            sortOrder
+            sortOrder,
           );
           break;
         default:
@@ -506,49 +600,59 @@ export class SearchService {
     return queryBuilder;
   }
 
-  private async generateCardFacets(searchQuery: SearchQuery): Promise<SearchResponse['facets']> {
-    const baseQuery = this.cardRepo.createQueryBuilder('card')
+  private async generateCardFacets(
+    searchQuery: SearchQuery,
+  ): Promise<SearchResponse['facets']> {
+    const baseQuery = this.cardRepo
+      .createQueryBuilder('card')
       .leftJoin('card.board', 'board')
       .leftJoin('board.project', 'project')
       .leftJoin('card.assignee', 'assignee');
 
     // Apply same filters as main search (except the ones we're faceting on)
     if (searchQuery.projectId) {
-      baseQuery.andWhere('project.id = :projectId', { projectId: searchQuery.projectId });
+      baseQuery.andWhere('project.id = :projectId', {
+        projectId: searchQuery.projectId,
+      });
     }
 
     const [types, statuses, priorities, assignees, tags] = await Promise.all([
       // Types facet
-      baseQuery.clone()
+      baseQuery
+        .clone()
         .select('card.type', 'type')
         .addSelect('COUNT(*)', 'count')
         .groupBy('card.type')
         .getRawMany(),
-      
+
       // Statuses facet
-      baseQuery.clone()
+      baseQuery
+        .clone()
         .select('card.status', 'status')
         .addSelect('COUNT(*)', 'count')
         .groupBy('card.status')
         .getRawMany(),
-      
+
       // Priorities facet
-      baseQuery.clone()
+      baseQuery
+        .clone()
         .select('card.priority', 'priority')
         .addSelect('COUNT(*)', 'count')
         .groupBy('card.priority')
         .getRawMany(),
-      
+
       // Assignees facet
-      baseQuery.clone()
+      baseQuery
+        .clone()
         .select('assignee.username', 'username')
         .addSelect('COUNT(*)', 'count')
         .where('assignee.username IS NOT NULL')
         .groupBy('assignee.username')
         .getRawMany(),
-      
+
       // Tags facet
-      baseQuery.clone()
+      baseQuery
+        .clone()
         .select('unnest(card.tags)', 'tag')
         .addSelect('COUNT(*)', 'count')
         .where('array_length(card.tags, 1) > 0')
@@ -557,31 +661,51 @@ export class SearchService {
     ]);
 
     return {
-      types: types.reduce((acc, item) => ({ ...acc, [item.type]: parseInt(item.count) }), {}),
-      statuses: statuses.reduce((acc, item) => ({ ...acc, [item.status]: parseInt(item.count) }), {}),
-      priorities: priorities.reduce((acc, item) => ({ ...acc, [item.priority]: parseInt(item.count) }), {}),
-      assignees: assignees.reduce((acc, item) => ({ ...acc, [item.username]: parseInt(item.count) }), {}),
-      tags: tags.reduce((acc, item) => ({ ...acc, [item.tag]: parseInt(item.count) }), {}),
+      types: types.reduce(
+        (acc, item) => ({ ...acc, [item.type]: parseInt(item.count) }),
+        {},
+      ),
+      statuses: statuses.reduce(
+        (acc, item) => ({ ...acc, [item.status]: parseInt(item.count) }),
+        {},
+      ),
+      priorities: priorities.reduce(
+        (acc, item) => ({ ...acc, [item.priority]: parseInt(item.count) }),
+        {},
+      ),
+      assignees: assignees.reduce(
+        (acc, item) => ({ ...acc, [item.username]: parseInt(item.count) }),
+        {},
+      ),
+      tags: tags.reduce(
+        (acc, item) => ({ ...acc, [item.tag]: parseInt(item.count) }),
+        {},
+      ),
     };
   }
 
-  private async generateSearchSuggestions(query: string, projectId?: string): Promise<string[]> {
+  private async generateSearchSuggestions(
+    query: string,
+    projectId?: string,
+  ): Promise<string[]> {
     // Simple suggestion generation based on common search patterns
     const suggestions: string[] = [];
-    
+
     // Add status-based suggestions
     const statuses = ['open', 'in_progress', 'completed', 'blocked'];
-    const matchingStatuses = statuses.filter(status => 
-      status.toLowerCase().includes(query.toLowerCase())
+    const matchingStatuses = statuses.filter((status) =>
+      status.toLowerCase().includes(query.toLowerCase()),
     );
-    suggestions.push(...matchingStatuses.map(status => `status:${status}`));
+    suggestions.push(...matchingStatuses.map((status) => `status:${status}`));
 
     // Add priority-based suggestions
     const priorities = ['urgent', 'high', 'medium', 'low'];
-    const matchingPriorities = priorities.filter(priority => 
-      priority.toLowerCase().includes(query.toLowerCase())
+    const matchingPriorities = priorities.filter((priority) =>
+      priority.toLowerCase().includes(query.toLowerCase()),
     );
-    suggestions.push(...matchingPriorities.map(priority => `priority:${priority}`));
+    suggestions.push(
+      ...matchingPriorities.map((priority) => `priority:${priority}`),
+    );
 
     return suggestions.slice(0, 5);
   }
@@ -591,20 +715,27 @@ export class SearchService {
     const searchTerms = query.toLowerCase().split(/\s+/);
 
     // Check title
-    if (card.title && searchTerms.some(term => card.title.toLowerCase().includes(term))) {
+    if (
+      card.title &&
+      searchTerms.some((term) => card.title.toLowerCase().includes(term))
+    ) {
       highlights.push(this.highlightText(card.title, searchTerms));
     }
 
     // Check description
-    if (card.description && searchTerms.some(term => card.description!.toLowerCase().includes(term))) {
+    if (
+      card.description &&
+      searchTerms.some((term) => card.description!.toLowerCase().includes(term))
+    ) {
       const snippet = this.extractSnippet(card.description, searchTerms);
       highlights.push(this.highlightText(snippet, searchTerms));
     }
 
     // Check tags
-    const matchingTags = card.tags?.filter(tag => 
-      searchTerms.some(term => tag.toLowerCase().includes(term))
-    ) || [];
+    const matchingTags =
+      card.tags?.filter((tag) =>
+        searchTerms.some((term) => tag.toLowerCase().includes(term)),
+      ) || [];
     if (matchingTags.length > 0) {
       highlights.push(`Tags: ${matchingTags.join(', ')}`);
     }
@@ -616,7 +747,10 @@ export class SearchService {
     const highlights: string[] = [];
     const searchTerms = query.toLowerCase().split(/\s+/);
 
-    if (comment.content && searchTerms.some(term => comment.content.toLowerCase().includes(term))) {
+    if (
+      comment.content &&
+      searchTerms.some((term) => comment.content.toLowerCase().includes(term))
+    ) {
       const snippet = this.extractSnippet(comment.content, searchTerms);
       highlights.push(this.highlightText(snippet, searchTerms));
     }
@@ -624,7 +758,11 @@ export class SearchService {
     return highlights;
   }
 
-  private extractSnippet(text: string, searchTerms: string[], maxLength: number = 200): string {
+  private extractSnippet(
+    text: string,
+    searchTerms: string[],
+    maxLength: number = 200,
+  ): string {
     const lowerText = text.toLowerCase();
     let bestStart = 0;
     let bestScore = 0;
@@ -652,8 +790,8 @@ export class SearchService {
 
   private highlightText(text: string, searchTerms: string[]): string {
     let highlighted = text;
-    
-    searchTerms.forEach(term => {
+
+    searchTerms.forEach((term) => {
       const regex = new RegExp(`(${term})`, 'gi');
       highlighted = highlighted.replace(regex, '<mark>$1</mark>');
     });

@@ -1,8 +1,21 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryDeepPartialEntity, Not } from 'typeorm';
-import { KanbanBoard, BoardLayout } from '../database/entities/kanban-board.entity';
-import { Column, ColumnRule, ColumnRuleType } from '../database/entities/column.entity';
+import {
+  KanbanBoard,
+  BoardLayout,
+} from '../database/entities/kanban-board.entity';
+import {
+  Column,
+  ColumnRule,
+  ColumnRuleType,
+} from '../database/entities/column.entity';
 import { Card } from '../database/entities/card.entity';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
@@ -16,19 +29,23 @@ export class KanbanService {
   private readonly logger = new Logger(KanbanService.name);
 
   constructor(
-    @InjectRepository(KanbanBoard) private readonly boardRepo: Repository<KanbanBoard>,
+    @InjectRepository(KanbanBoard)
+    private readonly boardRepo: Repository<KanbanBoard>,
     @InjectRepository(Column) private readonly columnRepo: Repository<Column>,
     @InjectRepository(Card) private readonly cardRepo: Repository<Card>,
     private readonly gateway: AppGateway,
   ) {}
 
   // Board Management
-  async createBoard(projectId: string, dto: CreateBoardDto): Promise<KanbanBoard> {
+  async createBoard(
+    projectId: string,
+    dto: CreateBoardDto,
+  ): Promise<KanbanBoard> {
     // If this is set as default, unset other default boards
     if (dto.isDefault) {
       await this.boardRepo.update(
         { projectId, isDefault: true },
-        { isDefault: false }
+        { isDefault: false },
       );
     }
 
@@ -55,7 +72,7 @@ export class KanbanService {
     }
 
     const result = await this.getBoardById(saved.id);
-    
+
     // Broadcast board creation
     this.gateway.broadcastProjectUpdate(projectId, {
       type: 'board.created',
@@ -135,7 +152,7 @@ export class KanbanService {
     if (dto.isDefault && !board.isDefault) {
       await this.boardRepo.update(
         { projectId: board.projectId, isDefault: true },
-        { isDefault: false }
+        { isDefault: false },
       );
     }
 
@@ -161,17 +178,21 @@ export class KanbanService {
     const board = await this.getBoardById(id);
 
     // Cannot delete the only board in a project
-    const boardCount = await this.boardRepo.count({ where: { projectId: board.projectId } });
+    const boardCount = await this.boardRepo.count({
+      where: { projectId: board.projectId },
+    });
     if (boardCount <= 1) {
-      throw new BadRequestException('Cannot delete the only board in a project');
+      throw new BadRequestException(
+        'Cannot delete the only board in a project',
+      );
     }
 
     // If deleting default board, set another board as default
     if (board.isDefault) {
       const nextBoard = await this.boardRepo.findOne({
-        where: { 
+        where: {
           projectId: board.projectId,
-          id: Not(id)
+          id: Not(id),
         },
         order: { createdAt: 'ASC' },
       });
@@ -288,11 +309,15 @@ export class KanbanService {
     // Cannot delete column if it has cards
     const cardCount = await this.cardRepo.count({ where: { columnId: id } });
     if (cardCount > 0) {
-      throw new BadRequestException(`Cannot delete column with ${cardCount} cards. Move cards first.`);
+      throw new BadRequestException(
+        `Cannot delete column with ${cardCount} cards. Move cards first.`,
+      );
     }
 
     // Cannot delete the only column in a board
-    const columnCount = await this.columnRepo.count({ where: { boardId: column.boardId } });
+    const columnCount = await this.columnRepo.count({
+      where: { boardId: column.boardId },
+    });
     if (columnCount <= 1) {
       throw new BadRequestException('Cannot delete the only column in a board');
     }
@@ -314,27 +339,34 @@ export class KanbanService {
     this.logger.log(`Deleted column ${id}`);
   }
 
-  async reorderColumns(boardId: string, dto: ReorderColumnsDto): Promise<Column[]> {
+  async reorderColumns(
+    boardId: string,
+    dto: ReorderColumnsDto,
+  ): Promise<Column[]> {
     const board = await this.getBoardById(boardId);
 
     // Validate all column IDs belong to this board
     const existingColumns = await this.getColumnsByBoard(boardId);
-    const existingIds = existingColumns.map(c => c.id);
-    
-    const invalidIds = dto.columnIds.filter(id => !existingIds.includes(id));
+    const existingIds = existingColumns.map((c) => c.id);
+
+    const invalidIds = dto.columnIds.filter((id) => !existingIds.includes(id));
     if (invalidIds.length > 0) {
-      throw new BadRequestException(`Invalid column IDs: ${invalidIds.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid column IDs: ${invalidIds.join(', ')}`,
+      );
     }
 
     if (dto.columnIds.length !== existingIds.length) {
-      throw new BadRequestException('Must provide all column IDs for reordering');
+      throw new BadRequestException(
+        'Must provide all column IDs for reordering',
+      );
     }
 
     // Update column orders
     await Promise.all(
       dto.columnIds.map((columnId, index) =>
-        this.columnRepo.update(columnId, { order: index + 1 })
-      )
+        this.columnRepo.update(columnId, { order: index + 1 }),
+      ),
     );
 
     // Update board layout
@@ -353,20 +385,24 @@ export class KanbanService {
   }
 
   // Column Rules and WIP Limits
-  async validateWipLimit(boardId: string, columnId: string, wipLimit: number | null): Promise<void> {
+  async validateWipLimit(
+    boardId: string,
+    columnId: string,
+    wipLimit: number | null,
+  ): Promise<void> {
     if (wipLimit === null) return;
 
     const cardCount = await this.cardRepo.count({ where: { columnId } });
     if (cardCount > wipLimit) {
       throw new BadRequestException(
-        `Cannot set WIP limit to ${wipLimit}. Column currently has ${cardCount} cards.`
+        `Cannot set WIP limit to ${wipLimit}. Column currently has ${cardCount} cards.`,
       );
     }
   }
 
   async enforceColumnRules(columnId: string, cardId?: string): Promise<void> {
     const column = await this.getColumnById(columnId);
-    
+
     for (const rule of column.rules) {
       if (!rule.isActive) continue;
 
@@ -394,27 +430,42 @@ export class KanbanService {
     const cardCount = await this.cardRepo.count({ where: { columnId } });
     if (cardCount > column.wipLimit) {
       throw new BadRequestException(
-        `WIP limit exceeded. Column "${column.name}" has ${cardCount} cards but limit is ${column.wipLimit}.`
+        `WIP limit exceeded. Column "${column.name}" has ${cardCount} cards but limit is ${column.wipLimit}.`,
       );
     }
   }
 
-  private async enforceAutoAssign(cardId: string, rule: ColumnRule): Promise<void> {
+  private async enforceAutoAssign(
+    cardId: string,
+    rule: ColumnRule,
+  ): Promise<void> {
     // Implementation would depend on the specific auto-assign logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing auto-assign rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing auto-assign rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 
-  private async enforceAutoMove(cardId: string, rule: ColumnRule): Promise<void> {
+  private async enforceAutoMove(
+    cardId: string,
+    rule: ColumnRule,
+  ): Promise<void> {
     // Implementation would depend on the specific auto-move logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing auto-move rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing auto-move rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 
-  private async enforceValidation(cardId: string, rule: ColumnRule): Promise<void> {
+  private async enforceValidation(
+    cardId: string,
+    rule: ColumnRule,
+  ): Promise<void> {
     // Implementation would depend on the specific validation logic
     // This is a placeholder for the rule enforcement
-    this.logger.debug(`Enforcing validation rule for card ${cardId}: ${rule.condition}`);
+    this.logger.debug(
+      `Enforcing validation rule for card ${cardId}: ${rule.condition}`,
+    );
   }
 
   // Private Helper Methods
@@ -427,26 +478,34 @@ export class KanbanService {
     ];
 
     await Promise.all(
-      defaultColumns.map(column =>
-        this.columnRepo.save(
-          this.columnRepo.create({ boardId, ...column })
-        )
-      )
+      defaultColumns.map((column) =>
+        this.columnRepo.save(this.columnRepo.create({ boardId, ...column })),
+      ),
     );
 
     await this.updateBoardColumnOrder(boardId);
   }
 
-  private async shiftColumnsOrder(boardId: string, fromOrder: number, shift: number): Promise<void> {
+  private async shiftColumnsOrder(
+    boardId: string,
+    fromOrder: number,
+    shift: number,
+  ): Promise<void> {
     await this.columnRepo
       .createQueryBuilder()
       .update(Column)
       .set({ order: () => `"order" + ${shift}` })
-      .where('boardId = :boardId AND "order" >= :fromOrder', { boardId, fromOrder })
+      .where('boardId = :boardId AND "order" >= :fromOrder', {
+        boardId,
+        fromOrder,
+      })
       .execute();
   }
 
-  private async reorderColumn(columnId: string, newOrder: number): Promise<void> {
+  private async reorderColumn(
+    columnId: string,
+    newOrder: number,
+  ): Promise<void> {
     const column = await this.getColumnById(columnId);
     const oldOrder = column.order;
 
@@ -458,11 +517,14 @@ export class KanbanService {
         .createQueryBuilder()
         .update(Column)
         .set({ order: () => '"order" - 1' })
-        .where('boardId = :boardId AND "order" > :oldOrder AND "order" <= :newOrder', {
-          boardId: column.boardId,
-          oldOrder,
-          newOrder,
-        })
+        .where(
+          'boardId = :boardId AND "order" > :oldOrder AND "order" <= :newOrder',
+          {
+            boardId: column.boardId,
+            oldOrder,
+            newOrder,
+          },
+        )
         .execute();
     } else {
       // Moving up: shift columns between new and old position down
@@ -470,11 +532,14 @@ export class KanbanService {
         .createQueryBuilder()
         .update(Column)
         .set({ order: () => '"order" + 1' })
-        .where('boardId = :boardId AND "order" >= :newOrder AND "order" < :oldOrder', {
-          boardId: column.boardId,
-          oldOrder,
-          newOrder,
-        })
+        .where(
+          'boardId = :boardId AND "order" >= :newOrder AND "order" < :oldOrder',
+          {
+            boardId: column.boardId,
+            oldOrder,
+            newOrder,
+          },
+        )
         .execute();
     }
 
@@ -488,10 +553,11 @@ export class KanbanService {
       order: { order: 'ASC' },
     });
 
-    const columnOrder = columns.map(c => c.id);
+    const columnOrder = columns.map((c) => c.id);
 
     await this.boardRepo.update(boardId, {
-      layout: () => `jsonb_set(layout, '{columnOrder}', '${JSON.stringify(columnOrder)}')`
+      layout: () =>
+        `jsonb_set(layout, '{columnOrder}', '${JSON.stringify(columnOrder)}')`,
     } as any);
   }
 }

@@ -65,10 +65,18 @@ export class AddCodeVisibilitySchema20260307010000 implements MigrationInterface
     await queryRunner.query(
       'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_code_prs_repo_number_unique" ON "code_prs" ("repo_id", "number")',
     );
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_prs_state" ON "code_prs" ("state")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_prs_author" ON "code_prs" ("author")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_prs_opened_at" ON "code_prs" ("opened_at")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_prs_merged_at" ON "code_prs" ("merged_at")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_prs_state" ON "code_prs" ("state")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_prs_author" ON "code_prs" ("author")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_prs_opened_at" ON "code_prs" ("opened_at")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_prs_merged_at" ON "code_prs" ("merged_at")',
+    );
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "code_pr_reviews" (
@@ -85,8 +93,12 @@ export class AddCodeVisibilitySchema20260307010000 implements MigrationInterface
     await queryRunner.query(
       'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_code_pr_reviews_external_id" ON "code_pr_reviews" ("external_id")',
     );
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_pr_reviews_pr_id" ON "code_pr_reviews" ("pr_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_pr_reviews_reviewer" ON "code_pr_reviews" ("reviewer")');
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_pr_reviews_pr_id" ON "code_pr_reviews" ("pr_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_pr_reviews_reviewer" ON "code_pr_reviews" ("reviewer")',
+    );
     await queryRunner.query(
       'CREATE INDEX IF NOT EXISTS "IDX_code_pr_reviews_submitted_at" ON "code_pr_reviews" ("submitted_at")',
     );
@@ -107,10 +119,18 @@ export class AddCodeVisibilitySchema20260307010000 implements MigrationInterface
         CONSTRAINT "FK_code_commits_pr_id" FOREIGN KEY ("pr_id") REFERENCES "code_prs"("id") ON DELETE SET NULL ON UPDATE NO ACTION
       )
     `);
-    await queryRunner.query('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_code_commits_sha" ON "code_commits" ("sha")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_commits_repo_id" ON "code_commits" ("repo_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_commits_pr_id" ON "code_commits" ("pr_id")');
-    await queryRunner.query('CREATE INDEX IF NOT EXISTS "IDX_code_commits_author" ON "code_commits" ("author")');
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_code_commits_sha" ON "code_commits" ("sha")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_commits_repo_id" ON "code_commits" ("repo_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_commits_pr_id" ON "code_commits" ("pr_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_code_commits_author" ON "code_commits" ("author")',
+    );
     await queryRunner.query(
       'CREATE INDEX IF NOT EXISTS "IDX_code_commits_committed_at" ON "code_commits" ("committed_at")',
     );
@@ -159,33 +179,49 @@ export class AddCodeVisibilitySchema20260307010000 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_daily_metrics_day_repo_author"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_daily_metrics_day_repo_author"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "code_daily_metrics"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_sync_state_provider_stream_repo"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_sync_state_provider_stream_repo"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "code_sync_state"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_commits_committed_at"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_commits_committed_at"',
+    );
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_commits_author"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_commits_pr_id"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_commits_repo_id"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_commits_sha"');
     await queryRunner.query('DROP TABLE IF EXISTS "code_commits"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_pr_reviews_submitted_at"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_pr_reviews_reviewer"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_pr_reviews_submitted_at"',
+    );
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_pr_reviews_reviewer"',
+    );
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_pr_reviews_pr_id"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_pr_reviews_external_id"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_pr_reviews_external_id"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "code_pr_reviews"');
 
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_prs_merged_at"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_prs_opened_at"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_prs_author"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_prs_state"');
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_prs_repo_number_unique"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_prs_repo_number_unique"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "code_prs"');
 
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_code_repos_provider_owner_name"');
+    await queryRunner.query(
+      'DROP INDEX IF EXISTS "IDX_code_repos_provider_owner_name"',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "code_repos"');
 
     await queryRunner.query('DROP TYPE IF EXISTS "code_pr_reviews_state_enum"');

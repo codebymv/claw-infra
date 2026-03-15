@@ -59,7 +59,9 @@ export class KanbanBoard {
   @Column({ name: 'project_id', type: 'uuid' })
   projectId: string;
 
-  @ManyToOne(() => Project, (project) => project.boards, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, (project) => project.boards, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'project_id' })
   project: Project;
 

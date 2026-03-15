@@ -31,11 +31,11 @@ export class AgentRateLimiterService {
     'agent:requests': { windowMs: 60 * 1000, maxRequests: 100 }, // 100 requests per minute
     'agent:batch': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 batch operations per minute
     'agent:workspace': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 workspace operations per minute
-    
+
     // Per-project limits
     'project:requests': { windowMs: 60 * 1000, maxRequests: 500 }, // 500 requests per minute per project
     'project:cards': { windowMs: 60 * 1000, maxRequests: 200 }, // 200 card operations per minute per project
-    
+
     // Global limits
     'global:requests': { windowMs: 60 * 1000, maxRequests: 1000 }, // 1000 requests per minute globally
   };
@@ -43,7 +43,7 @@ export class AgentRateLimiterService {
   async checkLimit(
     key: string,
     limitType: string,
-    customConfig?: Partial<RateLimitConfig>
+    customConfig?: Partial<RateLimitConfig>,
   ): Promise<RateLimitResult> {
     const config = { ...this.configs[limitType], ...customConfig };
     if (!config) {
@@ -84,7 +84,9 @@ export class AgentRateLimiterService {
     const remaining = Math.max(0, config.maxRequests - entry.count);
 
     if (!allowed) {
-      this.logger.warn(`Rate limit exceeded for ${limitKey}: ${entry.count}/${config.maxRequests}`);
+      this.logger.warn(
+        `Rate limit exceeded for ${limitKey}: ${entry.count}/${config.maxRequests}`,
+      );
     }
 
     return {
@@ -95,11 +97,17 @@ export class AgentRateLimiterService {
     };
   }
 
-  async checkAgentLimit(agentId: string, operation: string): Promise<RateLimitResult> {
+  async checkAgentLimit(
+    agentId: string,
+    operation: string,
+  ): Promise<RateLimitResult> {
     return this.checkLimit(agentId, `agent:${operation}`);
   }
 
-  async checkProjectLimit(projectId: string, operation: string): Promise<RateLimitResult> {
+  async checkProjectLimit(
+    projectId: string,
+    operation: string,
+  ): Promise<RateLimitResult> {
     return this.checkLimit(projectId, `project:${operation}`);
   }
 
@@ -107,11 +115,13 @@ export class AgentRateLimiterService {
     return this.checkLimit('global', `global:${operation}`);
   }
 
-  async checkMultipleLimits(checks: Array<{
-    key: string;
-    limitType: string;
-    config?: Partial<RateLimitConfig>;
-  }>): Promise<{
+  async checkMultipleLimits(
+    checks: Array<{
+      key: string;
+      limitType: string;
+      config?: Partial<RateLimitConfig>;
+    }>,
+  ): Promise<{
     allowed: boolean;
     results: RateLimitResult[];
     mostRestrictive: RateLimitResult;
@@ -121,7 +131,11 @@ export class AgentRateLimiterService {
     let mostRestrictive: RateLimitResult | null = null;
 
     for (const check of checks) {
-      const result = await this.checkLimit(check.key, check.limitType, check.config);
+      const result = await this.checkLimit(
+        check.key,
+        check.limitType,
+        check.config,
+      );
       results.push(result);
 
       if (!result.allowed) {
@@ -144,13 +158,17 @@ export class AgentRateLimiterService {
     return {
       'X-RateLimit-Limit': result.totalHits.toString(),
       'X-RateLimit-Remaining': result.remaining.toString(),
-      'X-RateLimit-Reset': Math.ceil(result.resetTime.getTime() / 1000).toString(),
+      'X-RateLimit-Reset': Math.ceil(
+        result.resetTime.getTime() / 1000,
+      ).toString(),
     };
   }
 
   updateConfig(limitType: string, config: RateLimitConfig): void {
     this.configs[limitType] = config;
-    this.logger.log(`Updated rate limit config for ${limitType}: ${config.maxRequests}/${config.windowMs}ms`);
+    this.logger.log(
+      `Updated rate limit config for ${limitType}: ${config.maxRequests}/${config.windowMs}ms`,
+    );
   }
 
   getStats(): {
@@ -160,7 +178,7 @@ export class AgentRateLimiterService {
   } {
     const now = new Date();
     const activeWindows = Array.from(this.limits.values()).filter(
-      entry => now.getTime() < entry.resetTime.getTime()
+      (entry) => now.getTime() < entry.resetTime.getTime(),
     ).length;
 
     return {
@@ -193,7 +211,7 @@ export class AgentRateLimiterService {
     options?: {
       skipSuccessfulRequests?: boolean;
       skipFailedRequests?: boolean;
-    }
+    },
   ): RateLimitConfig {
     return {
       maxRequests,
@@ -207,11 +225,13 @@ export class AgentRateLimiterService {
     agentId: string,
     limitType: string,
     multiplier: number,
-    durationMs: number
+    durationMs: number,
   ): Promise<void> {
     const originalConfig = this.configs[limitType];
     if (!originalConfig) {
-      this.logger.warn(`Cannot grant increase for unknown limit type: ${limitType}`);
+      this.logger.warn(
+        `Cannot grant increase for unknown limit type: ${limitType}`,
+      );
       return;
     }
 
@@ -226,11 +246,13 @@ export class AgentRateLimiterService {
     // Schedule cleanup
     setTimeout(() => {
       delete this.configs[tempLimitType];
-      this.logger.log(`Temporary rate limit increase expired for agent ${agentId}`);
+      this.logger.log(
+        `Temporary rate limit increase expired for agent ${agentId}`,
+      );
     }, durationMs);
 
     this.logger.log(
-      `Granted temporary rate limit increase for agent ${agentId}: ${originalConfig.maxRequests} -> ${increasedConfig.maxRequests} for ${durationMs}ms`
+      `Granted temporary rate limit increase for agent ${agentId}: ${originalConfig.maxRequests} -> ${increasedConfig.maxRequests} for ${durationMs}ms`,
     );
   }
 }

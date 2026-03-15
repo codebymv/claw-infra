@@ -13,7 +13,8 @@ import * as bcrypt from 'bcrypt';
 import { ApiKey, ApiKeyType } from '../../database/entities/api-key.entity';
 
 export const API_KEY_TYPE_KEY = 'apiKeyType';
-export const RequireApiKeyType = (type: ApiKeyType) => SetMetadata(API_KEY_TYPE_KEY, type);
+export const RequireApiKeyType = (type: ApiKeyType) =>
+  SetMetadata(API_KEY_TYPE_KEY, type);
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -31,10 +32,9 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Missing X-Agent-Token header');
     }
 
-    const requiredType = this.reflector.getAllAndOverride<ApiKeyType | undefined>(
-      API_KEY_TYPE_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredType = this.reflector.getAllAndOverride<
+      ApiKeyType | undefined
+    >(API_KEY_TYPE_KEY, [context.getHandler(), context.getClass()]);
 
     const prefix = rawKey.substring(0, 8);
     const candidates = await this.apiKeyRepo.find({
@@ -48,7 +48,9 @@ export class ApiKeyGuard implements CanActivate {
           throw new UnauthorizedException('API key expired');
         }
         if (requiredType && candidate.type !== requiredType) {
-          throw new UnauthorizedException(`API key type '${candidate.type}' not allowed on this route`);
+          throw new UnauthorizedException(
+            `API key type '${candidate.type}' not allowed on this route`,
+          );
         }
         await this.apiKeyRepo.update(candidate.id, { lastUsedAt: new Date() });
         return true;

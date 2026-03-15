@@ -11,7 +11,12 @@ import { AlertsModule } from '../alerts/alerts.module';
 import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AgentRun, AgentStep, ApiKey]), WsModule, AlertsModule, CommonModule],
+  imports: [
+    TypeOrmModule.forFeature([AgentRun, AgentStep, ApiKey]),
+    WsModule,
+    AlertsModule,
+    CommonModule,
+  ],
   controllers: [AgentsController, AgentIngestController],
   providers: [AgentsService],
   exports: [AgentsService],

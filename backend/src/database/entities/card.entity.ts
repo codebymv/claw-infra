@@ -73,7 +73,11 @@ export class Card {
   @TypeOrmColumn({ type: 'enum', enum: CardType, default: CardType.TASK })
   type: CardType;
 
-  @TypeOrmColumn({ type: 'enum', enum: CardPriority, default: CardPriority.MEDIUM })
+  @TypeOrmColumn({
+    type: 'enum',
+    enum: CardPriority,
+    default: CardPriority.MEDIUM,
+  })
   priority: CardPriority;
 
   @TypeOrmColumn({ type: 'enum', enum: CardStatus, default: CardStatus.OPEN })
@@ -93,10 +97,22 @@ export class Card {
   @JoinColumn({ name: 'reporter_id' })
   reporter: User;
 
-  @TypeOrmColumn({ name: 'estimated_hours', type: 'decimal', precision: 8, scale: 2, nullable: true })
+  @TypeOrmColumn({
+    name: 'estimated_hours',
+    type: 'decimal',
+    precision: 8,
+    scale: 2,
+    nullable: true,
+  })
   estimatedHours: string | null;
 
-  @TypeOrmColumn({ name: 'actual_hours', type: 'decimal', precision: 8, scale: 2, nullable: true })
+  @TypeOrmColumn({
+    name: 'actual_hours',
+    type: 'decimal',
+    precision: 8,
+    scale: 2,
+    nullable: true,
+  })
   actualHours: string | null;
 
   @TypeOrmColumn({ name: 'due_date', type: 'timestamptz', nullable: true })

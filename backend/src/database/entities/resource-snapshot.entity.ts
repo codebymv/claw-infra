@@ -19,7 +19,10 @@ export class ResourceSnapshot {
   @Column({ name: 'run_id', type: 'uuid', nullable: true })
   runId: string | null;
 
-  @ManyToOne(() => AgentRun, (run) => run.resourceSnapshots, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => AgentRun, (run) => run.resourceSnapshots, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'run_id' })
   run: AgentRun | null;
 

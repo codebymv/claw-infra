@@ -19,7 +19,10 @@ import { MoveCardDto } from './dto/move-card.dto';
 import { BulkCardOperationDto } from './dto/bulk-card-operation.dto';
 import { ListCardsQueryDto } from './dto/list-cards-query.dto';
 import { ProjectAuthGuard } from './auth/project-auth.guard';
-import { ResourceAccessGuard, RequireResourcePermission } from './auth/resource-access.guard';
+import {
+  ResourceAccessGuard,
+  RequireResourcePermission,
+} from './auth/resource-access.guard';
 import { AuditLogService } from './auth/audit-log.service';
 
 @Controller('projects/:projectId/boards/:boardId')
@@ -43,9 +46,9 @@ export class CardsController {
     if (!dto.reporterId) {
       dto.reporterId = req.user.id;
     }
-    
+
     const result = await this.cardsService.createCard(boardId, columnId, dto);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.create',
@@ -66,7 +69,7 @@ export class CardsController {
     @Request() req,
   ) {
     const result = await this.cardsService.listCards(boardId, query);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.list',
@@ -83,7 +86,7 @@ export class CardsController {
   @RequireResourcePermission('card', 'read')
   async getCard(@Param('cardId') cardId: string, @Request() req) {
     const result = await this.cardsService.getCardById(cardId);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.get',
@@ -103,7 +106,7 @@ export class CardsController {
     @Request() req,
   ) {
     const result = await this.cardsService.updateCard(cardId, dto, req.user.id);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.update',
@@ -124,7 +127,7 @@ export class CardsController {
     @Request() req,
   ) {
     const result = await this.cardsService.moveCard(cardId, dto, req.user.id);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.move',
@@ -142,7 +145,7 @@ export class CardsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteCard(@Param('cardId') cardId: string, @Request() req) {
     await this.cardsService.deleteCard(cardId, req.user.id);
-    
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.delete',
@@ -159,8 +162,12 @@ export class CardsController {
     @Body() dto: BulkCardOperationDto,
     @Request() req,
   ) {
-    const result = await this.cardsService.bulkOperation(boardId, dto, req.user.id);
-    
+    const result = await this.cardsService.bulkOperation(
+      boardId,
+      dto,
+      req.user.id,
+    );
+
     await this.auditLogService.logAccess({
       userId: req.user.id,
       action: 'card.bulk_operation',

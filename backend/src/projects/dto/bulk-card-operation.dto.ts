@@ -1,4 +1,11 @@
-import { IsArray, IsUUID, IsOptional, IsEnum, IsObject, ArrayNotEmpty } from 'class-validator';
+import {
+  IsArray,
+  IsUUID,
+  IsOptional,
+  IsEnum,
+  IsObject,
+  ArrayNotEmpty,
+} from 'class-validator';
 import { CardStatus, CardPriority } from '../../database/entities/card.entity';
 
 export class BulkCardOperationDto {

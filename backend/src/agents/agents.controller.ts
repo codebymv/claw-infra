@@ -12,10 +12,19 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { IsString, IsOptional, IsEnum, IsNumber, IsObject } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsObject,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AgentsService, ListRunsQuery } from './agents.service';
-import { AgentRunStatus, AgentRunTrigger } from '../database/entities/agent-run.entity';
+import {
+  AgentRunStatus,
+  AgentRunTrigger,
+} from '../database/entities/agent-run.entity';
 
 class CreateRunDto {
   @IsString()

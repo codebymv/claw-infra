@@ -16,7 +16,9 @@ export class TelegramService {
     if (this.enabled) {
       this.logger.log('Telegram alerts enabled');
     } else {
-      this.logger.warn('Telegram alerts disabled (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)');
+      this.logger.warn(
+        'Telegram alerts disabled (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)',
+      );
     }
   }
 

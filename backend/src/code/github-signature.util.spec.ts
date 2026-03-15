@@ -6,7 +6,10 @@ describe('verifyGithubSignature', () => {
 
   it('accepts valid sha256 signatures', () => {
     const crypto = require('crypto') as typeof import('crypto');
-    const digest = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    const digest = crypto
+      .createHmac('sha256', secret)
+      .update(payload)
+      .digest('hex');
 
     const result = verifyGithubSignature(payload, `sha256=${digest}`, secret);
 
@@ -16,7 +19,10 @@ describe('verifyGithubSignature', () => {
 
   it('accepts valid sha1 signatures', () => {
     const crypto = require('crypto') as typeof import('crypto');
-    const digest = crypto.createHmac('sha1', secret).update(payload).digest('hex');
+    const digest = crypto
+      .createHmac('sha1', secret)
+      .update(payload)
+      .digest('hex');
 
     const result = verifyGithubSignature(payload, `sha1=${digest}`, secret);
 
