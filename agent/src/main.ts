@@ -3,6 +3,8 @@ import { cpus, totalmem, freemem } from 'os';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { generateConfig } from './config-gen';
+import { getProjectClient, cleanupProjectClient } from './project-client';
+import { registerProjectManagementTools } from './zeroclaw-project-integration';
 import {
   ZeroClawLogParser,
   RunStartEvent,
@@ -342,6 +344,11 @@ function cleanup(): void {
   if (metricsTimer) clearInterval(metricsTimer);
   if (logFlushTimer) clearInterval(logFlushTimer);
   flushLogs();
+  
+  // Cleanup project client workspaces
+  cleanupProjectClient().catch(err => {
+    console.error('[reporter] Failed to cleanup project client:', err);
+  });
 }
 
 // ── Main ──
@@ -353,6 +360,18 @@ async function main(): Promise<void> {
 
   generateConfig();
   setupWorkspace();
+
+  // Initialize project management client
+  try {
+    const projectClient = getProjectClient();
+    console.log('[reporter] Project management client initialized');
+    
+    // Register project management tools with ZeroClaw
+    registerProjectManagementTools();
+    console.log('[reporter] Project management tools registered');
+  } catch (err) {
+    console.warn('[reporter] WARNING: Failed to initialize project client:', err);
+  }
 
   console.log('[reporter] Waiting for claw-infra backend...');
   let backendReady = false;

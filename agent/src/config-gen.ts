@@ -2,6 +2,7 @@ import { writeFileSync, mkdirSync, existsSync, chmodSync } from 'fs';
 import { homedir, platform } from 'os';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { writeProjectToolsConfig } from './project-tools';
 
 interface ZeroClawConfig {
   apiKey: string;
@@ -187,6 +188,14 @@ export function generateConfig(): string {
   console.log(`[config-gen] Provider: ${cfg.provider}, Model: ${cfg.model}`);
   console.log(`[config-gen] Memory: ${cfg.memoryBackend}, Autonomy: ${cfg.autonomyLevel}`);
   console.log(`[config-gen] Telegram: ${cfg.telegramBotToken ? 'enabled' : 'disabled'}`);
+
+  // Generate project management tools configuration
+  try {
+    writeProjectToolsConfig();
+    console.log(`[config-gen] Project management tools configured`);
+  } catch (err) {
+    console.warn(`[config-gen] WARNING: Failed to write project tools config:`, err);
+  }
 
   // ── GitHub credential helper ──
   // Configure git to authenticate with GITHUB_TOKEN so the agent can clone
