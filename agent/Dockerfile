@@ -55,6 +55,10 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
+COPY project-manager.js ./
+
+# Make project-manager.js executable
+RUN chmod +x project-manager.js
 
 # Symlink Railway CLI binary from local node_modules
 RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway

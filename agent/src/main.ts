@@ -369,6 +369,8 @@ async function main(): Promise<void> {
     // Register project management tools with ZeroClaw
     registerProjectManagementTools();
     console.log('[reporter] Project management tools registered');
+    
+    console.log('[reporter] Project management CLI available at: /app/project-manager.js');
   } catch (err) {
     console.warn('[reporter] WARNING: Failed to initialize project client:', err);
   }
