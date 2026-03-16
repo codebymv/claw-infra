@@ -33,7 +33,7 @@ async function bootstrap() {
   const dataSource = app.get(DataSource);
   try {
     console.log('Running database migrations...');
-    const migrations = await dataSource.runMigrations({ transaction: 'all' });
+    const migrations = await dataSource.runMigrations({ transaction: 'none' });
     if (migrations.length > 0) {
       console.log(`Applied ${migrations.length} migration(s):`);
       migrations.forEach((m) => console.log(`  - ${m.name}`));

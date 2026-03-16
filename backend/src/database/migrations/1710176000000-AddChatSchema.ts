@@ -2,6 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddChatSchema1710176000000 implements MigrationInterface {
   name = 'AddChatSchema1710176000000';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create chat_sessions table

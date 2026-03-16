@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { join } from 'path';
 import { AgentRun } from '../database/entities/agent-run.entity';
 import { AgentStep } from '../database/entities/agent-step.entity';
 import { CostRecord } from '../database/entities/cost-record.entity';
@@ -78,10 +79,15 @@ export function buildTypeOrmConfig(
     url: config.get<string>('DATABASE_URL'),
     entities: DATABASE_ENTITIES,
     synchronize: false,
-    migrationsRun: nodeEnv === 'production',
+    migrationsRun: false,
     logging: nodeEnv === 'development',
     ssl: nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
-    migrations: ['dist/database/migrations/*.js'],
+    migrations: [
+      join(__dirname, '..', 'database', 'migrations', '*{.ts,.js}'),
+      join(process.cwd(), 'dist', 'src', 'database', 'migrations', '*.js'),
+      join(process.cwd(), 'dist', 'database', 'migrations', '*.js'),
+      join(process.cwd(), 'src', 'database', 'migrations', '*.ts'),
+    ],
 
     // Connection pool settings
     extra: {
