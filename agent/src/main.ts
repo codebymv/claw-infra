@@ -5,6 +5,7 @@ import { join } from 'path';
 import { generateConfig } from './config-gen';
 import { getProjectClient, cleanupProjectClient } from './project-client';
 import { registerProjectManagementTools } from './zeroclaw-project-integration';
+import { initializeTelegramBotCommands, shutdownTelegramBotCommands } from './telegram-integration';
 import {
   ZeroClawLogParser,
   RunStartEvent,
@@ -348,6 +349,11 @@ function cleanup(): void {
   cleanupProjectClient().catch(err => {
     console.error('[reporter] Failed to cleanup project client:', err);
   });
+
+  // Cleanup Telegram bot commands
+  shutdownTelegramBotCommands().catch(err => {
+    console.error('[reporter] Failed to cleanup Telegram bot commands:', err);
+  });
 }
 
 // ── Main ──
@@ -372,6 +378,14 @@ async function main(): Promise<void> {
     console.log('[reporter] Project management CLI available at: /app/project-manager.js');
   } catch (err) {
     console.warn('[reporter] WARNING: Failed to initialize project client:', err);
+  }
+
+  // Initialize enhanced Telegram bot commands
+  try {
+    await initializeTelegramBotCommands();
+    console.log('[reporter] Enhanced Telegram bot commands initialized');
+  } catch (err) {
+    console.warn('[reporter] WARNING: Failed to initialize Telegram bot commands:', err);
   }
 
   console.log('[reporter] Waiting for claw-infra backend...');
