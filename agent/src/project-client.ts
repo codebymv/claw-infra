@@ -124,7 +124,20 @@ export class ProjectApiClient {
     const query = queryParams.toString();
     const endpoint = `/api/projects${query ? `?${query}` : ''}`;
     
-    return this.makeRequest(endpoint);
+    const response = await this.makeRequest(endpoint);
+    
+    // Handle paginated response - extract items array
+    if (response && typeof response === 'object' && Array.isArray(response.items)) {
+      return response.items;
+    }
+    
+    // Fallback: if response is already an array, return it
+    if (Array.isArray(response)) {
+      return response;
+    }
+    
+    // If neither, return empty array
+    return [];
   }
 
   async getProject(projectId: string): Promise<any> {
