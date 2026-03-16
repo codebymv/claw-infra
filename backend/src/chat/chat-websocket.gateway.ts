@@ -10,7 +10,6 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatSessionService } from './chat-session.service';
 import { WebCommandHandlerService, WebCommandContext, WebCommandResult } from './web-command-handler.service';
@@ -69,7 +68,6 @@ export class ChatWebSocketGateway
   private readonly reconnectionTimeoutMs = 30000; // 30 seconds
 
   constructor(
-    private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly chatSessionService: ChatSessionService,
     private readonly webCommandHandler: WebCommandHandlerService,
@@ -148,6 +146,10 @@ export class ChatWebSocketGateway
         this.config,
       );
       const userId = payload.sub || payload.id;
+
+      if (!userId) {
+        throw new Error('Token payload missing subject');
+      }
 
       // Check error threshold
       if (this.errorHandler.hasExceededErrorThreshold(userId)) {

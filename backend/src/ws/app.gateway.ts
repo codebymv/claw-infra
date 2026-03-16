@@ -11,7 +11,6 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { verifyJwtWithConfiguredSecrets } from '../auth/jwt-verification.util';
 import { PubSubService } from './pubsub.service';
 
@@ -38,7 +37,6 @@ export class AppGateway
 
   constructor(
     private readonly pubSub: PubSubService,
-    private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
 
