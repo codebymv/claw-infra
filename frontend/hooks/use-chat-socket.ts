@@ -33,6 +33,7 @@ export function useChatSocket(): UseChatSocketReturn {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const reconnectAttemptsRef = useRef(0);
+  const shouldReconnectRef = useRef(true);
   const maxReconnectAttempts = 5;
 
   const clearReconnectTimeout = useCallback(() => {
@@ -57,6 +58,7 @@ export function useChatSocket(): UseChatSocketReturn {
     const token = getAuthToken();
 
     clearReconnectTimeout();
+    shouldReconnectRef.current = true;
     
     if (!token) {
       console.warn('No auth token found, cannot connect to chat socket');
@@ -90,7 +92,7 @@ export function useChatSocket(): UseChatSocketReturn {
       setConnectionStatus('disconnected');
       
       // Attempt reconnection if not manually disconnected
-      if (reason !== 'io client disconnect') {
+      if (reason !== 'io client disconnect' && shouldReconnectRef.current) {
         attemptReconnection();
       }
     });
@@ -99,11 +101,18 @@ export function useChatSocket(): UseChatSocketReturn {
       console.error('Chat socket connection error:', error);
       setIsConnected(false);
       setConnectionStatus('disconnected');
-      attemptReconnection();
+      if (shouldReconnectRef.current) {
+        attemptReconnection();
+      }
     });
 
     newSocket.on('error', (error) => {
       console.error('Chat socket error:', error);
+
+      if (error?.recoverable === false || error?.code === 'AUTH_FAILED') {
+        shouldReconnectRef.current = false;
+        clearReconnectTimeout();
+      }
     });
 
     setSocket((currentSocket) => {
@@ -169,6 +178,7 @@ export function useChatSocket(): UseChatSocketReturn {
   // Disconnect socket
   const disconnect = useCallback(() => {
     clearReconnectTimeout();
+    shouldReconnectRef.current = false;
 
     setSocket((currentSocket) => {
       currentSocket?.disconnect();

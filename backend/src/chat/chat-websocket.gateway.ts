@@ -17,6 +17,7 @@ import { WebCommandHandlerService, WebCommandContext, WebCommandResult } from '.
 import { MessageSource, MessageType } from '../database/entities';
 import { PresenceService } from './presence.service';
 import { ErrorHandlerService, ChatErrorCode } from './error-handler.service';
+import { verifyJwtWithConfiguredSecrets } from '../auth/jwt-verification.util';
 
 export interface ChatMessagePayload {
   content: string;
@@ -142,7 +143,10 @@ export class ChatWebSocketGateway
         return;
       }
 
-      const payload = await this.jwtService.verifyAsync(token);
+      const payload = verifyJwtWithConfiguredSecrets<{ sub?: string; id?: string }>(
+        token,
+        this.config,
+      );
       const userId = payload.sub || payload.id;
 
       // Check error threshold

@@ -12,6 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { verifyJwtWithConfiguredSecrets } from '../auth/jwt-verification.util';
 import { PubSubService } from './pubsub.service';
 
 interface SubscribePayload {
@@ -108,8 +109,7 @@ export class AppGateway
     }
 
     try {
-      const secret = this.config.get<string>('JWT_SECRET');
-      this.jwtService.verify(token, { secret });
+      verifyJwtWithConfiguredSecrets(token, this.config);
       this.clientChannels.set(client.id, new Set());
       this.logger.log(`Client authenticated: ${client.id}`);
     } catch {
