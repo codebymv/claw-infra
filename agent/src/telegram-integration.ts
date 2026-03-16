@@ -24,10 +24,29 @@ export async function initializeTelegramBotCommands(): Promise<void> {
   try {
     console.log('[telegram-integration] Initializing enhanced Telegram bot commands...');
 
-    // Create bot instance
+    // Create bot instance with proper user allowlist handling
+    const allowedUsersEnv = process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS;
+    let allowedUsers: string[] = ['*']; // Default to allow all users
+    
+    if (allowedUsersEnv && allowedUsersEnv.trim()) {
+      // Check if it's a placeholder value and treat as wildcard
+      if (allowedUsersEnv.trim() === 'your_telegram_user_id' || allowedUsersEnv.trim() === 'rusty_chain') {
+        allowedUsers = ['*']; // Treat placeholder/test values as allow all
+        console.log('[telegram-integration] Using wildcard access (placeholder/test value detected)');
+      } else {
+        // Only use specific users if the env var is set to real values
+        allowedUsers = allowedUsersEnv.split(',').map(u => u.trim()).filter(Boolean);
+        if (allowedUsers.length === 0) {
+          allowedUsers = ['*']; // Fallback to allow all if parsing results in empty array
+        }
+      }
+    }
+    
+    console.log(`[telegram-integration] Allowed users: ${allowedUsers.join(', ')}`);
+    
     telegramBot = createTelegramBotCommands({
       botToken,
-      allowedUsers: process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS?.split(',').map(u => u.trim()).filter(Boolean) || ['*'], // Allow all users by default
+      allowedUsers,
       enableLogging: process.env.NODE_ENV !== 'production'
     });
 

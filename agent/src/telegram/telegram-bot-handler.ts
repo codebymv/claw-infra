@@ -78,9 +78,15 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
       throw new Error('Bot token is required for Telegram Bot Handler initialization');
     }
 
+    if (!botToken.startsWith('bot') && !botToken.includes(':')) {
+      throw new Error('Invalid bot token format. Expected format: "bot<token>" or "<bot_id>:<token>"');
+    }
+
     this.botToken = botToken;
     
     try {
+      console.log(`[telegram-bot] Initializing with token: ${botToken.substring(0, 10)}...`);
+      
       // Test the bot token by calling getMe
       const response = await this.makeApiCall<any>('getMe');
       if (!response.ok) {
@@ -397,14 +403,21 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
       });
 
       if (response.ok && response.result) {
+        if (response.result.length > 0) {
+          console.log(`[telegram-bot] Received ${response.result.length} updates`);
+        }
+        
         for (const update of response.result) {
           try {
+            console.log(`[telegram-bot] Processing update ${update.update_id}:`, JSON.stringify(update, null, 2));
             await this.processUpdate(update);
             this.pollingOffset = update.update_id + 1;
           } catch (error) {
             console.error('[telegram-bot] Error processing update:', error);
           }
         }
+      } else if (!response.ok) {
+        console.error('[telegram-bot] getUpdates API error:', response);
       }
     } catch (error) {
       console.error('[telegram-bot] Polling error:', error);

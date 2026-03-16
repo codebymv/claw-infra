@@ -39,6 +39,8 @@ export class CommandHandler implements ICommandHandler {
   }
 
   async handleMessage(message: TelegramMessage, context: UserContext): Promise<CommandResult> {
+    console.log(`[command-handler] Processing message: "${message.text}" from user ${context.userId}`);
+    
     if (!message.text) {
       return {
         success: false,
@@ -55,10 +57,13 @@ export class CommandHandler implements ICommandHandler {
 
     try {
       // Parse the command
+      console.log(`[command-handler] Parsing command: "${message.text}"`);
       const parseResult = this.parser.parseCommand(message.text, context);
+      console.log(`[command-handler] Parse result:`, parseResult);
       
       // Check if parsing failed
       if ('code' in parseResult) {
+        console.log(`[command-handler] Parse failed with error:`, parseResult);
         return {
           success: false,
           response: this.formatErrorResponse(parseResult),
@@ -69,6 +74,7 @@ export class CommandHandler implements ICommandHandler {
       // Validate the parsed command
       const validationError = this.parser.validateCommand(parseResult);
       if (validationError) {
+        console.log(`[command-handler] Validation failed:`, validationError);
         return {
           success: false,
           response: this.formatErrorResponse(validationError),
@@ -79,6 +85,7 @@ export class CommandHandler implements ICommandHandler {
       // Check permissions
       const permissionError = this.validatePermissions(parseResult);
       if (permissionError) {
+        console.log(`[command-handler] Permission check failed:`, permissionError);
         return {
           success: false,
           response: this.formatErrorResponse(permissionError),
@@ -87,6 +94,7 @@ export class CommandHandler implements ICommandHandler {
       }
 
       // Execute the command
+      console.log(`[command-handler] Executing command:`, parseResult.command);
       return await this.executeCommand(parseResult);
 
     } catch (error) {

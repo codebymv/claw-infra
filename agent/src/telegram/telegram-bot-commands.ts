@@ -235,8 +235,11 @@ export class TelegramBotCommands extends EventEmitter {
       return;
     }
 
+    console.log(`[telegram-bot-commands] Received message from user ${userId} in chat ${chatId}: ${message.text}`);
+
     // Check if user is allowed
     if (!this.isUserAllowed(userId)) {
+      console.log(`[telegram-bot-commands] User ${userId} not in allowed list: ${this.config.allowedUsers?.join(', ')}`);
       await this.botHandler.sendMessage(chatId, 
         '❌ **Access Denied**\n\nYou are not authorized to use this bot.',
         { parseMode: 'Markdown' }
@@ -244,6 +247,7 @@ export class TelegramBotCommands extends EventEmitter {
       return;
     }
 
+    console.log(`[telegram-bot-commands] User ${userId} authorized, processing message`);
     const context = this.getUserContext(userId, chatId);
     
     try {
@@ -289,8 +293,11 @@ export class TelegramBotCommands extends EventEmitter {
       return;
     }
 
+    console.log(`[telegram-bot-commands] Received callback query from user ${userId} in chat ${chatId}: ${query.data}`);
+
     // Check if user is allowed
     if (!this.isUserAllowed(userId)) {
+      console.log(`[telegram-bot-commands] User ${userId} not in allowed list for callback: ${this.config.allowedUsers?.join(', ')}`);
       await this.botHandler.answerCallbackQuery(query.id, {
         text: 'Access denied',
         showAlert: true
@@ -298,6 +305,7 @@ export class TelegramBotCommands extends EventEmitter {
       return;
     }
 
+    console.log(`[telegram-bot-commands] User ${userId} authorized for callback, processing`);
     const context = this.getUserContext(userId, chatId);
     
     try {
@@ -347,7 +355,17 @@ export class TelegramBotCommands extends EventEmitter {
       return true; // Allow all users if no restrictions
     }
     
-    return this.config.allowedUsers.includes(userId) || this.config.allowedUsers.includes('*');
+    // Check for wildcard access
+    if (this.config.allowedUsers.includes('*')) {
+      return true;
+    }
+    
+    // Check if user ID is in the allowed list
+    const isAllowed = this.config.allowedUsers.includes(userId);
+    
+    console.log(`[telegram-bot-commands] User authorization check: userId=${userId}, allowedUsers=[${this.config.allowedUsers.join(', ')}], result=${isAllowed}`);
+    
+    return isAllowed;
   }
 
   // ── Public API for Integration ──
