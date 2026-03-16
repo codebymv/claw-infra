@@ -316,6 +316,64 @@ Create your first board:
     }
   }
 
+  // Select project and set as active context
+  async selectProject(userId: string, chatId: string, projectIdOrName: string): Promise<string> {
+    try {
+      // First try to get project by ID
+      let project;
+      try {
+        project = await this.client.getProject(projectIdOrName);
+      } catch {
+        // If not found by ID, search by name
+        const projects = await this.client.listProjects({ limit: 100 });
+        project = projects.find((p: any) => 
+          p.name.toLowerCase().includes(projectIdOrName.toLowerCase()) ||
+          p.id === projectIdOrName
+        );
+        
+        if (!project) {
+          return `❌ **Project Not Found**
+          
+No project found matching "${projectIdOrName}".
+
+**Available projects:**
+${projects.map((p: any) => `• ${p.name} (${p.id})`).join('\n') || 'None'}
+
+Use \`/projects\` to see all projects.`;
+        }
+      }
+
+      // Set as active project
+      projectContextManager.setActiveProject(userId, chatId, {
+        projectId: project.id,
+        projectName: project.name,
+        projectSlug: project.name.toLowerCase().replace(/\s+/g, '-'),
+        selectedAt: new Date()
+      });
+
+      return `🎯 **Project Selected**
+
+**${project.name}** is now your active project.
+
+📊 **Project Overview:**
+• 📝 ${project.description || 'No description'}
+• 📋 ${project.boards?.length || 0} boards
+• 📊 ${project.cardCount || 0} total cards
+• 🆔 ${project.id}
+
+**Quick Commands (now simplified):**
+• \`list tasks\` - Show tasks in this project
+• \`create task "Task name"\` - Add new task
+• \`show boards\` - View all boards
+• \`analytics\` - Project insights
+
+🔗 View project: /projects/${project.id}`;
+
+    } catch (error: any) {
+      return `❌ Failed to select project: ${error.message}`;
+    }
+  }
+
   // Get analytics for active project
   async getAnalytics(userId: string, chatId: string, timeRange: '7d' | '30d' | '90d' = '30d'): Promise<string> {
     const context = projectContextManager.getActiveProject(userId, chatId);

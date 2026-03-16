@@ -1,9 +1,12 @@
 /**
  * Integration layer for Telegram Bot Commands with ZeroClaw
+ * This replaces ZeroClaw's native Telegram channel with enhanced bot commands
  */
 
 import { createTelegramBotCommands, TelegramBotCommands } from './telegram';
 import { getProjectClient } from './project-client';
+import { contextualCommands } from './contextual-commands';
+import { spawn } from 'child_process';
 
 let telegramBot: TelegramBotCommands | null = null;
 
@@ -68,6 +71,104 @@ export function getTelegramBot(): TelegramBotCommands | null {
 }
 
 /**
+ * Execute a ZeroClaw tool/command and return the result
+ */
+async function executeZeroClawCommand(command: string, userId: string, chatId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    // For project-related commands, use our contextual commands
+    if (command.startsWith('/projects') || command === 'projects') {
+      handleProjectsCommand(userId, chatId).then(resolve).catch(reject);
+      return;
+    }
+
+    // For other commands, execute them through ZeroClaw's tool system
+    const child = spawn('zeroclaw', ['run', command], {
+      env: {
+        ...process.env,
+        ZEROCLAW_CHANNEL: 'api',
+        ZEROCLAW_USER_ID: userId,
+        ZEROCLAW_CHAT_ID: chatId
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+      timeout: 30000 // 30 second timeout
+    });
+
+    let output = '';
+    let error = '';
+
+    child.stdout?.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr?.on('data', (data) => {
+      error += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(output.trim() || 'Command executed successfully');
+      } else {
+        reject(new Error(error.trim() || `Command failed with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+
+    // Send the command to stdin
+    child.stdin?.write(command + '\n');
+    child.stdin?.end();
+  });
+}
+
+/**
+ * Handle the /projects command with our enhanced UI
+ */
+export async function handleProjectsCommand(userId: string, chatId: string): Promise<string> {
+  try {
+    const projectClient = getProjectClient();
+    const projects = await projectClient.listProjects({ limit: 10 });
+
+    if (projects.length === 0) {
+      return `📋 **No Projects Found**
+
+You don't have any projects yet. Create your first project:
+
+**Quick Start:**
+• \`create project "My First Project"\` - Create a basic project
+• \`create project "Website Redesign" template software\` - Create with template
+
+🔗 Or visit the web interface to create projects with more options.`;
+    }
+
+    let response = `📋 **Your Projects** (${projects.length} total)\n\n`;
+
+    projects.forEach((project: any, index: number) => {
+      const statusEmoji = project.status === 'active' ? '🟢' : '🟡';
+      const cardCount = project.cardCount || 0;
+      
+      response += `${index + 1}. ${statusEmoji} **${project.name}**\n`;
+      response += `   📝 ${project.description || 'No description'}\n`;
+      response += `   📊 ${cardCount} cards • ${project.boards?.length || 0} boards\n`;
+      response += `   🆔 ${project.id}\n\n`;
+    });
+
+    response += `**Quick Actions:**\n`;
+    response += `• \`select project "Project Name"\` - Set active project\n`;
+    response += `• \`create project "New Project"\` - Create new project\n`;
+    response += `• \`show project "Project Name"\` - View project details\n`;
+    response += `• \`list tasks in "Project Name"\` - Show project tasks\n\n`;
+    response += `🔗 View all projects: /projects`;
+
+    return response;
+
+  } catch (error: any) {
+    console.error('[telegram-integration] Error handling projects command:', error);
+    return `❌ **Error Loading Projects**\n\nFailed to load projects: ${error.message}\n\nTry again or check the web interface.`;
+  }
+}
+/**
  * Register project management integrations with the bot
  */
 async function registerProjectIntegrations(): Promise<void> {
@@ -83,15 +184,14 @@ async function registerProjectIntegrations(): Promise<void> {
       const projectId = action.data.value || action.data.projectId;
       
       try {
-        // TODO: Use actual project client to get project details
-        // const project = await projectClient.getProject(projectId);
+        // Use contextual commands to select project
+        const result = await contextualCommands.selectProject(context.userId, context.chatId, projectId);
         
-        // For now, return success with mock data
         return {
           notification: `Selected project: ${projectId}`,
           updateMessage: true,
           response: {
-            text: `🎯 **Project Selected**\n\nProject ${projectId} is now active. You can now use project-specific commands.`,
+            text: result,
             parseMode: 'Markdown'
           }
         };
@@ -107,17 +207,13 @@ async function registerProjectIntegrations(): Promise<void> {
     // Register projects list handler
     telegramBot.registerCallbackHandler('projects:refresh', async (action, context) => {
       try {
-        // TODO: Use actual project client to refresh projects
-        // const projects = await projectClient.listProjects();
+        const result = await handleProjectsCommand(context.userId, context.chatId);
         
-        const uiGenerator = telegramBot!.getUIGenerator();
-        
-        // For now, return mock refresh
         return {
           notification: 'Projects refreshed',
           updateMessage: true,
           response: {
-            text: '🔄 **Projects Refreshed**\n\nProject list has been updated.',
+            text: result,
             parseMode: 'Markdown'
           }
         };
@@ -125,6 +221,30 @@ async function registerProjectIntegrations(): Promise<void> {
         console.error('[telegram-integration] Error refreshing projects:', error);
         return {
           notification: 'Failed to refresh projects',
+          updateMessage: false
+        };
+      }
+    });
+
+    // Register command handlers for common ZeroClaw commands
+    telegramBot.registerCallbackHandler('execute:command', async (action, context) => {
+      const command = action.data.command;
+      
+      try {
+        const result = await executeZeroClawCommand(command, context.userId, context.chatId);
+        
+        return {
+          notification: 'Command executed',
+          updateMessage: true,
+          response: {
+            text: result,
+            parseMode: 'Markdown'
+          }
+        };
+      } catch (error) {
+        console.error('[telegram-integration] Error executing command:', error);
+        return {
+          notification: 'Command failed',
           updateMessage: false
         };
       }

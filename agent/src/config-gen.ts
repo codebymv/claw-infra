@@ -94,22 +94,10 @@ function buildToml(cfg: ZeroClawConfig): string {
   // channels_config.cli is a required field in the channels_config struct.
   sections.push(``, `[channels_config]`, `cli = true`);
 
+  // NOTE: Telegram integration is now handled by our enhanced bot commands
+  // ZeroClaw's native Telegram channel is disabled to prevent conflicts
   if (cfg.telegramBotToken) {
-    // ZeroClaw's native Telegram channel handles everything:
-    // polling, tool execution, conversation memory, iteration control.
-    sections.push(
-      ``,
-      `[channels_config.telegram]`,
-      `bot_token = "${cfg.telegramBotToken}"`,
-    );
-    if (cfg.telegramAllowedUsers && cfg.telegramAllowedUsers.length > 0) {
-      const users = cfg.telegramAllowedUsers.map((u) => `"${u}"`).join(', ');
-      sections.push(`allowed_users = [${users}]`);
-    } else {
-      sections.push(`allowed_users = ["*"]`);
-    }
-    sections.push(`stream_mode = "off"`);
-    console.log(`[config-gen] Telegram: native channel (max_tool_iterations = ${maxToolIter})`);
+    console.log(`[config-gen] Telegram: enhanced bot commands enabled (native channel disabled)`);
   }
 
   sections.push(``);

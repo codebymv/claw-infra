@@ -233,21 +233,33 @@ export class CommandHandler implements ICommandHandler {
     const filter = command.args.positional[0];
     const page = parseInt(command.args.named.page || '1');
     
-    // TODO: Integrate with actual project service
-    // For now, return mock data
-    const mockProjects = this.getMockProjects(filter);
-    
-    const response = this.uiGenerator.generateProjectList(mockProjects, {
-      page,
-      limit: 5,
-      hasMore: mockProjects.length > 5,
-      filter
-    });
-
-    return {
-      success: true,
-      response
-    };
+    try {
+      // Import the integration function here to avoid circular dependencies
+      const { handleProjectsCommand } = await import('../telegram-integration');
+      const result = await handleProjectsCommand(command.context.userId, command.context.chatId);
+      
+      return {
+        success: true,
+        response: {
+          text: result,
+          parseMode: 'Markdown'
+        }
+      };
+    } catch (error) {
+      console.error('[command-handler] Error in projects command:', error);
+      
+      return {
+        success: false,
+        response: {
+          text: '❌ **Error Loading Projects**\n\nFailed to load projects. Please try again.',
+          parseMode: 'Markdown'
+        },
+        error: {
+          code: 'PROJECT_LOAD_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }
+      };
+    }
   }
 
   private async handleSelectCommand(command: ParsedCommand): Promise<CommandResult> {
@@ -267,43 +279,37 @@ export class CommandHandler implements ICommandHandler {
       };
     }
 
-    // TODO: Integrate with actual project service
-    // For now, simulate project selection
-    const mockProject = this.getMockProject(projectIdentifier);
-    
-    if (!mockProject) {
+    try {
+      // Use contextual commands to select project
+      const { contextualCommands } = await import('../contextual-commands');
+      const result = await contextualCommands.selectProject(command.context.userId, command.context.chatId, projectIdentifier);
+      
+      return {
+        success: true,
+        response: {
+          text: result,
+          parseMode: 'Markdown'
+        },
+        contextUpdate: {
+          projectId: projectIdentifier, // This will be updated by contextualCommands
+          selectedAt: new Date()
+        }
+      };
+    } catch (error) {
+      console.error('[command-handler] Error in select command:', error);
+      
       return {
         success: false,
         response: {
-          text: `❌ **Project Not Found**\n\nCouldn't find project: \`${projectIdentifier}\`\n\nUse \`/projects\` to see available projects.`,
+          text: `❌ **Failed to Select Project**\n\nCouldn't select project: \`${projectIdentifier}\`\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
           parseMode: 'Markdown'
         },
         error: {
-          code: 'PROJECT_NOT_FOUND',
-          message: `Project not found: ${projectIdentifier}`
+          code: 'PROJECT_SELECT_ERROR',
+          message: error instanceof Error ? error.message : 'Unknown error'
         }
       };
     }
-
-    // Create project context
-    const projectContext: ProjectContext = {
-      projectId: mockProject.id,
-      projectName: mockProject.name,
-      projectSlug: mockProject.name.toLowerCase().replace(/\s+/g, '-'),
-      selectedAt: new Date(),
-      boards: [],
-      recentCards: [],
-      permissions: mockProject.permissions
-    };
-
-    return {
-      success: true,
-      response: {
-        text: `🎯 **Project Selected: ${mockProject.name}**\n\n${mockProject.description}\n\n**Quick Actions:**\n• \`/tasks\` - View tasks\n• \`/boards\` - View boards\n• \`/analytics\` - View analytics\n• \`/context\` - Manage project context`,
-        parseMode: 'Markdown'
-      },
-      contextUpdate: projectContext
-    };
   }
 
   private async handleContextCommand(command: ParsedCommand): Promise<CommandResult> {
