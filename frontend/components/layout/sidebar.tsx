@@ -12,11 +12,13 @@ import {
   Settings,
   GitPullRequest,
   Kanban,
+  MessageSquare,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/agents', label: 'Agent Runs', icon: Bot },
+  { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/projects', label: 'Projects', icon: Kanban },
   { href: '/costs', label: 'Cost Analytics', icon: DollarSign },
   { href: '/code', label: 'Code', icon: GitPullRequest },

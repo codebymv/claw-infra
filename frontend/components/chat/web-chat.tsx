@@ -79,9 +79,14 @@ export function WebChat({ className }: WebChatProps) {
       setSession({
         userId: data.userId,
         sessionId: data.sessionId,
-        messageCount: data.messageCount,
+        messageCount: data.messageCount ?? 0,
         activeProject: data.activeProject,
-        preferences: data.preferences,
+        preferences: data.preferences ?? {
+          autoComplete: true,
+          showTimestamps: true,
+          markdownEnabled: true,
+          crossPlatformSync: true,
+        },
       });
     };
 
@@ -173,6 +178,7 @@ export function WebChat({ className }: WebChatProps) {
       setMessages(prev => [...prev, reconnectMessage]);
     };
 
+    socket.on('connection:established', handleConnected);
     socket.on('connected', handleConnected);
     socket.on('message_history', handleMessageHistory);
     socket.on('chat_event', handleChatEvent);
@@ -182,6 +188,7 @@ export function WebChat({ className }: WebChatProps) {
     socket.on('reconnect', handleReconnect);
 
     return () => {
+      socket.off('connection:established', handleConnected);
       socket.off('connected', handleConnected);
       socket.off('message_history', handleMessageHistory);
       socket.off('chat_event', handleChatEvent);

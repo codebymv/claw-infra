@@ -4,8 +4,9 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  MessageBody,
+  OnGatewayInit,
   ConnectedSocket,
+  MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
@@ -14,6 +15,8 @@ import { ConfigService } from '@nestjs/config';
 import { ChatSessionService } from './chat-session.service';
 import { WebCommandHandlerService, WebCommandContext, WebCommandResult } from './web-command-handler.service';
 import { MessageSource, MessageType } from '../database/entities';
+import { PresenceService } from './presence.service';
+import { ErrorHandlerService, ChatErrorCode } from './error-handler.service';
 
 export interface ChatMessagePayload {
   content: string;
@@ -42,117 +45,222 @@ export interface ChatTypingPayload {
   isTyping: boolean;
 }
 
+interface ChatClientConnection {
+  userId: string;
+  sessionId: string;
+  lastSeen: Date;
+  lastActivity: Date;
+  isTyping: boolean;
+}
+
 @WebSocketGateway({
-  namespace: '/chat',
   cors: { credentials: true },
+  namespace: '/chat',
 })
 export class ChatWebSocketGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(ChatWebSocketGateway.name);
-
-  // Track client connections and typing status
-  private readonly clientConnections = new Map<string, {
-    userId: string;
-    sessionId?: string;
-    lastActivity: Date;
-    isTyping: boolean;
-  }>();
+  private readonly connectedClients = new Map<string, ChatClientConnection>();
+  private readonly reconnectionTimeoutMs = 30000; // 30 seconds
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly chatSessionService: ChatSessionService,
     private readonly webCommandHandler: WebCommandHandlerService,
+    private readonly presenceService: PresenceService,
+    private readonly errorHandler: ErrorHandlerService,
   ) {}
 
-  async handleConnection(client: Socket) {
-    const token = client.handshake?.auth?.token as string | undefined;
-
-    if (!token) {
-      this.logger.warn(`Chat WS auth rejected: no token (${client.id})`);
-      client.emit('error', { message: 'Authentication required' });
-      client.disconnect(true);
+  afterInit(server: Server) {
+    if (!server.engine) {
+      this.logger.warn(
+        'server.engine not available in afterInit — chat CORS header hook skipped',
+      );
       return;
     }
 
+    server.engine.on(
+      'headers',
+      (_headers: unknown, req: { headers: { origin?: string } }) => {
+        const origin = req.headers.origin;
+        if (!origin || !this.isAllowedOrigin(origin)) {
+          return;
+        }
+
+        (_headers as Record<string, string>)['Access-Control-Allow-Origin'] =
+          origin;
+        (_headers as Record<string, string>)[
+          'Access-Control-Allow-Credentials'
+        ] = 'true';
+      },
+    );
+
+    this.logger.log(
+      `Chat websocket gateway initialized (allowed origins: ${
+        Array.from(this.getAllowedOrigins()).join(', ') || 'none configured'
+      })`,
+    );
+  }
+
+  private getAllowedOrigins(): Set<string> {
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || '').trim();
+    const additionalOrigins = (this.config.get<string>('CORS_ORIGINS') || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
+    return new Set([frontendUrl, ...additionalOrigins].filter(Boolean));
+  }
+
+  private isAllowedOrigin(origin: string): boolean {
+    if (this.getAllowedOrigins().has(origin)) {
+      return true;
+    }
+
+    const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    return !isProd && /^https?:\/\/localhost(:\d+)?$/.test(origin);
+  }
+
+  async handleConnection(client: Socket) {
     try {
-      const secret = this.config.get<string>('JWT_SECRET');
-      const payload = this.jwtService.verify(token, { secret });
+      const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
+      
+      if (!token) {
+        const error = this.errorHandler.createError(
+          ChatErrorCode.AUTH_FAILED,
+          'No authentication token provided',
+          null,
+          false,
+        );
+        client.emit('error', error);
+        client.disconnect();
+        return;
+      }
 
-      // Get or create chat session
-      const session = await this.chatSessionService.getOrCreateSession(payload.sub);
+      const payload = await this.jwtService.verifyAsync(token);
+      const userId = payload.sub || payload.id;
 
-      // Store client info
-      this.clientConnections.set(client.id, {
-        userId: payload.sub,
+      // Check error threshold
+      if (this.errorHandler.hasExceededErrorThreshold(userId)) {
+        const error = this.errorHandler.createError(
+          ChatErrorCode.RATE_LIMIT_EXCEEDED,
+          'Too many errors. Please try again later.',
+          null,
+          true,
+          60000,
+        );
+        client.emit('error', error);
+        client.disconnect();
+        return;
+      }
+
+      // Store userId on socket for error handling
+      (client as any).userId = userId;
+
+      // Check for existing session recovery
+      const existingConnection = Array.from(this.connectedClients.entries())
+        .find(([_, data]) => data.userId === userId);
+
+      if (existingConnection) {
+        const [oldClientId, oldData] = existingConnection;
+        const timeSinceLastSeen = Date.now() - oldData.lastSeen.getTime();
+
+        if (timeSinceLastSeen < this.reconnectionTimeoutMs) {
+          this.logger.log(`User ${userId} reconnecting (was disconnected ${timeSinceLastSeen}ms ago)`);
+          
+          // Emit reconnection event with session recovery data
+          client.emit('session:recovered', {
+            sessionId: oldData.sessionId,
+            reconnected: true,
+            downtime: timeSinceLastSeen,
+          });
+        }
+
+        // Remove old connection
+        this.connectedClients.delete(oldClientId);
+      }
+
+      const session = await this.chatSessionService.getOrCreateSession(userId);
+      
+      this.connectedClients.set(client.id, {
+        userId,
         sessionId: session.id,
+        lastSeen: new Date(),
         lastActivity: new Date(),
         isTyping: false,
       });
 
-      // Join user-specific room for cross-platform sync
-      client.join(`user:${payload.sub}`);
+      client.join(`user:${userId}`);
+      client.join(`session:${session.id}`);
 
-      this.logger.log(
-        `Chat WS client authenticated: ${client.id} (user: ${payload.sub})`,
-      );
+      this.logger.log(`Client ${client.id} connected (user: ${userId}, session: ${session.id})`);
 
-      // Send connection confirmation with session info
-      client.emit('connected', {
-        status: 'authenticated',
-        userId: payload.sub,
+      // Send connection confirmation with session data
+      client.emit('connection:established', {
         sessionId: session.id,
+        userId,
         messageCount: session.messageCount,
         activeProject: session.activeProjectId,
         preferences: session.preferences,
         timestamp: new Date().toISOString(),
       });
 
-      // Send recent message history
-      const recentMessages = await this.chatSessionService.getMessageHistory(payload.sub, 20);
-      client.emit('message_history', {
-        messages: recentMessages.reverse().map(msg => ({
-          id: msg.id,
-          content: msg.content,
-          source: msg.source,
-          type: msg.type,
-          timestamp: msg.timestamp.toISOString(),
-          metadata: msg.metadata,
-        })),
+      // Broadcast user online status
+      this.server.to(`user:${userId}`).emit('user:online', { userId });
+
+      // Update presence
+      this.presenceService.updatePresence(userId);
+
+      // Broadcast presence update
+      this.server.emit('presence:update', {
+        userId,
+        status: 'online',
+        timestamp: new Date(),
       });
 
     } catch (error) {
-      this.logger.warn(
-        `Chat WS auth rejected: invalid token (${client.id})`,
-      );
-      client.emit('error', { message: 'Invalid or expired token' });
-      client.disconnect(true);
+      this.errorHandler.handleWebSocketError(client, error, 'handleConnection');
+      client.disconnect();
     }
   }
 
   async handleDisconnect(client: Socket) {
-    const connection = this.clientConnections.get(client.id);
+    const clientData = this.connectedClients.get(client.id);
+    
+    if (clientData) {
+      // Update last seen timestamp for reconnection window
+      clientData.lastSeen = new Date();
+      
+      this.logger.log(`Client ${client.id} disconnected (user: ${clientData.userId})`);
 
-    if (connection) {
-      // Update session activity
-      await this.chatSessionService.updateSessionActivity(connection.userId);
+      // Don't immediately remove - allow reconnection window
+      setTimeout(() => {
+        const stillExists = this.connectedClients.get(client.id);
+        if (stillExists && stillExists.lastSeen === clientData.lastSeen) {
+          this.connectedClients.delete(client.id);
+          this.logger.log(`Client ${client.id} reconnection window expired`);
+          
+          // Broadcast user offline status
+          this.server.to(`user:${clientData.userId}`).emit('user:offline', { 
+            userId: clientData.userId 
+          });
 
-      // Broadcast typing stopped if user was typing
-      if (connection.isTyping) {
-        await this.broadcastTypingStatus(connection.userId, false);
-      }
+          // Update presence to offline after timeout
+          this.presenceService.setOffline(clientData.userId);
 
-      this.logger.log(
-        `Chat WS client disconnected: ${client.id} (user: ${connection.userId})`,
-      );
+          this.server.emit('presence:update', {
+            userId: clientData.userId,
+            status: 'offline',
+            timestamp: new Date(),
+          });
+        }
+      }, this.reconnectionTimeoutMs);
     }
-
-    // Clean up tracking
-    this.clientConnections.delete(client.id);
   }
 
   @SubscribeMessage('send_message')
@@ -160,13 +268,15 @@ export class ChatWebSocketGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: ChatMessagePayload,
   ) {
-    const connection = this.clientConnections.get(client.id);
+    const connection = this.connectedClients.get(client.id);
     if (!connection) {
       return { status: 'error', message: 'Not authenticated' };
     }
 
     try {
       const { content, type, projectId, metadata } = payload;
+      connection.lastActivity = new Date();
+      this.connectedClients.set(client.id, connection);
 
       // Create command context
       const context: WebCommandContext = {
@@ -239,47 +349,55 @@ export class ChatWebSocketGateway
     }
   }
 
-  @SubscribeMessage('typing_start')
-  async handleTypingStart(
-    @ConnectedSocket() client: Socket,
-  ) {
-    const connection = this.clientConnections.get(client.id);
-    if (!connection) {
-      return { status: 'error', message: 'Not authenticated' };
-    }
+  /**
+   * Handle typing start
+   */
+  @SubscribeMessage('typing:start')
+  handleTypingStart(@ConnectedSocket() client: Socket) {
+    const clientData = this.connectedClients.get(client.id);
+    if (!clientData) return;
 
-    connection.isTyping = true;
-    connection.lastActivity = new Date();
-    this.clientConnections.set(client.id, connection);
+    clientData.isTyping = true;
+    clientData.lastActivity = new Date();
+    this.connectedClients.set(client.id, clientData);
+    this.presenceService.startTyping(clientData.userId, clientData.sessionId);
 
-    await this.broadcastTypingStatus(connection.userId, true);
+    // Broadcast to session
+    client.to(`session:${clientData.sessionId}`).emit('typing:start', {
+      userId: clientData.userId,
+      sessionId: clientData.sessionId,
+    });
 
-    return { status: 'ok' };
+    return { success: true };
   }
 
-  @SubscribeMessage('typing_stop')
-  async handleTypingStop(
-    @ConnectedSocket() client: Socket,
-  ) {
-    const connection = this.clientConnections.get(client.id);
-    if (!connection) {
-      return { status: 'error', message: 'Not authenticated' };
-    }
+  /**
+   * Handle typing stop
+   */
+  @SubscribeMessage('typing:stop')
+  handleTypingStop(@ConnectedSocket() client: Socket) {
+    const clientData = this.connectedClients.get(client.id);
+    if (!clientData) return;
 
-    connection.isTyping = false;
-    connection.lastActivity = new Date();
-    this.clientConnections.set(client.id, connection);
+    clientData.isTyping = false;
+    clientData.lastActivity = new Date();
+    this.connectedClients.set(client.id, clientData);
+    this.presenceService.stopTyping(clientData.userId);
 
-    await this.broadcastTypingStatus(connection.userId, false);
+    // Broadcast to session
+    client.to(`session:${clientData.sessionId}`).emit('typing:stop', {
+      userId: clientData.userId,
+      sessionId: clientData.sessionId,
+    });
 
-    return { status: 'ok' };
+    return { success: true };
   }
 
   @SubscribeMessage('get_session_status')
   async handleGetSessionStatus(
     @ConnectedSocket() client: Socket,
   ) {
-    const connection = this.clientConnections.get(client.id);
+    const connection = this.connectedClients.get(client.id);
     if (!connection) {
       return { status: 'error', message: 'Not authenticated' };
     }
@@ -306,7 +424,7 @@ export class ChatWebSocketGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { preferences: Record<string, any> },
   ) {
-    const connection = this.clientConnections.get(client.id);
+    const connection = this.connectedClients.get(client.id);
     if (!connection) {
       return { status: 'error', message: 'Not authenticated' };
     }
@@ -325,7 +443,7 @@ export class ChatWebSocketGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: { projectId: string | null },
   ) {
-    const connection = this.clientConnections.get(client.id);
+    const connection = this.connectedClients.get(client.id);
     if (!connection) {
       return { status: 'error', message: 'Not authenticated' };
     }
@@ -335,7 +453,7 @@ export class ChatWebSocketGateway
       
       // Update connection info
       connection.lastActivity = new Date();
-      this.clientConnections.set(client.id, connection);
+      this.connectedClients.set(client.id, connection);
 
       // Broadcast context update to all user's clients
       await this.broadcastToUser(connection.userId, {
@@ -466,7 +584,7 @@ export class ChatWebSocketGateway
     typingUsers: string[];
     averageSessionDuration: number;
   } {
-    const connections = Array.from(this.clientConnections.values());
+    const connections = Array.from(this.connectedClients.values());
     const activeUsers = Array.from(new Set(connections.map(c => c.userId)));
     const typingUsers = connections.filter(c => c.isTyping).map(c => c.userId);
     
@@ -477,7 +595,7 @@ export class ChatWebSocketGateway
       : 0;
 
     return {
-      totalConnections: this.clientConnections.size,
+      totalConnections: this.connectedClients.size,
       activeUsers,
       typingUsers,
       averageSessionDuration,
@@ -491,7 +609,7 @@ export class ChatWebSocketGateway
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     let cleaned = 0;
 
-    for (const [clientId, connection] of this.clientConnections.entries()) {
+    for (const [clientId, connection] of this.connectedClients.entries()) {
       if (connection.lastActivity < fiveMinutesAgo) {
         // Find the socket and disconnect it
         const socket = this.server.sockets.sockets.get(clientId);
@@ -511,7 +629,7 @@ export class ChatWebSocketGateway
    * Get user's active connections
    */
   getUserConnections(userId: string): string[] {
-    return Array.from(this.clientConnections.entries())
+    return Array.from(this.connectedClients.entries())
       .filter(([_, connection]) => connection.userId === userId)
       .map(([clientId, _]) => clientId);
   }
@@ -520,7 +638,7 @@ export class ChatWebSocketGateway
    * Check if user is online
    */
   isUserOnline(userId: string): boolean {
-    return Array.from(this.clientConnections.values())
+    return Array.from(this.connectedClients.values())
       .some(connection => connection.userId === userId);
   }
 
@@ -528,7 +646,146 @@ export class ChatWebSocketGateway
    * Check if user is typing
    */
   isUserTyping(userId: string): boolean {
-    return Array.from(this.clientConnections.values())
+    return Array.from(this.connectedClients.values())
       .some(connection => connection.userId === userId && connection.isTyping);
+  }
+
+  /**
+   * Handle explicit session recovery request
+   */
+  @SubscribeMessage('session:recover')
+  async handleSessionRecover(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string; lastMessageId?: string },
+  ) {
+    try {
+      const clientData = this.connectedClients.get(client.id);
+      if (!clientData) {
+        throw new Error('Client not authenticated');
+      }
+
+      const session = await this.chatSessionService.getSessionById(data.sessionId);
+      
+      if (!session || session.userId !== clientData.userId) {
+        const error = this.errorHandler.createError(
+          ChatErrorCode.SESSION_NOT_FOUND,
+          'Session not found or unauthorized',
+          null,
+          false,
+        );
+        client.emit('error', error);
+        return { success: false, error };
+      }
+
+      const missedMessages = await this.chatSessionService.getMessagesSince(
+        data.sessionId,
+        data.lastMessageId,
+      );
+
+      client.emit('session:recovered', {
+        sessionId: session.id,
+        missedMessages,
+        recoveredAt: new Date(),
+      });
+
+      return { success: true, missedMessageCount: missedMessages.length };
+
+    } catch (error) {
+      this.errorHandler.handleWebSocketError(client, error, 'handleSessionRecover');
+      
+      const chatError = this.errorHandler.createError(
+        ChatErrorCode.SESSION_RECOVERY_FAILED,
+        'Failed to recover session',
+        { error: error.message },
+        true,
+        5000,
+      );
+      
+      return { success: false, error: chatError };
+    }
+  }
+
+  /**
+   * Heartbeat to maintain connection
+   */
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket) {
+    const clientData = this.connectedClients.get(client.id);
+    if (clientData) {
+      clientData.lastSeen = new Date();
+      clientData.lastActivity = new Date();
+      this.connectedClients.set(client.id, clientData);
+    }
+    return { pong: true, timestamp: new Date() };
+  }
+
+  /**
+   * Get connection status
+   */
+  @SubscribeMessage('connection:status')
+  handleConnectionStatus(@ConnectedSocket() client: Socket) {
+    const clientData = this.connectedClients.get(client.id);
+    
+    return {
+      connected: !!clientData,
+      userId: clientData?.userId,
+      sessionId: clientData?.sessionId,
+      lastSeen: clientData?.lastSeen,
+    };
+  }
+
+  /**
+   * Get presence for specific users
+   */
+  @SubscribeMessage('presence:get')
+  handleGetPresence(@MessageBody() data: { userIds: string[] }) {
+    const presenceMap = this.presenceService.getMultiplePresence(data.userIds);
+    
+    return {
+      presence: Array.from(presenceMap.values()),
+    };
+  }
+
+  /**
+   * Get typing users in session
+   */
+  @SubscribeMessage('typing:get')
+  handleGetTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string },
+  ) {
+    const typingUsers = this.presenceService.getTypingUsers(data.sessionId);
+    
+    return { typingUsers };
+  }
+
+  /**
+   * Update user activity
+   */
+  @SubscribeMessage('presence:activity')
+  handleActivityUpdate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { activity?: string },
+  ) {
+    const clientData = this.connectedClients.get(client.id);
+    if (!clientData) return;
+
+    clientData.lastSeen = new Date();
+    clientData.lastActivity = new Date();
+    this.connectedClients.set(client.id, clientData);
+
+    const status = this.presenceService.updatePresence(
+      clientData.userId,
+      data.activity,
+    );
+
+    this.server.emit('presence:update', {
+      userId: clientData.userId,
+      status: status.status,
+      activity: status.currentActivity,
+      timestamp: new Date(),
+    });
+
+    return { success: true };
   }
 }

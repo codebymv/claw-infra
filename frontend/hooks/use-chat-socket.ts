@@ -3,6 +3,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+const WS_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3000';
+
 export interface ChatSocketMessage {
   content: string;
   type: 'message' | 'command';
@@ -32,8 +37,12 @@ export function useChatSocket(): UseChatSocketReturn {
 
   // Get auth token from localStorage or wherever it's stored
   const getAuthToken = useCallback(() => {
-    // This should match your authentication implementation
-    return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    return (
+      localStorage.getItem('access_token') ||
+      sessionStorage.getItem('access_token') ||
+      localStorage.getItem('auth_token') ||
+      sessionStorage.getItem('auth_token')
+    );
   }, []);
 
   // Initialize socket connection
@@ -49,7 +58,7 @@ export function useChatSocket(): UseChatSocketReturn {
     setConnectionStatus('connecting');
 
     // Create socket connection
-    const newSocket = io('/chat', {
+    const newSocket = io(`${WS_URL.replace(/\/$/, '')}/chat`, {
       auth: {
         token,
       },
@@ -88,7 +97,10 @@ export function useChatSocket(): UseChatSocketReturn {
       console.error('Chat socket error:', error);
     });
 
-    setSocket(newSocket);
+    setSocket((currentSocket) => {
+      currentSocket?.disconnect();
+      return newSocket;
+    });
 
     return newSocket;
   }, [getAuthToken]);
@@ -132,14 +144,14 @@ export function useChatSocket(): UseChatSocketReturn {
   // Start typing indicator
   const startTyping = useCallback(() => {
     if (socket && isConnected) {
-      socket.emit('typing_start');
+      socket.emit('typing:start');
     }
   }, [socket, isConnected]);
 
   // Stop typing indicator
   const stopTyping = useCallback(() => {
     if (socket && isConnected) {
-      socket.emit('typing_stop');
+      socket.emit('typing:stop');
     }
   }, [socket, isConnected]);
 
@@ -174,7 +186,11 @@ export function useChatSocket(): UseChatSocketReturn {
   // Handle auth token changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'auth_token' || e.key === null) {
+      if (
+        e.key === 'access_token' ||
+        e.key === 'auth_token' ||
+        e.key === null
+      ) {
         const token = getAuthToken();
         if (token && !socket) {
           initializeSocket();
