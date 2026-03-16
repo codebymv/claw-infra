@@ -2,11 +2,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddProjectManagementSchema1710175000000 implements MigrationInterface {
   name = 'AddProjectManagementSchema1710175000000';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+
     // Create projects table
     await queryRunner.query(`
-      CREATE TABLE "projects" (
+      CREATE TABLE IF NOT EXISTS "projects" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "name" varchar(100) NOT NULL,
         "description" text,
@@ -25,7 +28,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create project_members table
     await queryRunner.query(`
-      CREATE TABLE "project_members" (
+      CREATE TABLE IF NOT EXISTS "project_members" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "project_id" uuid NOT NULL,
         "user_id" uuid NOT NULL,
@@ -40,7 +43,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create kanban_boards table
     await queryRunner.query(`
-      CREATE TABLE "kanban_boards" (
+      CREATE TABLE IF NOT EXISTS "kanban_boards" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "project_id" uuid NOT NULL,
         "name" varchar(100) NOT NULL,
@@ -55,7 +58,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create columns table
     await queryRunner.query(`
-      CREATE TABLE "columns" (
+      CREATE TABLE IF NOT EXISTS "columns" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "board_id" uuid NOT NULL,
         "name" varchar(100) NOT NULL,
@@ -73,7 +76,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create cards table
     await queryRunner.query(`
-      CREATE TABLE "cards" (
+      CREATE TABLE IF NOT EXISTS "cards" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "board_id" uuid NOT NULL,
         "column_id" uuid NOT NULL,
@@ -102,7 +105,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create comments table
     await queryRunner.query(`
-      CREATE TABLE "comments" (
+      CREATE TABLE IF NOT EXISTS "comments" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "card_id" uuid NOT NULL,
         "author_id" uuid NOT NULL,
@@ -122,7 +125,7 @@ export class AddProjectManagementSchema1710175000000 implements MigrationInterfa
 
     // Create card_history table
     await queryRunner.query(`
-      CREATE TABLE "card_history" (
+      CREATE TABLE IF NOT EXISTS "card_history" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "card_id" uuid NOT NULL,
         "user_id" uuid NOT NULL,

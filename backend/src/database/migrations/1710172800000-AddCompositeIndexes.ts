@@ -2,6 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddCompositeIndexes1710172800000 implements MigrationInterface {
   name = 'AddCompositeIndexes1710172800000';
+  transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create composite indexes using CONCURRENTLY to avoid write locks

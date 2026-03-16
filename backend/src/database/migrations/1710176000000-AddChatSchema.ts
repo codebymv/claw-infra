@@ -5,9 +5,11 @@ export class AddChatSchema1710176000000 implements MigrationInterface {
   transaction = false;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+
     // Create chat_sessions table
     await queryRunner.query(`
-      CREATE TABLE "chat_sessions" (
+      CREATE TABLE IF NOT EXISTS "chat_sessions" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "user_id" uuid NOT NULL,
         "created_at" timestamptz NOT NULL DEFAULT NOW(),
@@ -24,7 +26,7 @@ export class AddChatSchema1710176000000 implements MigrationInterface {
 
     // Create chat_messages table
     await queryRunner.query(`
-      CREATE TABLE "chat_messages" (
+      CREATE TABLE IF NOT EXISTS "chat_messages" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "session_id" uuid NOT NULL,
         "user_id" uuid NOT NULL,

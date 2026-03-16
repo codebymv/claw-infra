@@ -4,7 +4,7 @@ export class AddModelPricing1710174000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create model_pricing table
     await queryRunner.query(`
-      CREATE TABLE model_pricing (
+      CREATE TABLE IF NOT EXISTS model_pricing (
         provider VARCHAR(100) NOT NULL,
         model VARCHAR(200) NOT NULL,
         effective_date TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -21,7 +21,7 @@ export class AddModelPricing1710174000000 implements MigrationInterface {
 
     // Create index for active pricing lookups
     await queryRunner.query(`
-      CREATE INDEX idx_model_pricing_active 
+      CREATE INDEX IF NOT EXISTS idx_model_pricing_active 
       ON model_pricing (provider, model, effective_date DESC) 
       WHERE is_active = true;
     `);
