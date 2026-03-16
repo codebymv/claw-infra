@@ -387,15 +387,15 @@ export class ChatSessionService {
       });
 
       for (const session of sessions) {
-        await this.chatSessionRepository.update(session.id, {
-          metadata: {
-            ...(session.metadata || {}),
-            sessionStatus: 'timed_out',
-            timedOutAt:
-              (session.metadata as Record<string, any> | undefined)?.timedOutAt ||
-              new Date().toISOString(),
-          },
-        });
+        session.metadata = {
+          ...(session.metadata || {}),
+          sessionStatus: 'timed_out',
+          timedOutAt:
+            (session.metadata as Record<string, any> | undefined)?.timedOutAt ||
+            new Date().toISOString(),
+        };
+
+        await this.chatSessionRepository.save(session);
       }
 
       if (sessions.length > 0) {
@@ -467,14 +467,14 @@ export class ChatSessionService {
       throw new NotFoundException('Chat session not found');
     }
 
-    await this.chatSessionRepository.update(sessionId, {
-      lastActivity: new Date(),
-      metadata: {
-        ...(session.metadata || {}),
-        sessionStatus: 'expired',
-        expiredAt: new Date().toISOString(),
-      },
-    });
+    session.lastActivity = new Date();
+    session.metadata = {
+      ...(session.metadata || {}),
+      sessionStatus: 'expired',
+      expiredAt: new Date().toISOString(),
+    };
+
+    await this.chatSessionRepository.save(session);
     this.logger.log(`Manually expired session ${sessionId}`);
   }
 
@@ -514,14 +514,14 @@ export class ChatSessionService {
       throw new NotFoundException('Chat session not found');
     }
 
-    await this.chatSessionRepository.update(sessionId, {
-      lastActivity: new Date(),
-      metadata: {
-        ...(session.metadata || {}),
-        sessionStatus: 'active',
-        recoveredAt: new Date().toISOString(),
-      },
-    });
+    session.lastActivity = new Date();
+    session.metadata = {
+      ...(session.metadata || {}),
+      sessionStatus: 'active',
+      recoveredAt: new Date().toISOString(),
+    };
+
+    await this.chatSessionRepository.save(session);
     this.logger.log(`Session ${sessionId} recovered`);
   }
 

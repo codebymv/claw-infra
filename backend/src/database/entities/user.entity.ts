@@ -7,6 +7,16 @@ import {
   OneToMany,
 } from 'typeorm';
 import { ChatSession } from './chat-session.entity';
+import { Project } from './project.entity';
+import { ProjectMember } from './project-member.entity';
+import { Card } from './card.entity';
+import { Comment } from './comment.entity';
+import { CardHistory } from './card-history.entity';
+
+export enum UserRole {
+  ADMIN = 'admin',
+  VIEWER = 'viewer',
+}
 
 @Entity('users')
 export class User {
@@ -16,23 +26,60 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password: string;
+  @Column({ name: 'password_hash' })
+  passwordHash: string;
 
-  @Column({ default: 'user' })
-  role: string;
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.VIEWER })
+  role: UserRole;
 
-  @Column({ nullable: true })
-  name: string;
+  @Column({ name: 'display_name', nullable: true })
+  displayName: string | null;
+
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
+
+  @OneToMany(() => Project, (project) => project.owner)
+  ownedProjects: Project[];
+
+  @OneToMany(() => ProjectMember, (membership) => membership.user)
+  projectMemberships: ProjectMember[];
+
+  @OneToMany(() => Card, (card) => card.assignee)
+  assignedCards: Card[];
+
+  @OneToMany(() => Card, (card) => card.reporter)
+  reportedCards: Card[];
+
+  @OneToMany(() => Comment, (comment) => comment.author)
+  comments: Comment[];
+
+  @OneToMany(() => CardHistory, (history) => history.user)
+  cardHistory: CardHistory[];
 
   @OneToMany(() => ChatSession, (session) => session.user)
   chatSessions: ChatSession[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  get password(): string {
+    return this.passwordHash;
+  }
+
+  set password(value: string) {
+    this.passwordHash = value;
+  }
+
+  get name(): string | null {
+    return this.displayName;
+  }
+
+  set name(value: string | null) {
+    this.displayName = value;
+  }
 }
 
 
