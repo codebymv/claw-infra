@@ -22,7 +22,10 @@ export class ProjectApiClient {
     body?: any,
     headers: Record<string, string> = {}
   ): Promise<T> {
-    const url = `${this.config.baseUrl}${endpoint}`;
+    // Normalize URL construction to avoid double slashes
+    const baseUrl = this.config.baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${baseUrl}${normalizedEndpoint}`;
     
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -38,6 +41,8 @@ export class ProjectApiClient {
     requestHeaders['X-Agent-ID'] = this.config.agentId;
     requestHeaders['X-Agent-Name'] = this.config.agentName;
 
+    console.log(`[project-client] Making request: ${method} ${url}`);
+
     try {
       const response = await fetch(url, {
         method,
@@ -49,10 +54,12 @@ export class ProjectApiClient {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[project-client] HTTP ${response.status} error for ${method} ${url}: ${errorText}`);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
+      console.log(`[project-client] Request successful: ${method} ${url}`);
       return data as T;
     } catch (error) {
       console.error(`[project-client] Request failed: ${method} ${url}`, error);
