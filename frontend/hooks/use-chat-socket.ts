@@ -35,6 +35,13 @@ export function useChatSocket(): UseChatSocketReturn {
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = undefined;
+    }
+  }, []);
+
   // Get auth token from localStorage or wherever it's stored
   const getAuthToken = useCallback(() => {
     return (
@@ -48,6 +55,8 @@ export function useChatSocket(): UseChatSocketReturn {
   // Initialize socket connection
   const initializeSocket = useCallback(() => {
     const token = getAuthToken();
+
+    clearReconnectTimeout();
     
     if (!token) {
       console.warn('No auth token found, cannot connect to chat socket');
@@ -62,7 +71,7 @@ export function useChatSocket(): UseChatSocketReturn {
       auth: {
         token,
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       timeout: 10000,
       reconnection: false, // We'll handle reconnection manually
     });
@@ -103,7 +112,7 @@ export function useChatSocket(): UseChatSocketReturn {
     });
 
     return newSocket;
-  }, [getAuthToken]);
+  }, [clearReconnectTimeout, getAuthToken]);
 
   // Attempt reconnection with exponential backoff
   const attemptReconnection = useCallback(() => {
@@ -119,10 +128,12 @@ export function useChatSocket(): UseChatSocketReturn {
     
     setConnectionStatus('connecting');
 
+    clearReconnectTimeout();
+
     reconnectTimeoutRef.current = setTimeout(() => {
       initializeSocket();
     }, delay);
-  }, [initializeSocket]);
+  }, [clearReconnectTimeout, initializeSocket]);
 
   // Send message
   const sendMessage = useCallback(async (message: ChatSocketMessage): Promise<void> => {
@@ -157,19 +168,17 @@ export function useChatSocket(): UseChatSocketReturn {
 
   // Disconnect socket
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-    
-    if (socket) {
-      socket.disconnect();
-      setSocket(null);
-    }
+    clearReconnectTimeout();
+
+    setSocket((currentSocket) => {
+      currentSocket?.disconnect();
+      return null;
+    });
     
     setIsConnected(false);
     setConnectionStatus('disconnected');
     reconnectAttemptsRef.current = 0;
-  }, [socket]);
+  }, [clearReconnectTimeout]);
 
   // Initialize socket on mount
   useEffect(() => {
@@ -222,11 +231,9 @@ export function useChatSocket(): UseChatSocketReturn {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      clearReconnectTimeout();
     };
-  }, []);
+  }, [clearReconnectTimeout]);
 
   return {
     socket,
