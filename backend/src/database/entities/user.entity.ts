@@ -4,38 +4,36 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
+  OneToMany,
 } from 'typeorm';
-
-export enum UserRole {
-  ADMIN = 'admin',
-  VIEWER = 'viewer',
-}
+import { ChatSession } from './chat-session.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar' })
+  @Column({ unique: true })
   email: string;
 
-  @Column({ name: 'password_hash', type: 'varchar' })
-  passwordHash: string;
+  @Column()
+  password: string;
 
-  @Column({ name: 'display_name', type: 'varchar', nullable: true })
-  displayName: string | null;
+  @Column({ default: 'user' })
+  role: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.VIEWER })
-  role: UserRole;
+  @Column({ nullable: true })
+  name: string;
 
-  @Column({ name: 'is_active', default: true })
-  isActive: boolean;
+  @OneToMany(() => ChatSession, (session) => session.user)
+  chatSessions: ChatSession[];
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn()
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn()
   updatedAt: Date;
 }
+
+
+

@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, In } from 'typeorm';
+import { Repository, MoreThan, IsNull, LessThan } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { ChatSession, ChatMessage, MessageSource, MessageType } from '../database/entities';
 
 export interface CreateChatSessionDto {
@@ -24,6 +25,11 @@ export interface AddMessageDto {
 
 @Injectable()
 export class ChatSessionService {
+  private readonly logger = new Logger(ChatSessionService.name);
+  private readonly SESSION_TIMEOUT_HOURS = 24;
+  private readonly INACTIVE_SESSION_DAYS = 30;
+  private readonly MAX_MESSAGES_PER_SESSION = 100;
+
   constructor(
     @InjectRepository(ChatSession)
     private readonly chatSessionRepository: Repository<ChatSession>,
@@ -62,12 +68,16 @@ export class ChatSessionService {
     });
 
     if (!session) {
-      session = await this.createSession({ userId });
+      const createdSession = await this.createSession({ userId });
       // Reload with relations
       session = await this.chatSessionRepository.findOne({
-        where: { id: session.id },
+        where: { id: createdSession.id },
         relations: ['user', 'activeProject'],
       });
+
+      if (!session) {
+        session = createdSession;
+      }
     }
 
     return session;
@@ -81,6 +91,39 @@ export class ChatSessionService {
       where: { userId },
       relations: ['user', 'activeProject'],
     });
+  }
+
+  /**
+   * Get session by ID
+   */
+  async getSessionById(sessionId: string): Promise<ChatSession | null> {
+    const session = await this.chatSessionRepository.findOne({
+      where: { id: sessionId },
+      relations: ['user', 'activeProject'],
+    });
+    
+    return session;
+  }
+
+  /**
+   * Get summary statistics for a user's current chat session
+   */
+  async getSessionStats(userId: string): Promise<{
+    sessionId: string;
+    messageCount: number;
+    lastActivity: Date;
+    activeProject: string | null;
+    createdAt: Date;
+  }> {
+    const session = await this.getOrCreateSession(userId);
+
+    return {
+      sessionId: session.id,
+      messageCount: session.messageCount,
+      lastActivity: session.lastActivity,
+      activeProject: session.activeProjectId,
+      createdAt: session.createdAt,
+    };
   }
 
   /**
@@ -196,8 +239,10 @@ export class ChatSessionService {
     const existingMessage = await this.chatMessageRepository.findOne({
       where: {
         sessionId: session.id,
-        commandId: message.commandId,
         source: message.source,
+        ...(message.commandId === null
+          ? { commandId: IsNull() }
+          : { commandId: message.commandId }),
       },
     });
 
@@ -206,8 +251,8 @@ export class ChatSessionService {
         content: message.content,
         source: message.source,
         type: message.type,
-        commandId: message.commandId,
-        projectId: message.projectId,
+        commandId: message.commandId ?? undefined,
+        projectId: message.projectId ?? undefined,
         metadata: {
           ...message.metadata,
           synced: true,
@@ -305,53 +350,203 @@ export class ChatSessionService {
   }
 
   /**
-   * Clean up old inactive sessions
+   * Cleanup inactive sessions (runs every hour)
    */
-  async cleanupOldSessions(daysInactive: number = 30): Promise<number> {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysInactive);
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupInactiveSessions(): Promise<void> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - this.INACTIVE_SESSION_DAYS);
 
-    const oldSessions = await this.chatSessionRepository.find({
-      where: {
-        lastActivity: MoreThan(cutoffDate),
-      },
-      select: ['id'],
-    });
+      const result = await this.chatSessionRepository
+        .createQueryBuilder()
+        .delete()
+        .from(ChatSession)
+        .where('lastActivity < :cutoffDate', { cutoffDate })
+        .execute();
 
-    if (oldSessions.length > 0) {
-      const sessionIds = oldSessions.map(s => s.id);
-      
-      // Delete messages first (due to foreign key constraints)
-      await this.chatMessageRepository.delete({
-        sessionId: In(sessionIds),
-      });
-      
-      // Then delete sessions
-      await this.chatSessionRepository.delete(sessionIds);
+      if (result.affected && result.affected > 0) {
+        this.logger.log(`Cleaned up ${result.affected} inactive sessions`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to cleanup inactive sessions', error);
     }
-
-    return oldSessions.length;
   }
 
   /**
-   * Get session statistics
+   * Mark sessions as inactive after timeout period
    */
-  async getSessionStats(userId: string): Promise<{
-    messageCount: number;
-    lastActivity: Date;
-    activeProject: string | null;
-    createdAt: Date;
-  }> {
-    const session = await this.getSession(userId);
+  @Cron(CronExpression.EVERY_30_MINUTES)
+  async markTimedOutSessions(): Promise<void> {
+    try {
+      const timeoutDate = new Date();
+      timeoutDate.setHours(timeoutDate.getHours() - this.SESSION_TIMEOUT_HOURS);
+
+      const sessions = await this.chatSessionRepository.find({
+        where: { lastActivity: LessThan(timeoutDate) },
+      });
+
+      for (const session of sessions) {
+        await this.chatSessionRepository.update(session.id, {
+          metadata: {
+            ...(session.metadata || {}),
+            sessionStatus: 'timed_out',
+            timedOutAt:
+              (session.metadata as Record<string, any> | undefined)?.timedOutAt ||
+              new Date().toISOString(),
+          },
+        });
+      }
+
+      if (sessions.length > 0) {
+        this.logger.log(`Marked ${sessions.length} sessions as timed out`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to mark timed out sessions', error);
+    }
+  }
+
+  /**
+   * Cleanup old messages beyond the limit
+   */
+  @Cron(CronExpression.EVERY_6_HOURS)
+  async cleanupOldMessages(): Promise<void> {
+    try {
+      const sessions = await this.chatSessionRepository.find({
+        relations: ['messages'],
+      });
+
+      let totalDeleted = 0;
+
+      for (const session of sessions) {
+        if (session.messages.length > this.MAX_MESSAGES_PER_SESSION) {
+          const messagesToDelete = session.messages
+            .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+            .slice(0, session.messages.length - this.MAX_MESSAGES_PER_SESSION)
+            .map(m => m.id);
+
+          if (messagesToDelete.length > 0) {
+            await this.chatMessageRepository.delete(messagesToDelete);
+            await this.chatSessionRepository.update(session.id, {
+              messageCount: this.MAX_MESSAGES_PER_SESSION,
+            });
+            totalDeleted += messagesToDelete.length;
+          }
+        }
+      }
+
+      if (totalDeleted > 0) {
+        this.logger.log(`Cleaned up ${totalDeleted} old messages`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to cleanup old messages', error);
+    }
+  }
+
+  /**
+   * Get session timeout configuration
+   */
+  getSessionTimeoutConfig(): {
+    timeoutHours: number;
+    inactiveDays: number;
+    maxMessages: number;
+  } {
+    return {
+      timeoutHours: this.SESSION_TIMEOUT_HOURS,
+      inactiveDays: this.INACTIVE_SESSION_DAYS,
+      maxMessages: this.MAX_MESSAGES_PER_SESSION,
+    };
+  }
+
+  /**
+   * Manually expire a session
+   */
+  async expireSession(sessionId: string): Promise<void> {
+    const session = await this.getSessionById(sessionId);
     if (!session) {
       throw new NotFoundException('Chat session not found');
     }
 
-    return {
-      messageCount: session.messageCount,
-      lastActivity: session.lastActivity,
-      activeProject: session.activeProjectId,
-      createdAt: session.createdAt,
-    };
+    await this.chatSessionRepository.update(sessionId, {
+      lastActivity: new Date(),
+      metadata: {
+        ...(session.metadata || {}),
+        sessionStatus: 'expired',
+        expiredAt: new Date().toISOString(),
+      },
+    });
+    this.logger.log(`Manually expired session ${sessionId}`);
+  }
+
+  /**
+   * Get messages since a specific message ID (for recovery)
+   */
+  async getMessagesSince(
+    sessionId: string,
+    lastMessageId?: string,
+  ): Promise<ChatMessage[]> {
+    const queryBuilder = this.chatMessageRepository
+      .createQueryBuilder('message')
+      .where('message.sessionId = :sessionId', { sessionId })
+      .orderBy('message.timestamp', 'ASC');
+
+    if (lastMessageId) {
+      const lastMessage = await this.chatMessageRepository.findOne({
+        where: { id: lastMessageId },
+      });
+
+      if (lastMessage) {
+        queryBuilder.andWhere('message.timestamp > :lastMessageTime', {
+          lastMessageTime: lastMessage.timestamp,
+        });
+      }
+    }
+
+    return await queryBuilder.getMany();
+  }
+
+  /**
+   * Mark session as recovered
+   */
+  async markSessionRecovered(sessionId: string): Promise<void> {
+    const session = await this.getSessionById(sessionId);
+    if (!session) {
+      throw new NotFoundException('Chat session not found');
+    }
+
+    await this.chatSessionRepository.update(sessionId, {
+      lastActivity: new Date(),
+      metadata: {
+        ...(session.metadata || {}),
+        sessionStatus: 'active',
+        recoveredAt: new Date().toISOString(),
+      },
+    });
+    this.logger.log(`Session ${sessionId} recovered`);
+  }
+
+  async retryFailedMessage(messageId: string): Promise<ChatMessage> {
+    const message = await this.chatMessageRepository.findOne({
+      where: { id: messageId },
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    return await this.addMessage(message.userId, {
+      content: message.content,
+      source: message.source,
+      type: message.type,
+      commandId: message.commandId ?? undefined,
+      projectId: message.projectId ?? undefined,
+      metadata: {
+        ...(message.metadata || {}),
+        commandId: message.commandId ?? undefined,
+        projectId: message.projectId ?? undefined,
+        retry: true,
+        originalMessageId: messageId,
+      },
+    });
   }
 }

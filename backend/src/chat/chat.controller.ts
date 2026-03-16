@@ -6,16 +6,20 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
+  Req,
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Request as ExpressRequest } from 'express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { ChatSessionService } from './chat-session.service';
 import { WebCommandHandlerService, WebCommandContext } from './web-command-handler.service';
 import { MessageSource, MessageType } from '../database/entities';
+import { ErrorHandlerService, ChatErrorCode } from './error-handler.service';
 
-interface AuthenticatedRequest extends Request {
+interface AuthenticatedRequest extends ExpressRequest {
   user: {
     id: string;
     email: string;
@@ -38,18 +42,19 @@ interface UpdatePreferencesDto {
 }
 
 @Controller('chat')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class ChatController {
   constructor(
     private readonly chatSessionService: ChatSessionService,
     private readonly webCommandHandler: WebCommandHandlerService,
+    private readonly errorHandler: ErrorHandlerService,
   ) {}
 
   /**
    * Get or create chat session for authenticated user
    */
   @Get('session')
-  async getSession(@Request() req: AuthenticatedRequest) {
+  async getSession(@Req() req: AuthenticatedRequest) {
     try {
       const session = await this.chatSessionService.getOrCreateSession(req.user.id);
       
@@ -75,13 +80,13 @@ export class ChatController {
    */
   @Get('messages')
   async getMessages(
-    @Request() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Query('limit') limit?: string,
   ) {
     try {
       const messageLimit = limit ? parseInt(limit, 10) : 50;
       
-      if (messageLimit < 1 || messageLimit > 100) {
+      if (Number.isNaN(messageLimit) || messageLimit < 1 || messageLimit > 100) {
         throw new HttpException(
           'Limit must be between 1 and 100',
           HttpStatus.BAD_REQUEST,
@@ -120,7 +125,7 @@ export class ChatController {
    */
   @Post('messages')
   async sendMessage(
-    @Request() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: SendMessageDto,
   ) {
     try {
@@ -167,7 +172,7 @@ export class ChatController {
    * Get session statistics
    */
   @Get('stats')
-  async getSessionStats(@Request() req: AuthenticatedRequest) {
+  async getSessionStats(@Req() req: AuthenticatedRequest) {
     try {
       const stats = await this.chatSessionService.getSessionStats(req.user.id);
       
@@ -190,7 +195,7 @@ export class ChatController {
    */
   @Post('preferences')
   async updatePreferences(
-    @Request() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: UpdatePreferencesDto,
   ) {
     try {
@@ -210,11 +215,32 @@ export class ChatController {
   }
 
   /**
+   * Clear active project
+   */
+  @Post('project/clear')
+  async clearActiveProject(@Req() req: AuthenticatedRequest) {
+    try {
+      await this.chatSessionService.setActiveProject(req.user.id, null);
+      
+      return {
+        success: true,
+        activeProjectId: null,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new HttpException(
+        'Failed to clear active project',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Set active project
    */
   @Post('project/:projectId')
   async setActiveProject(
-    @Request() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Param('projectId') projectId: string,
   ) {
     try {
@@ -234,32 +260,11 @@ export class ChatController {
   }
 
   /**
-   * Clear active project
-   */
-  @Post('project/clear')
-  async clearActiveProject(@Request() req: AuthenticatedRequest) {
-    try {
-      await this.chatSessionService.setActiveProject(req.user.id, null);
-      
-      return {
-        success: true,
-        activeProjectId: null,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      throw new HttpException(
-        'Failed to clear active project',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
    * Sync external message (for cross-platform integration)
    */
   @Post('sync')
   async syncExternalMessage(
-    @Request() req: AuthenticatedRequest,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: {
       content: string;
       source: 'telegram';
@@ -287,5 +292,162 @@ export class ChatController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Get session timeout configuration
+   */
+  @Get('config/timeout')
+  async getTimeoutConfig() {
+    return this.chatSessionService.getSessionTimeoutConfig();
+  }
+
+  /**
+   * Manually expire current session
+   */
+  @Post('session/expire')
+  async expireSession(@Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    const session = await this.chatSessionService.getOrCreateSession(userId);
+    await this.chatSessionService.expireSession(session.id);
+    
+    return {
+      success: true,
+      sessionId: session.id,
+      message: 'Session expired successfully',
+    };
+  }
+
+  /**
+   * Admin endpoint: Trigger cleanup manually
+   */
+  @Post('admin/cleanup')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async triggerCleanup() {
+    await this.chatSessionService.cleanupInactiveSessions();
+    await this.chatSessionService.markTimedOutSessions();
+    await this.chatSessionService.cleanupOldMessages();
+    
+    return {
+      success: true,
+      message: 'Cleanup tasks triggered successfully',
+    };
+  }
+
+  /**
+   * Recover session and get missed messages
+   */
+  @Post('session/recover')
+  async recoverSession(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { sessionId: string; lastMessageId?: string },
+  ) {
+    try {
+      if (!body.sessionId) {
+        throw new HttpException('sessionId is required', HttpStatus.BAD_REQUEST);
+      }
+
+      const userId = req.user.id;
+      const session = await this.chatSessionService.getSessionById(body.sessionId);
+
+      if (!session || session.userId !== userId) {
+        throw new HttpException(
+          {
+            ...this.errorHandler.createError(
+              ChatErrorCode.SESSION_NOT_FOUND,
+              'Session not found or unauthorized',
+              null,
+              false,
+            ),
+            context: 'recoverSession',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const missedMessages = await this.chatSessionService.getMessagesSince(
+        body.sessionId,
+        body.lastMessageId,
+      );
+
+      await this.chatSessionService.markSessionRecovered(body.sessionId);
+
+      return {
+        success: true,
+        sessionId: session.id,
+        missedMessages,
+        recoveredAt: new Date(),
+      };
+
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw this.errorHandler.handleRestError(error, 'recoverSession');
+    }
+  }
+
+  /**
+   * Check if session can be recovered
+   */
+  @Get('session/:sessionId/recoverable')
+  async isSessionRecoverable(
+    @Req() req: AuthenticatedRequest,
+    @Param('sessionId') sessionId: string,
+  ) {
+    const userId = req.user.id;
+    const session = await this.chatSessionService.getSessionById(sessionId);
+
+    if (!session || session.userId !== userId) {
+      return { recoverable: false, reason: 'Session not found or unauthorized' };
+    }
+
+    const timeoutMs =
+      this.chatSessionService.getSessionTimeoutConfig().timeoutHours * 60 * 60 * 1000;
+    const timeSinceLastActivity = Date.now() - session.lastActivity.getTime();
+
+    return {
+      recoverable: timeSinceLastActivity < timeoutMs,
+      sessionId: session.id,
+      lastActivity: session.lastActivity,
+      timeSinceLastActivity,
+    };
+  }
+
+  /**
+   * Get error statistics (admin only)
+   */
+  @Get('admin/errors/stats')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async getErrorStats() {
+    return this.errorHandler.getErrorStats();
+  }
+
+  /**
+   * Reset error count for user (admin only)
+   */
+  @Post('admin/errors/reset/:userId')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async resetUserErrors(@Param('userId') userId: string) {
+    this.errorHandler.resetErrorCount(userId);
+    return { success: true, message: `Error count reset for user ${userId}` };
+  }
+
+  /**
+   * Get error count for current user
+   */
+  @Get('errors/count')
+  async getMyErrorCount(@Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    const count = this.errorHandler.getErrorCount(userId);
+    
+    return {
+      userId,
+      errorCount: count,
+      threshold: 10,
+    };
   }
 }
