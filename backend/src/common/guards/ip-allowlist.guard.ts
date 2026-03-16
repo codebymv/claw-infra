@@ -56,6 +56,12 @@ export class IpAllowlistGuard implements CanActivate {
       return true;
     }
 
+    // Agent endpoints and agent-authenticated requests; allow agent traffic from any IP.
+    if (request.headers['x-agent-token']) {
+      // Allow agent API key authenticated requests to any endpoint
+      return true;
+    }
+
     const clientIp = this.extractIp(request);
 
     if (this.isRailwayInternal(clientIp)) return true;
