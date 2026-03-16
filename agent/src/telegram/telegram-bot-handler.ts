@@ -63,6 +63,11 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
   private requestsThisMinute: number = 0;
   private lastSecondReset: number = Date.now();
   private lastMinuteReset: number = Date.now();
+  
+  // Polling state
+  private isPolling: boolean = false;
+  private pollingOffset: number = 0;
+  private pollingTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     super();
@@ -84,9 +89,13 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
 
       console.log(`[telegram-bot] Initialized bot: ${response.result.username} (${response.result.first_name})`);
       
-      // Set up webhook if provided
+      // Set up webhook if provided, otherwise start polling
       if (webhookUrl) {
         await this.setWebhook(webhookUrl);
+      } else {
+        // Remove any existing webhook and start polling
+        await this.makeApiCall('deleteWebhook');
+        this.startPolling();
       }
 
       this.isInitialized = true;
@@ -98,6 +107,9 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
   async shutdown(): Promise<void> {
     if (this.isInitialized) {
       try {
+        // Stop polling
+        this.stopPolling();
+        
         // Remove webhook
         await this.makeApiCall('deleteWebhook');
         console.log('[telegram-bot] Bot shutdown completed');
@@ -347,5 +359,75 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
     // Increment counters
     this.requestsThisSecond++;
     this.requestsThisMinute++;
+  }
+
+  private startPolling(): void {
+    if (this.isPolling) {
+      return;
+    }
+
+    this.isPolling = true;
+    console.log('[telegram-bot] Starting polling for updates...');
+    this.poll();
+  }
+
+  private stopPolling(): void {
+    if (!this.isPolling) {
+      return;
+    }
+
+    this.isPolling = false;
+    if (this.pollingTimeout) {
+      clearTimeout(this.pollingTimeout);
+      this.pollingTimeout = null;
+    }
+    console.log('[telegram-bot] Stopped polling for updates');
+  }
+
+  private async poll(): Promise<void> {
+    if (!this.isPolling || !this.botToken) {
+      return;
+    }
+
+    try {
+      const response = await this.makeApiCall<TelegramUpdate[]>('getUpdates', {
+        offset: this.pollingOffset,
+        timeout: 30, // Long polling timeout
+        limit: 100
+      });
+
+      if (response.ok && response.result) {
+        for (const update of response.result) {
+          try {
+            await this.processUpdate(update);
+            this.pollingOffset = update.update_id + 1;
+          } catch (error) {
+            console.error('[telegram-bot] Error processing update:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[telegram-bot] Polling error:', error);
+      // Wait a bit before retrying on error
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+
+    // Schedule next poll
+    if (this.isPolling) {
+      this.pollingTimeout = setTimeout(() => this.poll(), 1000);
+    }
+  }
+
+  private async processUpdate(update: TelegramUpdate): Promise<void> {
+    try {
+      if (update.message) {
+        await this.handleMessage(update.message);
+      } else if (update.callback_query) {
+        await this.handleCallbackQuery(update.callback_query);
+      }
+    } catch (error) {
+      console.error('[telegram-bot] Error processing update:', error);
+      this.emit('error', error instanceof Error ? error : new Error('Unknown update processing error'));
+    }
   }
 }
