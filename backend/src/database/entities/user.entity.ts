@@ -32,7 +32,7 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.VIEWER })
   role: UserRole;
 
-  @Column({ name: 'display_name', nullable: true })
+  @Column({ name: 'display_name', type: 'varchar', nullable: true })
   displayName: string | null;
 
   @Column({ name: 'is_active', default: true })

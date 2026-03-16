@@ -41,7 +41,7 @@ export class Project {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   description: string | null;
 
   @Column({ type: 'varchar', length: 100, unique: true })
