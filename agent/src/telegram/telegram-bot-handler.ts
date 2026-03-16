@@ -95,12 +95,23 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
 
       console.log(`[telegram-bot] Initialized bot: ${response.result.username} (${response.result.first_name})`);
       
+      // CRITICAL: Always remove any existing webhook first to avoid conflicts
+      console.log('[telegram-bot] Removing any existing webhooks...');
+      const deleteWebhookResponse = await this.makeApiCall('deleteWebhook', { drop_pending_updates: true });
+      if (deleteWebhookResponse.ok) {
+        console.log('[telegram-bot] Webhook removed successfully');
+      } else {
+        console.warn('[telegram-bot] Failed to remove webhook:', deleteWebhookResponse);
+      }
+      
+      // Wait a moment for Telegram to process the webhook deletion
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Set up webhook if provided, otherwise start polling
       if (webhookUrl) {
         await this.setWebhook(webhookUrl);
       } else {
-        // Remove any existing webhook and start polling
-        await this.makeApiCall('deleteWebhook');
+        console.log('[telegram-bot] Starting polling mode...');
         this.startPolling();
       }
 
@@ -417,6 +428,14 @@ export class TelegramBotHandler extends EventEmitter implements ITelegramBotHand
           }
         }
       } else if (!response.ok) {
+        // Handle 409 Conflict error (multiple bot instances)
+        if (response.errorCode === 409) {
+          console.error('[telegram-bot] CONFLICT: Another bot instance is running. This instance will stop polling.');
+          console.error('[telegram-bot] Make sure only one bot instance is active, or use webhooks instead of polling.');
+          this.stopPolling();
+          return;
+        }
+        
         console.error('[telegram-bot] getUpdates API error:', response);
       }
     } catch (error) {
