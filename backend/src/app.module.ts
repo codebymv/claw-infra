@@ -14,6 +14,7 @@ import { AlertsModule } from './alerts/alerts.module';
 import { CodeModule } from './code/code.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ChatModule } from './chat/chat.module';
 import { buildTypeOrmConfig } from './config/database.config';
 
 @Module({
@@ -55,6 +56,7 @@ import { buildTypeOrmConfig } from './config/database.config';
     CodeModule,
     MaintenanceModule,
     ProjectsModule,
+    ChatModule,
   ],
 })
 export class AppModule {}

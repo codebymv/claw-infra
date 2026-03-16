@@ -13,3 +13,7 @@ export { Column, ColumnRuleType } from './column.entity';
 export { Card, CardType, CardPriority, CardStatus } from './card.entity';
 export { Comment } from './comment.entity';
 export { CardHistory, HistoryAction } from './card-history.entity';
+
+// Chat Entities
+export { ChatSession } from './chat-session.entity';
+export { ChatMessage, MessageSource, MessageType } from './chat-message.entity';
