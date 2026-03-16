@@ -27,7 +27,7 @@ export async function initializeTelegramBotCommands(): Promise<void> {
     // Create bot instance
     telegramBot = createTelegramBotCommands({
       botToken,
-      allowedUsers: process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS?.split(',').map(u => u.trim()).filter(Boolean),
+      allowedUsers: process.env.ZEROCLAW_TELEGRAM_ALLOWED_USERS?.split(',').map(u => u.trim()).filter(Boolean) || ['*'], // Allow all users by default
       enableLogging: process.env.NODE_ENV !== 'production'
     });
 
