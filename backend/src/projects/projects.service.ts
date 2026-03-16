@@ -127,10 +127,17 @@ export class ProjectsService {
       .leftJoinAndSelect('project.members', 'members')
       .leftJoinAndSelect('members.user', 'memberUser')
       .leftJoinAndSelect('project.boards', 'boards')
-      .where('project.status = :status', { status: ProjectStatus.ACTIVE })
-      .andWhere('(project.ownerId = :userId OR members.userId = :userId)', {
+      .where('project.status = :status', { status: ProjectStatus.ACTIVE });
+
+    // For API keys (system user), return all projects
+    // For regular users, filter by ownership/membership
+    if (userId !== 'system') {
+      queryBuilder.andWhere('(project.ownerId = :userId OR members.userId = :userId)', {
         userId,
-      })
+      });
+    }
+
+    queryBuilder
       .orderBy('project.updatedAt', 'DESC')
       .skip(skip)
       .take(limit);

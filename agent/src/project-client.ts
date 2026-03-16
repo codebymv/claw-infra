@@ -31,7 +31,7 @@ export class ProjectApiClient {
     };
 
     if (this.config.apiKey) {
-      requestHeaders['Authorization'] = `Bearer ${this.config.apiKey}`;
+      requestHeaders['x-agent-token'] = this.config.apiKey;
     }
 
     // Add agent identification headers
@@ -68,7 +68,7 @@ export class ProjectApiClient {
     }
 
     const response = await this.makeRequest<{ id: string }>(
-      `/api/api/v1/agent/projects/${projectId}/workspace`,
+      `/api/v1/agent/projects/${projectId}/workspace`,
       'POST',
       {
         agentName: this.config.agentName,
@@ -86,7 +86,7 @@ export class ProjectApiClient {
       throw new Error(`No workspace found for project ${projectId}`);
     }
 
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/workspace`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/workspace`);
   }
 
   async terminateWorkspace(projectId: string): Promise<void> {
@@ -96,7 +96,7 @@ export class ProjectApiClient {
     }
 
     await this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/workspace/${workspaceId}`,
+      `/api/v1/agent/projects/${projectId}/workspace/${workspaceId}`,
       'DELETE'
     );
 
@@ -109,25 +109,26 @@ export class ProjectApiClient {
     description?: string;
     template?: 'basic' | 'software' | 'marketing';
   }): Promise<any> {
-    return this.makeRequest('/api/api/v1/agent/projects', 'POST', data);
+    return this.makeRequest('/api/v1/agent/projects', 'POST', data);
   }
 
   async listProjects(params: {
     limit?: number;
     status?: 'active' | 'archived';
   } = {}): Promise<any[]> {
+    // Use the regular projects endpoint since agent endpoint doesn't have list
     const queryParams = new URLSearchParams();
     if (params.limit) queryParams.set('limit', params.limit.toString());
     if (params.status) queryParams.set('status', params.status);
 
     const query = queryParams.toString();
-    const endpoint = `/api/api/v1/agent/projects${query ? `?${query}` : ''}`;
+    const endpoint = `/api/projects${query ? `?${query}` : ''}`;
     
     return this.makeRequest(endpoint);
   }
 
   async getProject(projectId: string): Promise<any> {
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}`);
   }
 
   // Board Management
@@ -136,17 +137,17 @@ export class ProjectApiClient {
     description?: string;
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/boards`, 'POST', data);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/boards`, 'POST', data);
   }
 
   async listBoards(projectId: string): Promise<any[]> {
     await this.ensureWorkspace(projectId);
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/boards`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/boards`);
   }
 
   async getBoard(projectId: string, boardId: string): Promise<any> {
     await this.ensureWorkspace(projectId);
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/boards/${boardId}`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/boards/${boardId}`);
   }
 
   // Card Management
@@ -160,7 +161,7 @@ export class ProjectApiClient {
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/columns/${columnId}/cards`,
+      `/api/v1/agent/projects/${projectId}/boards/${boardId}/columns/${columnId}/cards`,
       'POST',
       data
     );
@@ -183,14 +184,14 @@ export class ProjectApiClient {
     });
 
     const query = queryParams.toString();
-    const endpoint = `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards${query ? `?${query}` : ''}`;
+    const endpoint = `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards${query ? `?${query}` : ''}`;
     
     return this.makeRequest(endpoint);
   }
 
   async getCard(projectId: string, boardId: string, cardId: string): Promise<any> {
     await this.ensureWorkspace(projectId);
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}`);
   }
 
   async updateCard(projectId: string, boardId: string, cardId: string, data: {
@@ -203,7 +204,7 @@ export class ProjectApiClient {
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}`,
+      `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}`,
       'PUT',
       data
     );
@@ -215,7 +216,7 @@ export class ProjectApiClient {
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/move`,
+      `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/move`,
       'PUT',
       data
     );
@@ -228,7 +229,7 @@ export class ProjectApiClient {
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/bulk`,
+      `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/bulk`,
       'POST',
       data
     );
@@ -241,7 +242,7 @@ export class ProjectApiClient {
   }): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/comments`,
+      `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/comments`,
       'POST',
       data
     );
@@ -256,7 +257,7 @@ export class ProjectApiClient {
     if (params.limit) queryParams.set('limit', params.limit.toString());
 
     const query = queryParams.toString();
-    const endpoint = `/api/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/comments${query ? `?${query}` : ''}`;
+    const endpoint = `/api/v1/agent/projects/${projectId}/boards/${boardId}/cards/${cardId}/comments${query ? `?${query}` : ''}`;
     
     return this.makeRequest(endpoint);
   }
@@ -288,7 +289,7 @@ export class ProjectApiClient {
   }
 
   async getProjectHealth(projectId: string): Promise<any> {
-    return this.makeRequest(`/api/api/v1/agent/projects/${projectId}/health`);
+    return this.makeRequest(`/api/v1/agent/projects/${projectId}/health`);
   }
 
   // Batch Operations
@@ -301,7 +302,7 @@ export class ProjectApiClient {
   }>): Promise<any> {
     await this.ensureWorkspace(projectId);
     return this.makeRequest(
-      `/api/api/v1/agent/projects/${projectId}/batch`,
+      `/api/v1/agent/projects/${projectId}/batch`,
       'POST',
       { operations }
     );
@@ -365,7 +366,7 @@ export function getProjectClient(): ProjectApiClient {
   if (!globalClient) {
     const config: ProjectApiConfig = {
       baseUrl: process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000',
-      apiKey: process.env.CLAW_API_KEY,
+      apiKey: process.env.AGENT_API_KEY || process.env.CLAW_API_KEY,
       agentId: process.env.ZEROCLAW_AGENT_ID || 'agent-' + Math.random().toString(36).substring(2, 11),
       agentName: process.env.ZEROCLAW_AGENT_NAME || 'zeroclaw-primary'
     };

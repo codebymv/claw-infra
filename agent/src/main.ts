@@ -225,7 +225,6 @@ async function collectMetrics(): Promise<void> {
       cpuPercent: Math.min(Math.round(cpuPercent * 100) / 100, 100),
       memoryMb: Math.round(usedMem / 1024 / 1024),
       memoryPercent: Math.round((usedMem / totalMem) * 10000) / 100,
-      logBufferSize: logBuffer.length, // Include buffer size in metrics
     });
   } catch (err) {
     console.error(`[reporter] Failed to send metrics:`, err);

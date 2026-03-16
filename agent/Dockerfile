@@ -57,9 +57,13 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY package.json ./
 COPY project-manager.js ./
 COPY projects ./
+COPY projects.sh ./
 
-# Make project-manager.js and projects executable
-RUN chmod +x project-manager.js projects
+# Make all scripts executable
+RUN chmod +x project-manager.js projects projects.sh
+
+# Create symlink so 'projects' command works
+RUN ln -sf /app/projects.sh /usr/local/bin/projects
 
 # Symlink Railway CLI binary from local node_modules
 RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway
