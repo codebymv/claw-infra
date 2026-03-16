@@ -24,6 +24,8 @@ import { Column } from '../database/entities/column.entity';
 import { Card } from '../database/entities/card.entity';
 import { Comment } from '../database/entities/comment.entity';
 import { CardHistory } from '../database/entities/card-history.entity';
+import { ChatSession } from '../database/entities/chat-session.entity';
+import { ChatMessage } from '../database/entities/chat-message.entity';
 
 export const DATABASE_ENTITIES = [
   AgentRun,
@@ -50,6 +52,8 @@ export const DATABASE_ENTITIES = [
   Card,
   Comment,
   CardHistory,
+  ChatSession,
+  ChatMessage,
 ];
 
 export function buildTypeOrmConfig(
