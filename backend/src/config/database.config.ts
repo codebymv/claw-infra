@@ -82,12 +82,7 @@ export function buildTypeOrmConfig(
     migrationsRun: false,
     logging: nodeEnv === 'development',
     ssl: nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
-    migrations: [
-      join(__dirname, '..', 'database', 'migrations', '*{.ts,.js}'),
-      join(process.cwd(), 'dist', 'src', 'database', 'migrations', '*.js'),
-      join(process.cwd(), 'dist', 'database', 'migrations', '*.js'),
-      join(process.cwd(), 'src', 'database', 'migrations', '*.ts'),
-    ],
+    migrations: [join(__dirname, '..', 'database', 'migrations', '*.{js,ts}')],
 
     // Connection pool settings
     extra: {

@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { join } from 'path';
 import { buildTypeOrmConfig } from './database.config';
 
 describe('database migration config', () => {
@@ -14,14 +15,8 @@ describe('database migration config', () => {
     const typeOrmConfig = buildTypeOrmConfig(config);
     const migrations = typeOrmConfig.migrations as string[];
 
-    expect(migrations).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('database'),
-        expect.stringContaining('dist'),
-        expect.stringContaining('src'),
-      ]),
-    );
-    expect(migrations.some((path) => path.includes('dist') && path.includes('migrations'))).toBe(true);
-    expect(migrations.some((path) => path.includes('src') && path.includes('migrations'))).toBe(true);
+    expect(migrations).toEqual([
+      join(__dirname, '..', 'database', 'migrations', '*.{js,ts}'),
+    ]);
   });
 });

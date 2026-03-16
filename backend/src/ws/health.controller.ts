@@ -28,6 +28,8 @@ export class HealthController {
 
   @Get()
   async check() {
+    await this.checkMigrations();
+
     const checks: Record<string, 'ok' | 'down' | 'migrating'> = {
       db: 'down',
       redis: 'down',
@@ -64,6 +66,8 @@ export class HealthController {
 
   @Get('ready')
   async ready() {
+    await this.checkMigrations();
+
     // Readiness check - only ready after migrations complete
     if (!this.migrationsComplete) {
       return {
