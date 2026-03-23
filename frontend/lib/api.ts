@@ -57,6 +57,12 @@ export const agentsApi = {
     return api.get<AgentRunsResponse>(`/agents${qs}`);
   },
   getById: (id: string) => api.get<AgentRun>(`/agents/${id}`),
+  searchCards: (params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<AgentLinkableCard[]>(`/agents/cards/search${qs}`);
+  },
+  linkCard: (id: string, cardId: string | null) =>
+    api.patch<AgentRun>(`/agents/${id}/link-card`, cardId ? { cardId } : {}),
   getSteps: (id: string) => api.get<AgentStep[]>(`/agents/${id}/steps`),
   getStats: () => api.get<DashboardStats>('/agents/stats'),
   getTimeline: (days?: number) => api.get<TimelinePoint[]>(`/agents/timeline?days=${days || 7}`),
@@ -315,7 +321,42 @@ export interface AgentRun {
   totalTokensOut: number;
   totalCostUsd: string;
   errorMessage: string | null;
+  linkedCardId?: string | null;
+  linkedCard?: AgentRunLinkedCard | null;
   steps?: AgentStep[];
+}
+
+export interface AgentLinkableCard {
+  id: string;
+  title: string;
+  status: CardStatus;
+  columnId: string;
+  boardId: string;
+  columnName: string | null;
+  boardName: string | null;
+  projectId: string | null;
+  projectName: string | null;
+}
+
+export interface AgentRunLinkedCard {
+  id: string;
+  title: string;
+  status: CardStatus;
+  columnId: string;
+  boardId: string;
+  column?: {
+    id: string;
+    name: string;
+  };
+  board?: {
+    id: string;
+    name: string;
+    projectId: string;
+    project?: {
+      id: string;
+      name: string;
+    };
+  };
 }
 
 export interface AgentStep {

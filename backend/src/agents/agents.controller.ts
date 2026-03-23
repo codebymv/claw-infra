@@ -45,6 +45,33 @@ class CreateRunDto {
   @IsOptional()
   @IsString()
   parentRunId?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedCardId?: string;
+}
+
+class LinkRunCardDto {
+  @IsOptional()
+  @IsString()
+  cardId?: string;
+}
+
+class SearchCardsQueryDto {
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined ? undefined : parseInt(value as string, 10),
+  )
+  @IsNumber()
+  limit?: number;
 }
 
 class ListRunsQueryDto implements ListRunsQuery {
@@ -58,6 +85,10 @@ class ListRunsQueryDto implements ListRunsQuery {
   @IsOptional()
   @IsEnum(AgentRunTrigger)
   trigger?: AgentRunTrigger;
+
+  @IsOptional()
+  @IsString()
+  linkedCardId?: string;
 
   @IsOptional()
   @IsString()
@@ -103,6 +134,15 @@ export class AgentsController {
     return this.agentsService.listRuns(query);
   }
 
+  @Get('cards/search')
+  searchCards(@Query() query: SearchCardsQueryDto) {
+    return this.agentsService.searchCardsForLinking({
+      query: query.q,
+      projectId: query.projectId,
+      limit: query.limit,
+    });
+  }
+
   @Post()
   createRun(@Body() dto: CreateRunDto) {
     return this.agentsService.createRun(dto);
@@ -122,6 +162,11 @@ export class AgentsController {
   @HttpCode(HttpStatus.OK)
   startRun(@Param('id') id: string) {
     return this.agentsService.startRun(id);
+  }
+
+  @Patch(':id/link-card')
+  linkRunToCard(@Param('id') id: string, @Body() dto: LinkRunCardDto) {
+    return this.agentsService.linkRunToCard(id, dto.cardId ?? null);
   }
 
   @Delete(':id/cancel')

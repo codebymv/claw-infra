@@ -14,6 +14,7 @@ import { KanbanBoard } from './kanban-board.entity';
 import { Column } from './column.entity';
 import { Comment } from './comment.entity';
 import { CardHistory } from './card-history.entity';
+import { AgentRun } from './agent-run.entity';
 
 export enum CardType {
   TASK = 'task',
@@ -141,4 +142,7 @@ export class Card {
 
   @OneToMany(() => CardHistory, (history) => history.card)
   history: CardHistory[];
+
+  @OneToMany(() => AgentRun, (run) => run.linkedCard)
+  agentRuns: AgentRun[];
 }

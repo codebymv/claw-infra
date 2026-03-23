@@ -13,6 +13,7 @@ import { AgentStep } from './agent-step.entity';
 import { CostRecord } from './cost-record.entity';
 import { ResourceSnapshot } from './resource-snapshot.entity';
 import { AgentLog } from './agent-log.entity';
+import { Card } from './card.entity';
 
 export enum AgentRunStatus {
   QUEUED = 'queued',
@@ -35,6 +36,7 @@ export enum AgentRunTrigger {
 @Index(['startedAt'])
 @Index(['agentName', 'status', 'startedAt']) // Composite for filtered queries
 @Index(['status', 'startedAt']) // Composite for active runs timeline
+@Index(['linkedCardId'])
 export class AgentRun {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -77,6 +79,13 @@ export class AgentRun {
   @ManyToOne(() => AgentRun, { nullable: true })
   @JoinColumn({ name: 'parent_run_id' })
   parentRun: AgentRun | null;
+
+  @Column({ name: 'linked_card_id', type: 'uuid', nullable: true })
+  linkedCardId: string | null;
+
+  @ManyToOne(() => Card, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'linked_card_id' })
+  linkedCard: Card | null;
 
   @Column({ name: 'total_tokens_in', type: 'int', default: 0 })
   totalTokensIn: number;

@@ -17,6 +17,7 @@ import {
   AgentRunTrigger,
 } from '../database/entities/agent-run.entity';
 import { AgentStep, StepStatus } from '../database/entities/agent-step.entity';
+import { Card } from '../database/entities/card.entity';
 import { AppGateway } from '../ws/app.gateway';
 import { AlertsService } from '../alerts/alerts.service';
 
@@ -26,6 +27,7 @@ export interface CreateRunDto {
   configSnapshot?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
   parentRunId?: string;
+  linkedCardId?: string;
 }
 
 export interface UpdateRunDto {
@@ -37,6 +39,7 @@ export interface UpdateRunDto {
   totalTokensOut?: number;
   totalCostUsd?: string;
   metadata?: Record<string, unknown>;
+  linkedCardId?: string | null;
 }
 
 export interface CreateStepDto {
@@ -65,10 +68,42 @@ export interface ListRunsQuery {
   status?: AgentRunStatus | AgentRunStatus[];
   agentName?: string;
   trigger?: AgentRunTrigger;
+  linkedCardId?: string;
   from?: string;
   to?: string;
   page?: number;
   limit?: number;
+}
+
+export interface CardSearchQuery {
+  query?: string;
+  projectId?: string;
+  limit?: number;
+}
+
+export interface LinkableCardResult {
+  id: string;
+  title: string;
+  status: string;
+  columnId: string;
+  boardId: string;
+  columnName: string | null;
+  boardName: string | null;
+  projectId: string | null;
+  projectName: string | null;
+}
+
+function extractLinkedCardId(metadata?: Record<string, unknown>): string | null {
+  if (!metadata) return null;
+
+  const candidates = [metadata.cardId, metadata.taskId];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 const TERMINAL_RUN_STATUSES = new Set<AgentRunStatus>([
@@ -113,22 +148,31 @@ export class AgentsService {
     @InjectRepository(AgentRun) private readonly runRepo: Repository<AgentRun>,
     @InjectRepository(AgentStep)
     private readonly stepRepo: Repository<AgentStep>,
+    @InjectRepository(Card)
+    private readonly cardRepo: Repository<Card>,
     private readonly gateway: AppGateway,
     private readonly alerts: AlertsService,
   ) {}
 
   async createRun(dto: CreateRunDto): Promise<AgentRun> {
+    const linkedCardId = await this.resolveLinkedCardId(
+      dto.linkedCardId ?? extractLinkedCardId(dto.metadata),
+      Boolean(dto.linkedCardId),
+    );
+
     const run = this.runRepo.create({
       ...dto,
+      linkedCardId,
       status: AgentRunStatus.QUEUED,
       startedAt: null,
     });
     const saved = await this.runRepo.save(run);
+    const hydrated = await this.getRunById(saved.id);
     this.gateway.broadcastRunUpdate(saved.id, {
       type: 'run.created',
-      run: saved,
+      run: hydrated,
     });
-    return saved;
+    return hydrated;
   }
 
   async startRun(id: string): Promise<AgentRun> {
@@ -159,6 +203,10 @@ export class AgentsService {
 
   async updateRun(id: string, dto: UpdateRunDto): Promise<AgentRun> {
     const existing = await this.getRunById(id);
+
+    if (dto.linkedCardId !== undefined) {
+      dto.linkedCardId = await this.resolveLinkedCardId(dto.linkedCardId, true);
+    }
 
     if (
       TERMINAL_RUN_STATUSES.has(existing.status) &&
@@ -243,7 +291,13 @@ export class AgentsService {
   async getRunById(id: string): Promise<AgentRun> {
     const run = await this.runRepo.findOne({
       where: { id },
-      relations: ['steps'],
+      relations: [
+        'steps',
+        'linkedCard',
+        'linkedCard.column',
+        'linkedCard.board',
+        'linkedCard.board.project',
+      ],
     });
     if (!run) throw new NotFoundException(`Run ${id} not found`);
     return run;
@@ -282,6 +336,12 @@ export class AgentsService {
     if (query.trigger) {
       queryBuilder.andWhere('run.trigger = :trigger', {
         trigger: query.trigger,
+      });
+    }
+
+    if (query.linkedCardId) {
+      queryBuilder.andWhere('run.linked_card_id = :linkedCardId', {
+        linkedCardId: query.linkedCardId,
       });
     }
 
@@ -488,5 +548,78 @@ export class AgentsService {
       where: { runId },
       order: { stepIndex: 'ASC' },
     });
+  }
+
+  async searchCardsForLinking(
+    query: CardSearchQuery,
+  ): Promise<LinkableCardResult[]> {
+    const limit = Math.min(Math.max(query.limit || 8, 1), 25);
+    const q = query.query?.trim();
+
+    const qb = this.cardRepo
+      .createQueryBuilder('card')
+      .leftJoin('card.column', 'column')
+      .leftJoin('card.board', 'board')
+      .leftJoin('board.project', 'project')
+      .select('card.id', 'id')
+      .addSelect('card.title', 'title')
+      .addSelect('card.status', 'status')
+      .addSelect('card.column_id', 'columnId')
+      .addSelect('card.board_id', 'boardId')
+      .addSelect('column.name', 'columnName')
+      .addSelect('board.name', 'boardName')
+      .addSelect('board.project_id', 'projectId')
+      .addSelect('project.name', 'projectName')
+      .orderBy('card.updated_at', 'DESC')
+      .take(limit);
+
+    if (q) {
+      qb.andWhere('card.title ILIKE :q OR card.id::text ILIKE :q', {
+        q: `%${q}%`,
+      });
+    }
+
+    if (query.projectId) {
+      qb.andWhere('board.project_id = :projectId', {
+        projectId: query.projectId,
+      });
+    }
+
+    return qb.getRawMany<LinkableCardResult>();
+  }
+
+  async linkRunToCard(id: string, cardId: string | null): Promise<AgentRun> {
+    await this.getRunById(id);
+
+    const linkedCardId = await this.resolveLinkedCardId(cardId, true);
+    await this.runRepo.update(id, { linkedCardId });
+
+    const updated = await this.getRunById(id);
+    this.gateway.broadcastRunUpdate(updated.id, {
+      type: 'run.updated',
+      run: updated,
+    });
+
+    return updated;
+  }
+
+  private async resolveLinkedCardId(
+    cardId: string | null | undefined,
+    strict: boolean,
+  ): Promise<string | null> {
+    if (cardId === undefined || cardId === null || cardId === '') {
+      return null;
+    }
+
+    const card = await this.cardRepo.findOne({ where: { id: cardId } });
+    if (card) {
+      return card.id;
+    }
+
+    if (strict) {
+      throw new NotFoundException(`Card ${cardId} not found`);
+    }
+
+    return null;
   }
 }

@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash, StopCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash, StopCircle, Loader2, FolderKanban, ExternalLink } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
-import { agentsApi, logsApi, type AgentRun, type AgentStep, type AgentLog } from '@/lib/api';
+import { Input } from '@/components/ui/input';
+import { agentsApi, logsApi, type AgentRun, type AgentStep, type AgentLog, type AgentLinkableCard } from '@/lib/api';
 import { formatDateTime, formatDuration, formatCost, formatTokens, cn } from '@/lib/utils';
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { useAppToast } from '@/components/layout/app-shell';
@@ -21,6 +22,10 @@ export default function RunDetailPage() {
   const [historicLogs, setHistoricLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [linkQuery, setLinkQuery] = useState('');
+  const [linkResults, setLinkResults] = useState<AgentLinkableCard[]>([]);
+  const [searchingCards, setSearchingCards] = useState(false);
+  const [linkingCardId, setLinkingCardId] = useState<string | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const { logs: streamLogs, runUpdate } = useAgentStream({ runId });
@@ -54,6 +59,27 @@ export default function RunDetailPage() {
   }, [runUpdate]);
 
   useEffect(() => {
+    if (!linkQuery.trim()) {
+      setLinkResults([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setSearchingCards(true);
+        const cards = await agentsApi.searchCards({ q: linkQuery.trim(), limit: '8' });
+        setLinkResults(cards);
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to search cards');
+      } finally {
+        setSearchingCards(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [linkQuery]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [streamLogs]);
 
@@ -68,6 +94,25 @@ export default function RunDetailPage() {
       toast.error((err as Error).message || 'Failed to cancel run');
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleLinkCard(cardId: string | null) {
+    if (!run) return;
+
+    setLinkingCardId(cardId || 'unlink');
+    try {
+      const updated = await agentsApi.linkCard(run.id, cardId);
+      setRun(updated);
+      if (!cardId) {
+        toast.success('Card unlinked from run');
+      } else {
+        toast.success('Run linked to card');
+      }
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to update run link');
+    } finally {
+      setLinkingCardId(null);
     }
   }
 
@@ -117,6 +162,116 @@ export default function RunDetailPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <SectionCard title="Related Work" description="Project artifact linked to this run">
+          <div className="space-y-3">
+            {run.linkedCard ? (
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Linked Card
+                    </p>
+                    <p className="text-sm font-semibold truncate mt-1">{run.linkedCard.title}</p>
+                  </div>
+                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground shrink-0">
+                    {run.linkedCard.status.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 text-[12px]">
+                  <div>
+                    <p className="text-muted-foreground">Project</p>
+                    <p className="font-medium truncate">
+                      {run.linkedCard.board?.project?.name || run.linkedCard.board?.projectId || 'Unknown'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Column</p>
+                    <p className="font-medium truncate">{run.linkedCard.column?.name || 'Unknown'}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {run.linkedCard.board?.projectId ? (
+                    <Link
+                      href={`/projects/${run.linkedCard.board.projectId}`}
+                      className="inline-flex items-center gap-1.5 text-[12px] font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <FolderKanban className="h-3.5 w-3.5" />
+                      Open project board
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground font-mono">Card ID: {run.linkedCard.id}</p>
+                  )}
+
+                  <button
+                    onClick={() => handleLinkCard(null)}
+                    disabled={linkingCardId !== null}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {linkingCardId === 'unlink' ? 'Unlinking...' : 'Unlink card'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border p-4 text-[13px] text-muted-foreground">
+                This run is not linked to a project card yet.
+              </div>
+            )}
+
+            <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Link to card
+              </p>
+              <Input
+                value={linkQuery}
+                onChange={(e) => setLinkQuery(e.target.value)}
+                placeholder="Search card by title or paste card ID"
+                className="h-9"
+              />
+
+              {searchingCards ? (
+                <p className="text-[12px] text-muted-foreground">Searching cards...</p>
+              ) : linkQuery.trim() && linkResults.length === 0 ? (
+                <div className="space-y-2">
+                  <p className="text-[12px] text-muted-foreground">No matching cards found.</p>
+                  <button
+                    onClick={() => handleLinkCard(linkQuery.trim())}
+                    disabled={linkingCardId !== null}
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {linkingCardId === linkQuery.trim() ? 'Linking...' : 'Link using typed ID'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {linkResults.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => handleLinkCard(card.id)}
+                      disabled={linkingCardId !== null}
+                      className="w-full text-left rounded-md border border-border/70 px-2.5 py-2 hover:border-border hover:bg-accent/40 transition-colors disabled:opacity-50"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-medium truncate">{card.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {card.projectName || card.projectId || 'Unknown project'} • {card.columnName || 'Unknown column'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground font-mono uppercase">
+                          {card.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+
         <SectionCard title="Step Timeline" description={`${steps.length} steps`}>
           {steps.length === 0 ? (
             <p className="text-[13px] text-muted-foreground text-center py-6">No steps recorded yet</p>
