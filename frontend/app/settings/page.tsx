@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Copy, Trash2, Plus, Eye, EyeOff, Shield, Terminal, Check, X } from 'lucide-react';
+import { Copy, Trash2, Plus, Eye, EyeOff, Shield, Terminal, Check, X, Github, ToggleLeft, ToggleRight, ExternalLink, RefreshCw } from 'lucide-react';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
-import { apiKeysApi, costsApi, type ApiKeyEntry, type CostBudget } from '@/lib/api';
+import { apiKeysApi, costsApi, githubApi, type ApiKeyEntry, type CostBudget, type GithubInstallation, type GithubAccessibleRepo, type GithubRepoGrantEntry } from '@/lib/api';
 import { formatRelativeTime, formatDateTime, cn } from '@/lib/utils';
 import { useAppToast } from '@/components/layout/app-shell';
 import { useDynamicTitle } from '@/hooks/useDynamicTitle';
@@ -33,6 +33,15 @@ export default function SettingsPage() {
   });
   const [savingBudget, setSavingBudget] = useState(false);
 
+  // GitHub App state
+  const [ghConfigured, setGhConfigured] = useState(false);
+  const [ghInstallUrl, setGhInstallUrl] = useState<string | null>(null);
+  const [ghInstallations, setGhInstallations] = useState<GithubInstallation[]>([]);
+  const [ghRepos, setGhRepos] = useState<GithubAccessibleRepo[]>([]);
+  const [ghGrants, setGhGrants] = useState<GithubRepoGrantEntry[]>([]);
+  const [ghLoading, setGhLoading] = useState(false);
+  const [ghReposLoading, setGhReposLoading] = useState(false);
+
   useEffect(() => {
     async function load() {
       try {
@@ -42,6 +51,23 @@ export default function SettingsPage() {
         ]);
         setApiKeys(keys);
         setBudgets(bgt);
+
+        // Load GitHub status, installations, and grants (non-blocking)
+        try {
+          const status = await githubApi.getStatus();
+          setGhConfigured(status.configured);
+          setGhInstallUrl(status.installUrl);
+          if (status.configured) {
+            const [installations, grants] = await Promise.all([
+              githubApi.listInstallations(),
+              githubApi.listGrantedRepos(),
+            ]);
+            setGhInstallations(installations);
+            setGhGrants(grants);
+          }
+        } catch {
+          // GitHub endpoints may not exist yet — silently ignore
+        }
       } catch (err) {
         toast.error((err as Error).message || 'Failed to load settings');
       } finally {
@@ -99,6 +125,54 @@ export default function SettingsPage() {
       toast.error((err as Error).message || 'Failed to save budget');
     } finally {
       setSavingBudget(false);
+    }
+  }
+
+  async function loadGhRepos() {
+    setGhReposLoading(true);
+    try {
+      const repos = await githubApi.listRepos();
+      setGhRepos(repos);
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to load repos');
+    } finally {
+      setGhReposLoading(false);
+    }
+  }
+
+  async function toggleRepo(repo: GithubAccessibleRepo) {
+    const existing = ghGrants.find((g) => g.repoFullName === repo.full_name && g.isActive);
+    if (existing) {
+      try {
+        await githubApi.revokeGrant(existing.id);
+        setGhGrants((prev) => prev.filter((g) => g.id !== existing.id));
+        toast.success(`Removed ${repo.full_name}`);
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to revoke grant');
+      }
+    } else if (ghInstallations.length > 0) {
+      try {
+        const grant = await githubApi.grantRepo(ghInstallations[0].id, repo.full_name);
+        setGhGrants((prev) => [...prev, grant]);
+        toast.success(`Added ${repo.full_name}`);
+      } catch (err) {
+        toast.error((err as Error).message || 'Failed to grant repo');
+      }
+    }
+  }
+
+  async function disconnectGh(installationId: string) {
+    setGhLoading(true);
+    try {
+      await githubApi.disconnect(installationId);
+      setGhInstallations((prev) => prev.filter((i) => i.id !== installationId));
+      setGhGrants([]);
+      setGhRepos([]);
+      toast.success('GitHub disconnected');
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to disconnect');
+    } finally {
+      setGhLoading(false);
     }
   }
 
@@ -333,6 +407,124 @@ export default function SettingsPage() {
             {savingBudget ? 'Saving...' : 'Save Budget'}
           </button>
         </div>
+      </SectionCard>
+
+      <SectionCard
+        title="GitHub Integration"
+        description="Connect a GitHub App to sync repos without a personal access token"
+        action={
+          <Github className="h-3.5 w-3.5 text-muted-foreground" />
+        }
+      >
+        {ghInstallations.length > 0 ? (
+          <div className="space-y-4">
+            {ghInstallations.map((inst) => (
+              <div key={inst.id} className="rounded-lg border border-border bg-muted/20 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Github className="h-4 w-4 text-foreground" />
+                    <span className="text-[13px] font-medium">{inst.accountLogin}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded">
+                      {inst.accountType}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => disconnectGh(inst.id)}
+                    disabled={ghLoading}
+                    className="text-[11px] text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg px-2.5 py-1.5 transition-all disabled:opacity-50"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+
+                {/* Granted repos */}
+                {ghGrants.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Tracked Repos
+                    </p>
+                    {ghGrants.map((g) => (
+                      <div key={g.id} className="flex items-center justify-between rounded-md bg-background/50 border border-border/50 px-3 py-2">
+                        <span className="text-[12px] font-mono">{g.repoFullName}</span>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await githubApi.revokeGrant(g.id);
+                              setGhGrants((prev) => prev.filter((gr) => gr.id !== g.id));
+                              toast.success(`Removed ${g.repoFullName}`);
+                            } catch (err) {
+                              toast.error((err as Error).message || 'Failed to remove');
+                            }
+                          }}
+                          className="text-[11px] text-muted-foreground hover:text-rose-500 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add repos */}
+                <div className="mt-3">
+                  {ghRepos.length === 0 ? (
+                    <button
+                      onClick={loadGhRepos}
+                      disabled={ghReposLoading}
+                      className="flex items-center gap-1.5 text-[12px] text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <RefreshCw className={cn('h-3.5 w-3.5', ghReposLoading && 'animate-spin')} />
+                      {ghReposLoading ? 'Loading repos...' : 'Browse repos to add'}
+                    </button>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                        Available Repos
+                      </p>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {ghRepos.map((repo) => {
+                          const isGranted = ghGrants.some((g) => g.repoFullName === repo.full_name && g.isActive);
+                          return (
+                            <button
+                              key={repo.full_name}
+                              onClick={() => toggleRepo(repo)}
+                              className="flex items-center justify-between w-full rounded-md bg-background/50 border border-border/50 px-3 py-2 hover:bg-muted/30 transition-all text-left"
+                            >
+                              <span className="text-[12px] font-mono truncate">{repo.full_name}</span>
+                              {isGranted ? (
+                                <ToggleRight className="h-4 w-4 text-primary shrink-0" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4 text-muted-foreground shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : ghConfigured && ghInstallUrl ? (
+          <div className="text-center py-4">
+            <p className="text-[13px] text-muted-foreground mb-3">
+              No GitHub App installation connected yet.
+            </p>
+            <a
+              href={ghInstallUrl}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#24292f] dark:bg-[#f0f0f0] px-5 py-2.5 text-[13px] font-semibold text-white dark:text-[#24292f] hover:opacity-90 transition-all"
+            >
+              <Github className="h-4 w-4" />
+              Install GitHub App
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted-foreground py-2">
+            GitHub App integration is not configured. Set <code className="text-foreground bg-muted px-1.5 py-0.5 rounded">GITHUB_APP_ID</code> and <code className="text-foreground bg-muted px-1.5 py-0.5 rounded">GITHUB_APP_PRIVATE_KEY</code> env vars to enable.
+          </p>
+        )}
       </SectionCard>
 
       <SectionCard

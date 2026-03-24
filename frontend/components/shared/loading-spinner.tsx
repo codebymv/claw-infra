@@ -25,3 +25,45 @@ export function PageLoader() {
     </div>
   );
 }
+
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn('animate-pulse rounded-lg bg-muted/60', className)} />
+  );
+}
+
+export function ChartSkeleton() {
+  return (
+    <div className="flex h-60 items-end gap-2 px-4 pb-4">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex-1 animate-pulse rounded-t-md bg-muted/50"
+          style={{ height: `${30 + Math.random() * 50}%`, animationDelay: `${i * 100}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function StatCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
+      <Skeleton className="h-3 w-20" />
+      <Skeleton className="h-7 w-16" />
+      <Skeleton className="h-3 w-28" />
+    </div>
+  );
+}
+
+export function TableRowSkeleton({ cols = 7 }: { cols?: number }) {
+  return (
+    <tr className="border-b border-border/50">
+      {Array.from({ length: cols }).map((_, i) => (
+        <td key={i} className="px-5 py-3.5">
+          <Skeleton className="h-4 w-full max-w-[100px]" />
+        </td>
+      ))}
+    </tr>
+  );
+}

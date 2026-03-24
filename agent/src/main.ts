@@ -6,6 +6,7 @@ import { generateConfig } from './config-gen';
 import { getProjectClient, cleanupProjectClient } from './project-client';
 import { registerProjectManagementTools } from './zeroclaw-project-integration';
 import { initializeTelegramBotCommands, shutdownTelegramBotCommands } from './telegram-integration';
+import projectContextManager from './project-context-manager';
 import {
   ZeroClawLogParser,
   RunStartEvent,
@@ -56,11 +57,24 @@ async function onRunStart(event: RunStartEvent): Promise<void> {
 
   try {
     const trigger = event.channel ? 'api' : 'manual';
-    const result = await ingest.createRun(AGENT_NAME, trigger, {
+    const metadata: Record<string, unknown> = {
       taskId: event.taskId,
       message: event.message,
       channel: event.channel,
       sender: event.sender,
+    };
+
+    // Attach active project context for auto-linking
+    const senderId = event.sender || 'default';
+    const chatId = event.channel || 'cli';
+    const activeProject = projectContextManager.getActiveProject(senderId, chatId);
+    if (activeProject) {
+      metadata.projectId = activeProject.projectId;
+      metadata.projectName = activeProject.projectName;
+    }
+
+    const result = await ingest.createRun(AGENT_NAME, trigger, metadata, {
+      metadata,
     });
     await ingest.startRun(result.id);
 

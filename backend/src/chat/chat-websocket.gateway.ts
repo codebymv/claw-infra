@@ -17,6 +17,7 @@ import { MessageSource, MessageType } from '../database/entities';
 import { PresenceService } from './presence.service';
 import { ErrorHandlerService, ChatErrorCode } from './error-handler.service';
 import { verifyJwtWithConfiguredSecrets } from '../auth/jwt-verification.util';
+import { PubSubService } from '../ws/pubsub.service';
 
 export interface ChatMessagePayload {
   content: string;
@@ -73,6 +74,7 @@ export class ChatWebSocketGateway
     private readonly webCommandHandler: WebCommandHandlerService,
     private readonly presenceService: PresenceService,
     private readonly errorHandler: ErrorHandlerService,
+    private readonly pubSub: PubSubService,
   ) {}
 
   afterInit(server: Server) {
@@ -104,6 +106,28 @@ export class ChatWebSocketGateway
         Array.from(this.getAllowedOrigins()).join(', ') || 'none configured'
       })`,
     );
+
+    // Subscribe to global run events and forward to all chat clients as inline status
+    this.pubSub.subscribe('global:status', (data: any) => {
+      if (data?.runId && data?.status) {
+        this.server.emit('chat_event', {
+          id: `run_status_${data.runId}_${Date.now()}`,
+          type: 'system',
+          userId: 'system',
+          content: '',
+          source: 'web',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            runStatus: true,
+            runId: data.runId,
+            status: data.status,
+            agentName: data.agentName,
+            duration: data.duration,
+            cost: data.cost,
+          },
+        });
+      }
+    });
   }
 
   private getAllowedOrigins(): Set<string> {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { Send, Loader2, AlertCircle, Wifi, WifiOff, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { ChatMessage } from './chat-message';
 import { ChatTypingIndicator } from './chat-typing-indicator';
 import { CommandAutocomplete } from './command-autocomplete';
 import { formatRelativeTime } from '@/lib/utils';
+import { api, projectsApi } from '@/lib/api';
 
 export interface ChatMessageData {
   id: string;
@@ -47,6 +48,8 @@ export function WebChat({ className }: WebChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
+  const [availableProjects, setAvailableProjects] = useState<{ id: string; name: string }[]>([]);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +72,26 @@ export function WebChat({ className }: WebChatProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Load available projects for the selector
+  useEffect(() => {
+    projectsApi.list().then((data: any) => {
+      const items = Array.isArray(data) ? data : data?.items ?? [];
+      setAvailableProjects(items.map((p: any) => ({ id: p.id, name: p.name })));
+    }).catch(() => {});
+  }, []);
+
+  // Handle project selection from picker
+  const handleProjectSelect = useCallback((projectId: string | null) => {
+    setShowProjectPicker(false);
+    if (!isConnected) return;
+    const projectName = availableProjects.find(p => p.id === projectId)?.name;
+    if (projectId && projectName) {
+      sendMessage({ content: `/select ${projectName}`, type: 'command' });
+    } else {
+      sendMessage({ content: '/clear', type: 'command' });
+    }
+  }, [isConnected, availableProjects, sendMessage]);
 
   // Socket event handlers
   useEffect(() => {
@@ -363,11 +386,39 @@ export function WebChat({ className }: WebChatProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Chat</CardTitle>
           <div className="flex items-center gap-2">
-            {session?.activeProject && (
-              <Badge variant="secondary" className="text-xs">
-                Project: {session.activeProject}
-              </Badge>
-            )}
+            {/* Project selector */}
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1"
+                onClick={() => setShowProjectPicker(!showProjectPicker)}
+              >
+                <FolderOpen className="h-3 w-3" />
+                {session?.activeProject
+                  ? availableProjects.find(p => p.id === session.activeProject)?.name ?? 'Project'
+                  : 'No Project'}
+              </Button>
+              {showProjectPicker && (
+                <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-popover border rounded-md shadow-md p-1">
+                  <button
+                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent text-muted-foreground"
+                    onClick={() => handleProjectSelect(null)}
+                  >
+                    Clear project
+                  </button>
+                  {availableProjects.map(p => (
+                    <button
+                      key={p.id}
+                      className={`w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent ${session?.activeProject === p.id ? 'bg-accent font-medium' : ''}`}
+                      onClick={() => handleProjectSelect(p.id)}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {getConnectionStatusBadge()}
           </div>
         </div>

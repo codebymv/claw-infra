@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash, StopCircle, Loader2, FolderKanban, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, DollarSign, Cpu, Hash, StopCircle, Loader2, FolderKanban, ExternalLink, Search, Filter } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
@@ -13,6 +13,7 @@ import { formatDateTime, formatDuration, formatCost, formatTokens, cn } from '@/
 import { useAgentStream } from '@/hooks/useAgentStream';
 import { useAppToast } from '@/components/layout/app-shell';
 import { useDynamicTitle } from '@/hooks/useDynamicTitle';
+import { StepTimeline } from '@/components/agents/step-timeline';
 
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -26,6 +27,8 @@ export default function RunDetailPage() {
   const [linkResults, setLinkResults] = useState<AgentLinkableCard[]>([]);
   const [searchingCards, setSearchingCards] = useState(false);
   const [linkingCardId, setLinkingCardId] = useState<string | null>(null);
+  const [logLevelFilter, setLogLevelFilter] = useState<string | null>(null);
+  const [logSearchQuery, setLogSearchQuery] = useState('');
   const logEndRef = useRef<HTMLDivElement>(null);
 
   const { logs: streamLogs, runUpdate } = useAgentStream({ runId });
@@ -117,6 +120,11 @@ export default function RunDetailPage() {
   }
 
   const allLogs = [...historicLogs, ...streamLogs];
+  const filteredLogs = allLogs.filter((log) => {
+    if (logLevelFilter && log.level !== logLevelFilter) return false;
+    if (logSearchQuery && !log.message.toLowerCase().includes(logSearchQuery.toLowerCase())) return false;
+    return true;
+  });
   const isActive = run?.status === 'running' || run?.status === 'queued';
 
   if (loading) return <PageLoader />;
@@ -160,6 +168,12 @@ export default function RunDetailPage() {
         <MetaCard icon={Hash} label="Tokens Used" value={formatTokens(run.totalTokensIn + run.totalTokensOut)} />
         <MetaCard icon={Cpu} label="Started" value={formatDateTime(run.startedAt)} small />
       </div>
+
+      {steps.length > 0 && (
+        <SectionCard title="Step Duration" description="Relative execution time per step">
+          <StepTimeline steps={steps} />
+        </SectionCard>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard title="Related Work" description="Project artifact linked to this run">
@@ -334,11 +348,51 @@ export default function RunDetailPage() {
             ) : undefined
           }
         >
+          {/* Log filters */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 mb-3">
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={logSearchQuery}
+                onChange={(e) => setLogSearchQuery(e.target.value)}
+                className="h-8 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all sm:w-48"
+              />
+            </div>
+            <div className="flex gap-1">
+              {['debug', 'info', 'warn', 'error'].map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setLogLevelFilter(logLevelFilter === level ? null : level)}
+                  className={cn(
+                    'shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-all duration-200',
+                    logLevelFilter === level
+                      ? level === 'error' ? 'bg-rose-500/15 text-rose-500 border border-rose-500/25'
+                      : level === 'warn' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/25'
+                      : level === 'debug' ? 'bg-muted text-muted-foreground border border-border'
+                      : 'bg-primary/15 text-primary border border-primary/25'
+                      : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:border-foreground/20',
+                  )}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+            {filteredLogs.length !== allLogs.length && (
+              <span className="text-[10px] text-muted-foreground">
+                {filteredLogs.length} / {allLogs.length}
+              </span>
+            )}
+          </div>
+
           <div className="h-64 sm:h-80 overflow-y-auto font-mono text-[11px] rounded-lg bg-muted/30 border border-border p-4 space-y-0.5">
-            {allLogs.length === 0 ? (
-              <p className="text-muted-foreground text-center py-6">No logs yet</p>
+            {filteredLogs.length === 0 ? (
+              <p className="text-muted-foreground text-center py-6">
+                {allLogs.length === 0 ? 'No logs yet' : 'No logs match filters'}
+              </p>
             ) : (
-              allLogs.map((log, i) => (
+              filteredLogs.map((log, i) => (
                 <div key={log.id || i} className={cn('leading-5', logLevelClass(log.level))}>
                   <span className="text-muted-foreground mr-2 select-none">
                     {new Date(log.createdAt).toISOString().slice(11, 23)}

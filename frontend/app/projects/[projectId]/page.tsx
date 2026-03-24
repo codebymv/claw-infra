@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { projectsApi, type Project, type KanbanBoard, type Card } from '@/lib/api';
-import { ArrowLeft, Settings, Users, Search, BarChart3, Plus } from 'lucide-react';
+import { projectsApi, agentsApi, type Project, type KanbanBoard, type Card, type AgentRun } from '@/lib/api';
+import { ArrowLeft, Settings, Users, Search, BarChart3, Plus, Cpu } from 'lucide-react';
+import { StatusBadge } from '@/components/shared/status-badge';
 import { KanbanBoardView } from '../../../components/projects/kanban-board-view';
 import { CreateCardDialog } from '../../../components/projects/create-card-dialog';
 
@@ -18,6 +19,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createCardDialogOpen, setCreateCardDialogOpen] = useState(false);
+  const [projectRuns, setProjectRuns] = useState<AgentRun[]>([]);
 
   useEffect(() => {
     if (projectId) {
@@ -30,15 +32,17 @@ export default function ProjectDetailPage() {
       setLoading(true);
       setError(null);
       
-      const [projectData, boardData, cardsData] = await Promise.all([
+      const [projectData, boardData, cardsData, runsData] = await Promise.all([
         projectsApi.getById(projectId),
         projectsApi.getBoard(projectId),
         projectsApi.getCards(projectId),
+        agentsApi.getProjectRuns(projectId, { limit: '10' }).catch(() => [] as AgentRun[]),
       ]);
       
       setProject(projectData);
       setBoard(boardData);
       setCards(cardsData);
+      setProjectRuns(runsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load project');
     } finally {
@@ -203,6 +207,52 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Agent Activity */}
+      {projectRuns.length > 0 && (
+        <div className="container mx-auto px-4 pb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Cpu className="h-5 w-5 text-blue-500" />
+                Agent Activity
+              </h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {projectRuns.length} recent run{projectRuns.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {projectRuns.map((run) => (
+                <Link
+                  key={run.id}
+                  href={`/agents/${run.id}`}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <StatusBadge status={run.status} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {run.agentName}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {run.startedAt ? new Date(run.startedAt).toLocaleString() : 'Queued'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                    {run.durationMs != null && (
+                      <span>{(run.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                    {run.totalCostUsd && parseFloat(run.totalCostUsd) > 0 && (
+                      <span>${parseFloat(run.totalCostUsd).toFixed(4)}</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Card Dialog - only show if we have a board with columns */}
       {board && board.columns && board.columns.length > 0 && (

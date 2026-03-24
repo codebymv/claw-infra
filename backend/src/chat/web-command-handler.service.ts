@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, ILike } from 'typeorm';
 import { ChatSessionService } from './chat-session.service';
 import { MessageSource, MessageType } from '../database/entities';
+import { Project } from '../database/entities/project.entity';
 
 export interface WebCommandContext {
   userId: string;
@@ -44,6 +47,8 @@ export class WebCommandHandlerService {
 
   constructor(
     private readonly chatSessionService: ChatSessionService,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
   ) {}
 
   /**
@@ -119,6 +124,9 @@ export class WebCommandHandlerService {
         
         case '/history':
           return await this.handleHistoryCommand(command);
+        
+        case '/search':
+          return await this.handleSearchCommand(command);
         
         default:
           return await this.handleUnknownCommand(command);
@@ -204,22 +212,26 @@ export class WebCommandHandlerService {
     const helpContent = `# Available Commands
 
 ## Project Management
-- \`/projects\` - List all available projects
-- \`/select <project>\` - Select a project to work with
-- \`/context\` - Show current project context
-- \`/clear\` - Clear current project context
+- \`/projects\` — List all available projects
+- \`/select <project>\` — Select a project to work with
+- \`/context\` — Show current project context
+- \`/clear\` — Clear current project context
 
 ## Chat Management
-- \`/status\` - Show chat session status
-- \`/history [limit]\` - Show recent message history
-- \`/help [command]\` - Show help for specific command
+- \`/status\` — Show chat session status
+- \`/history [limit]\` — Show recent message history
+- \`/search <query>\` — Search through message history
+- \`/help [command]\` — Show this help
 
 ## Examples
-- \`/projects\` - List all projects
-- \`/select my-project\` - Select project by name
-- \`/history 20\` - Show last 20 messages
+\`\`\`
+/projects              List all projects
+/select my-project     Select project by name
+/history 20            Show last 20 messages
+/search deploy error   Find messages about deploy errors
+\`\`\`
 
-Type any command with \`/help\` to get specific help, e.g., \`/help projects\``;
+Type any command to execute it. Use the project selector in the header to quickly switch projects.`;
 
     return {
       success: true,
@@ -231,23 +243,29 @@ Type any command with \`/help\` to get specific help, e.g., \`/help projects\``;
   }
 
   private async handleProjectsCommand(command: ParsedWebCommand): Promise<WebCommandResult> {
-    // TODO: Integrate with actual projects service
-    // For now, return mock data
-    
-    const projectsContent = `# Available Projects
+    const projects = await this.projectRepo.find({
+      where: { status: 'active' as any },
+      relations: ['boards'],
+      order: { updatedAt: 'DESC' },
+      take: 20,
+    });
 
-## Active Projects
-1. **Website Redesign** - Complete overhaul of company website
-   - Status: Active
-   - Last activity: 2 hours ago
-   - Boards: 4, Cards: 23
+    if (projects.length === 0) {
+      return {
+        success: true,
+        response: {
+          content: '## No Projects Found\n\nNo active projects yet. Create one from the **Projects** page.',
+          type: 'markdown',
+        },
+      };
+    }
 
-2. **Mobile App** - iOS and Android mobile application
-   - Status: Active
-   - Last activity: 1 day ago
-   - Boards: 3, Cards: 15
+    const lines = projects.map((p, i) => {
+      const boardCount = p.boards?.length ?? 0;
+      return `${i + 1}. **${p.name}** — ${p.description || 'No description'}\n   - Boards: ${boardCount} • Updated: ${p.updatedAt.toLocaleDateString()}`;
+    });
 
-Use \`/select <project-name>\` to select a project.`;
+    const projectsContent = `# Available Projects\n\n${lines.join('\n\n')}\n\nUse \`/select <project-name>\` to select a project.`;
 
     return {
       success: true,
@@ -259,7 +277,7 @@ Use \`/select <project-name>\` to select a project.`;
   }
 
   private async handleSelectCommand(command: ParsedWebCommand): Promise<WebCommandResult> {
-    const projectIdentifier = command.args.positional[0];
+    const projectIdentifier = command.args.positional.join(' ');
     
     if (!projectIdentifier) {
       return {
@@ -275,19 +293,45 @@ Use \`/select <project-name>\` to select a project.`;
       };
     }
 
-    // TODO: Integrate with actual project selection logic
-    // For now, simulate project selection
-    
-    await this.chatSessionService.setActiveProject(command.context.userId, projectIdentifier);
+    // Look up project by name (case-insensitive) or by ID
+    let project = await this.projectRepo.findOne({
+      where: [
+        { id: projectIdentifier },
+        { name: ILike(projectIdentifier) },
+      ],
+    });
+
+    // If not found, try partial match
+    if (!project) {
+      project = await this.projectRepo.findOne({
+        where: { name: ILike(`%${projectIdentifier}%`) },
+      });
+    }
+
+    if (!project) {
+      return {
+        success: false,
+        response: {
+          content: `No project found matching **"${projectIdentifier}"**.\n\nUse \`/projects\` to see available projects.`,
+          type: 'markdown',
+        },
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Project not found',
+        },
+      };
+    }
+
+    await this.chatSessionService.setActiveProject(command.context.userId, project.id);
 
     return {
       success: true,
       response: {
-        content: `✅ **Project Selected**\n\nYou've selected: **${projectIdentifier}**\n\nYou can now use project-specific commands like \`/tasks\` and \`/boards\`.`,
+        content: `✅ **Project Selected**\n\nYou've selected: **${project.name}**\n${project.description ? `> ${project.description}\n` : ''}\nAgent runs will now be linked to this project. Use \`/context\` to verify.`,
         type: 'markdown',
       },
       contextUpdate: {
-        activeProjectId: projectIdentifier,
+        activeProjectId: project.id,
       },
     };
   }
@@ -309,10 +353,20 @@ Use \`/select <project-name>\` to select a project.`;
       };
     }
 
+    let projectLine = '**Active Project:** None';
+    if (session.activeProjectId) {
+      const project = await this.projectRepo.findOne({
+        where: { id: session.activeProjectId },
+      });
+      projectLine = project
+        ? `**Active Project:** ${project.name} (\`${project.id}\`)`
+        : `**Active Project:** ${session.activeProjectId} (unknown)`;
+    }
+
     const contextContent = `# Current Context
 
 **User ID:** ${session.userId}
-**Active Project:** ${session.activeProjectId || 'None'}
+${projectLine}
 **Session Created:** ${session.createdAt.toLocaleString()}
 **Last Activity:** ${session.lastActivity.toLocaleString()}
 **Message Count:** ${session.messageCount}
@@ -426,6 +480,60 @@ ${messages.reverse().map((msg, index) => {
       success: true,
       response: {
         content: historyContent,
+        type: 'markdown',
+      },
+    };
+  }
+
+  private async handleSearchCommand(command: ParsedWebCommand): Promise<WebCommandResult> {
+    const query = command.args.positional.join(' ');
+
+    if (!query) {
+      return {
+        success: false,
+        response: {
+          content: 'Please provide a search term.\n\n**Usage:** `/search <query>`\n**Example:** `/search deploy error`',
+          type: 'markdown',
+        },
+        error: {
+          code: 'MISSING_ARGUMENT',
+          message: 'Search query is required',
+        },
+      };
+    }
+
+    const messages = await this.chatSessionService.getMessageHistory(
+      command.context.userId,
+      200,
+    );
+
+    const queryLower = query.toLowerCase();
+    const matches = messages.filter(m =>
+      m.content.toLowerCase().includes(queryLower),
+    );
+
+    if (matches.length === 0) {
+      return {
+        success: true,
+        response: {
+          content: `No messages found matching **"${query}"**.`,
+          type: 'markdown',
+        },
+      };
+    }
+
+    const results = matches.slice(0, 10).map((m, i) => {
+      const time = m.timestamp.toLocaleString();
+      const preview = m.content.length > 100
+        ? m.content.substring(0, 100) + '...'
+        : m.content;
+      return `${i + 1}. \`${time}\` — ${preview}`;
+    });
+
+    return {
+      success: true,
+      response: {
+        content: `# Search Results for "${query}"\n\nFound **${matches.length}** match${matches.length === 1 ? '' : 'es'}${matches.length > 10 ? ' (showing first 10)' : ''}:\n\n${results.join('\n\n')}`,
         type: 'markdown',
       },
     };

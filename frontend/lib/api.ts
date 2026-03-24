@@ -68,6 +68,11 @@ export const agentsApi = {
   getTimeline: (days?: number) => api.get<TimelinePoint[]>(`/agents/timeline?days=${days || 7}`),
   getActive: () => api.get<AgentRun[]>('/agents/active'),
   cancel: (id: string) => api.delete(`/agents/${id}/cancel`),
+  getProjectRuns: (projectId: string, params?: Record<string, string>) => {
+    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+    return api.get<AgentRun[]>(`/agents/projects/${projectId}/runs${qs}`);
+  },
+  getCardRuns: (cardId: string) => api.get<AgentRun[]>(`/agents/cards/${cardId}/runs`),
 };
 
 // --- Costs ---
@@ -238,6 +243,49 @@ export const codeApi = {
     return api.get<CodeQuality>(`/code/quality${qs}`);
   },
   triggerBackfill: (repo?: string) => api.post<CodeBackfillResponse>('/code/sync/backfill', repo ? { repo } : {}),
+};
+
+// --- GitHub App ---
+export interface GithubStatus {
+  configured: boolean;
+  installUrl: string | null;
+}
+
+export interface GithubInstallation {
+  id: string;
+  installationId: number;
+  accountLogin: string;
+  accountType: string;
+  isActive: boolean;
+  createdAt: string;
+  repoGrants?: GithubRepoGrantEntry[];
+}
+
+export interface GithubRepoGrantEntry {
+  id: string;
+  repoFullName: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface GithubAccessibleRepo {
+  full_name: string;
+  name: string;
+  owner: { login: string };
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+}
+
+export const githubApi = {
+  getStatus: () => api.get<GithubStatus>('/github/status'),
+  listInstallations: () => api.get<GithubInstallation[]>('/github/installations'),
+  disconnect: (id: string) => api.delete<void>(`/github/installations/${id}`),
+  listRepos: () => api.get<GithubAccessibleRepo[]>('/github/repos'),
+  listGrantedRepos: () => api.get<GithubRepoGrantEntry[]>('/github/repos/granted'),
+  grantRepo: (installationId: string, repoFullName: string) =>
+    api.post<GithubRepoGrantEntry>('/github/repos/grant', { installationId, repoFullName }),
+  revokeGrant: (grantId: string) => api.delete<void>(`/github/repos/grant/${grantId}`),
 };
 
 // --- Types ---

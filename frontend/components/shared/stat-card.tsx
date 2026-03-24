@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 
 interface StatCardProps {
   title: string;
@@ -9,6 +10,7 @@ interface StatCardProps {
   trend?: { value: number; label: string };
   className?: string;
   accent?: 'default' | 'success' | 'warning' | 'destructive';
+  href?: string;
 }
 
 const accentConfig = {
@@ -38,14 +40,16 @@ export function StatCard({
   trend,
   className,
   accent = 'default',
+  href,
 }: StatCardProps) {
   const config = accentConfig[accent];
 
-  return (
+  const card = (
     <div
       className={cn(
         'group relative rounded-xl border border-border bg-card p-4 sm:p-5 transition-all duration-300 card-shine gradient-border overflow-hidden',
         config.glow,
+        href && 'cursor-pointer hover:border-primary/30',
         className,
       )}
     >
@@ -79,4 +83,10 @@ export function StatCard({
       </div>
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{card}</Link>;
+  }
+
+  return card;
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CodePrReviewState } from '../database/entities/code-pr-review.entity';
+import { GithubAppService } from './github-app.service';
 
 export interface GithubRepoRef {
   owner: string;
@@ -63,18 +64,24 @@ interface GithubListResponseItem {
 export class CodeProviderGithub {
   private readonly logger = new Logger(CodeProviderGithub.name);
 
-  private getToken(): string | null {
-    return process.env.GITHUB_TOKEN || null;
+  constructor(private readonly githubApp: GithubAppService) {}
+
+  private async getToken(): Promise<string | null> {
+    try {
+      return await this.githubApp.getToken();
+    } catch {
+      return process.env.GITHUB_TOKEN || null;
+    }
   }
 
-  private buildHeaders() {
+  private async buildHeaders() {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github+json',
       'User-Agent': 'claw-infra-code-sync',
       'X-GitHub-Api-Version': '2022-11-28',
     };
 
-    const token = this.getToken();
+    const token = await this.getToken();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
@@ -85,7 +92,7 @@ export class CodeProviderGithub {
   private async requestJson<T>(url: string): Promise<T> {
     const response = await fetch(url, {
       method: 'GET',
-      headers: this.buildHeaders(),
+      headers: await this.buildHeaders(),
     });
 
     if (!response.ok) {

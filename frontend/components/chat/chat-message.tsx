@@ -5,6 +5,8 @@ import { Bot, User, Terminal, AlertCircle, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatRelativeTime } from '@/lib/utils';
 import { ChatMessageData } from './web-chat';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessageProps {
   message: ChatMessageData;
@@ -20,33 +22,12 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
   const isSynced = message.metadata?.synced === true;
   const isExternal = message.metadata?.external === true;
 
+  const isRunStatus = message.metadata?.runStatus === true;
+
   // Format message content
   const formattedContent = useMemo(() => {
-    if (!enableMarkdown) {
-      return message.content;
-    }
-
-    // Simple markdown-like formatting for now
-    // In a real implementation, you'd use a proper markdown parser
-    let content = message.content;
-    
-    // Bold text
-    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // Italic text
-    content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
-    // Code blocks
-    content = content.replace(/```([\s\S]*?)```/g, '<pre class="bg-muted p-2 rounded text-sm overflow-x-auto"><code>$1</code></pre>');
-    
-    // Inline code
-    content = content.replace(/`(.*?)`/g, '<code class="bg-muted px-1 rounded text-sm">$1</code>');
-    
-    // Line breaks
-    content = content.replace(/\n/g, '<br>');
-
-    return content;
-  }, [message.content, enableMarkdown]);
+    return message.content;
+  }, [message.content]);
 
   // Get message icon
   const getMessageIcon = () => {
@@ -131,10 +112,43 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
           )}
         </div>
         
-        <div 
-          className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: formattedContent }}
-        />
+        {/* Inline run status card */}
+        {isRunStatus && message.metadata && (
+          <a
+            href={`/agents/${message.metadata.runId}`}
+            className="block mt-1 p-2 rounded border bg-muted/50 hover:bg-muted transition-colors no-underline"
+          >
+            <div className="flex items-center gap-2 text-sm">
+              <span className={`inline-block w-2 h-2 rounded-full ${
+                message.metadata.status === 'completed' ? 'bg-green-500' :
+                message.metadata.status === 'running' ? 'bg-blue-500 animate-pulse' :
+                message.metadata.status === 'failed' ? 'bg-red-500' :
+                'bg-yellow-500'
+              }`} />
+              <span className="font-medium">{message.metadata.agentName || 'Agent'}</span>
+              <Badge variant="outline" className="text-xs capitalize">{message.metadata.status}</Badge>
+              {message.metadata.duration != null && (
+                <span className="text-xs text-muted-foreground">{Math.round(message.metadata.duration)}s</span>
+              )}
+              {message.metadata.cost != null && (
+                <span className="text-xs text-muted-foreground">${Number(message.metadata.cost).toFixed(4)}</span>
+              )}
+            </div>
+          </a>
+        )}
+
+        {/* Regular message content */}
+        {!isRunStatus && (enableMarkdown ? (
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-pre:my-2">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {formattedContent}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+            {formattedContent}
+          </div>
+        ))}
         
         {/* Show command metadata if available */}
         {isCommand && message.metadata?.suggestions && (

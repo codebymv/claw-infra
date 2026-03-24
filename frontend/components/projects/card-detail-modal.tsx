@@ -8,9 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, MessageSquare, Paperclip, Clock, Tag, Edit, Save, X } from 'lucide-react';
+import { Calendar, User, MessageSquare, Paperclip, Clock, Tag, Edit, Save, X, Cpu } from 'lucide-react';
 import { useAppToast } from '@/components/layout/app-shell';
-import { projectsApi, type Card, type Comment, type UpdateCardRequest, type CreateCommentRequest } from '@/lib/api';
+import { projectsApi, agentsApi, type Card, type Comment, type UpdateCardRequest, type CreateCommentRequest, type AgentRun } from '@/lib/api';
+import { StatusBadge } from '@/components/shared/status-badge';
+import Link from 'next/link';
 
 interface CardDetailModalProps {
   open: boolean;
@@ -24,6 +26,7 @@ export function CardDetailModal({ open, onOpenChange, projectId, cardId, onUpdat
   const toast = useAppToast();
   const [card, setCard] = useState<Card | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [linkedRuns, setLinkedRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [newComment, setNewComment] = useState('');
@@ -47,13 +50,15 @@ export function CardDetailModal({ open, onOpenChange, projectId, cardId, onUpdat
     
     setLoading(true);
     try {
-      const [cardData, commentsData] = await Promise.all([
+      const [cardData, commentsData, runsData] = await Promise.all([
         projectsApi.getCard(projectId, cardId),
-        projectsApi.getComments(projectId, cardId)
+        projectsApi.getComments(projectId, cardId),
+        agentsApi.getCardRuns(cardId).catch(() => [] as AgentRun[]),
       ]);
       
       setCard(cardData);
       setComments(commentsData);
+      setLinkedRuns(runsData);
       setFormData({
         title: cardData.title,
         description: cardData.description || '',
@@ -334,6 +339,47 @@ export function CardDetailModal({ open, onOpenChange, projectId, cardId, onUpdat
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-700 my-6"></div>
+
+            {/* Linked Agent Runs */}
+            {linkedRuns.length > 0 && (
+              <>
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Cpu className="h-4 w-4" />
+                    Linked Runs ({linkedRuns.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {linkedRuns.map((run) => (
+                      <Link
+                        key={run.id}
+                        href={`/agents/${run.id}`}
+                        className="flex items-center justify-between rounded-lg border p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                        onClick={() => onOpenChange(false)}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <StatusBadge status={run.status} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{run.agentName}</p>
+                            <p className="text-xs text-gray-500">
+                              {run.startedAt ? new Date(run.startedAt).toLocaleString() : 'Queued'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 shrink-0">
+                          {run.durationMs != null && (
+                            <span>{(run.durationMs / 1000).toFixed(1)}s</span>
+                          )}
+                          {run.totalCostUsd && parseFloat(run.totalCostUsd) > 0 && (
+                            <span>${parseFloat(run.totalCostUsd).toFixed(4)}</span>
+                          )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+                <div className="border-t border-gray-200 dark:border-gray-700 my-6"></div>
+              </>
+            )}
 
             {/* Comments Section */}
             <div className="space-y-4">

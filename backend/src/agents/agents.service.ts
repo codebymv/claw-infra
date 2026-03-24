@@ -73,6 +73,8 @@ export interface ListRunsQuery {
   to?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 export interface CardSearchQuery {
@@ -309,10 +311,19 @@ export class AgentsService {
     const skip = (page - 1) * limit;
 
     // Build query with eager loading to prevent N+1
+    const allowedSortColumns: Record<string, string> = {
+      date: 'run.createdAt',
+      duration: 'run.durationMs',
+      cost: 'run.totalCostUsd',
+      agent: 'run.agentName',
+    };
+    const sortColumn = allowedSortColumns[query.sortBy || ''] || 'run.createdAt';
+    const sortOrder = query.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
     const queryBuilder = this.runRepo
       .createQueryBuilder('run')
       .leftJoinAndSelect('run.steps', 'steps')
-      .orderBy('run.createdAt', 'DESC')
+      .orderBy(sortColumn, sortOrder)
       .skip(skip)
       .take(limit);
 
@@ -547,6 +558,35 @@ export class AgentsService {
     return this.stepRepo.find({
       where: { runId },
       order: { stepIndex: 'ASC' },
+    });
+  }
+
+  async getRunsByProject(
+    projectId: string,
+    options: { limit?: number; status?: AgentRunStatus } = {},
+  ) {
+    const limit = Math.min(options.limit || 20, 100);
+
+    const qb = this.runRepo
+      .createQueryBuilder('run')
+      .innerJoin('run.linkedCard', 'card')
+      .innerJoin('card.board', 'board')
+      .where('board.project_id = :projectId', { projectId })
+      .orderBy('run.createdAt', 'DESC')
+      .take(limit);
+
+    if (options.status) {
+      qb.andWhere('run.status = :status', { status: options.status });
+    }
+
+    return qb.getMany();
+  }
+
+  async getRunsByCard(cardId: string): Promise<AgentRun[]> {
+    return this.runRepo.find({
+      where: { linkedCardId: cardId },
+      order: { createdAt: 'DESC' },
+      take: 20,
     });
   }
 

@@ -5,7 +5,7 @@ import { Bot, DollarSign, Activity, Zap, AlertTriangle, ArrowUpRight } from 'luc
 import { StatCard } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { PageLoader } from '@/components/shared/loading-spinner';
+import { PageLoader, StatCardSkeleton, ChartSkeleton } from '@/components/shared/loading-spinner';
 import { LastUpdated } from '@/components/shared/last-updated';
 import { RunTimelineChart } from '@/components/charts/run-timeline-chart';
 import { CostTrendChart } from '@/components/charts/cost-trend-chart';
@@ -54,7 +54,23 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <PageLoader />;
+  if (loading) return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <StatCardSkeleton key={i} />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SectionCard title="Run Timeline" description="Loading...">
+          <ChartSkeleton />
+        </SectionCard>
+        <SectionCard title="Daily Spend" description="Loading...">
+          <ChartSkeleton />
+        </SectionCard>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -64,6 +80,7 @@ export default function DashboardPage() {
           value={stats?.totalToday ?? 0}
           icon={Bot}
           accent="default"
+          href="/agents"
         />
         <StatCard
           title="Active Agents"
@@ -71,12 +88,14 @@ export default function DashboardPage() {
           icon={Activity}
           accent="success"
           subtext="currently running or queued"
+          href="/agents?status=running"
         />
         <StatCard
           title="Cost (24h)"
           value={formatCost(costSummary?.totalCostUsd)}
           icon={DollarSign}
           accent="warning"
+          href="/costs"
         />
         <StatCard
           title="Avg Latency"
@@ -84,6 +103,7 @@ export default function DashboardPage() {
           icon={Zap}
           accent={stats?.recentFailed ? 'destructive' : 'default'}
           subtext={stats?.recentFailed ? `${stats.recentFailed} failed today` : 'no failures today'}
+          href={stats?.recentFailed ? '/agents?status=failed' : '/agents'}
         />
       </div>
 

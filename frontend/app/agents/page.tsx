@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { RefreshCw, ChevronLeft, ChevronRight, X, Search, Loader2 } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, X, Search, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { PageLoader } from '@/components/shared/loading-spinner';
 import { LastUpdated } from '@/components/shared/last-updated';
@@ -30,6 +30,8 @@ function AgentsPageContent() {
   const status = searchParams.get('status') || '';
   const agentName = searchParams.get('agentName') || '';
   const page = parseInt(searchParams.get('page') || '1');
+  const sortBy = searchParams.get('sortBy') || '';
+  const sortOrder = searchParams.get('sortOrder') || '';
 
   const load = useCallback(async (isManual = false) => {
     // First load: show full PageLoader. Subsequent: show table overlay.
@@ -41,6 +43,8 @@ function AgentsPageContent() {
     const params: Record<string, string> = { page: String(page), limit: '20' };
     if (status) params.status = status;
     if (agentName) params.agentName = agentName;
+    if (sortBy) params.sortBy = sortBy;
+    if (sortOrder) params.sortOrder = sortOrder;
     try {
       const res = await agentsApi.list(params);
       setData(res);
@@ -56,7 +60,7 @@ function AgentsPageContent() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [status, agentName, page]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status, agentName, page, sortBy, sortOrder]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     isFirstLoad.current = true;
@@ -69,8 +73,32 @@ function AgentsPageContent() {
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    if (key !== 'page') params.delete('page');
+    router.push(`?${params.toString()}`);
+  }
+
+  function toggleSort(column: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === column) {
+      if (sortOrder === 'DESC') {
+        params.set('sortOrder', 'ASC');
+      } else {
+        params.delete('sortBy');
+        params.delete('sortOrder');
+      }
+    } else {
+      params.set('sortBy', column);
+      params.set('sortOrder', 'DESC');
+    }
     params.delete('page');
     router.push(`?${params.toString()}`);
+  }
+
+  function SortIcon({ column }: { column: string }) {
+    if (sortBy !== column) return <ArrowUpDown className="h-3 w-3 opacity-0 group-hover/th:opacity-50 transition-opacity" />;
+    return sortOrder === 'ASC'
+      ? <ArrowUp className="h-3 w-3 text-primary" />
+      : <ArrowDown className="h-3 w-3 text-primary" />;
   }
 
   return (
@@ -148,10 +176,25 @@ function AgentsPageContent() {
                   <tr className="border-b border-border bg-muted/30">
                     <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Agent</th>
                     <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Status</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Duration</th>
-                    <th className="px-4 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Cost</th>
+                    <th
+                      onClick={() => toggleSort('duration')}
+                      className="group/th px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5 cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="inline-flex items-center gap-1">Duration <SortIcon column="duration" /></span>
+                    </th>
+                    <th
+                      onClick={() => toggleSort('cost')}
+                      className="group/th px-4 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5 cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="inline-flex items-center gap-1 justify-end">Cost <SortIcon column="cost" /></span>
+                    </th>
                     <th className="px-4 py-3.5 text-right text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Tokens</th>
-                    <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Started</th>
+                    <th
+                      onClick={() => toggleSort('date')}
+                      className="group/th px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5 cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="inline-flex items-center gap-1">Started <SortIcon column="date" /></span>
+                    </th>
                     <th className="px-4 py-3.5 text-left text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground sm:px-5">Trigger</th>
                   </tr>
                 </thead>

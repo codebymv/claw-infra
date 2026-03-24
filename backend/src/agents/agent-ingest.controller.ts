@@ -45,6 +45,10 @@ class IngestRunDto {
   @IsOptional()
   @IsString()
   parentRunId?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedCardId?: string;
 }
 
 class UpdateRunStatusDto {

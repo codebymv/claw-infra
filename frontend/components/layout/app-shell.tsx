@@ -1,10 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { Header } from '@/components/layout/header';
 import { Sidebar } from '@/components/layout/sidebar';
 import { ToastContainer } from '@/components/shared/toast';
 import { useToast, type Toast } from '@/hooks/useToast';
+import { useGlobalStatus } from '@/hooks/useGlobalStatus';
 
 // ─── Toast context ────────────────────────────────────────────────────────────
 interface ToastContextValue {
@@ -23,6 +24,23 @@ export function useAppToast(): ToastContextValue['toast'] {
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { toasts, toast, dismiss } = useToast();
+  const { recentUpdates } = useGlobalStatus();
+  const lastNotifiedRef = useRef<string | null>(null);
+
+  // Toast on run completion/failure
+  useEffect(() => {
+    if (recentUpdates.length === 0) return;
+    const latest = recentUpdates[0];
+    if (!latest?.id || latest.id === lastNotifiedRef.current) return;
+
+    if (latest.status === 'completed') {
+      lastNotifiedRef.current = latest.id;
+      toast.success(`${latest.agentName || 'Agent'} completed`);
+    } else if (latest.status === 'failed') {
+      lastNotifiedRef.current = latest.id;
+      toast.error(`${latest.agentName || 'Agent'} failed`);
+    }
+  }, [recentUpdates, toast]);
 
   useEffect(() => {
     document.body.style.overflow = mobileSidebarOpen ? 'hidden' : '';

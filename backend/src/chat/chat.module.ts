@@ -14,6 +14,7 @@ import { User } from '../database/entities/user.entity';
 import { Project } from '../database/entities/project.entity';
 import { PresenceService } from './presence.service';
 import { ErrorHandlerService } from './error-handler.service';
+import { WsModule } from '../ws/ws.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ErrorHandlerService } from './error-handler.service';
     JwtModule.register({}),
     ConfigModule,
     ScheduleModule.forRoot(),
+    WsModule,
   ],
   controllers: [ChatController],
   providers: [

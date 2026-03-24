@@ -27,6 +27,8 @@ import { Comment } from '../database/entities/comment.entity';
 import { CardHistory } from '../database/entities/card-history.entity';
 import { ChatSession } from '../database/entities/chat-session.entity';
 import { ChatMessage } from '../database/entities/chat-message.entity';
+import { GithubInstallation } from '../database/entities/github-installation.entity';
+import { GithubRepoGrant } from '../database/entities/github-repo-grant.entity';
 
 export const DATABASE_ENTITIES = [
   AgentRun,
@@ -55,6 +57,8 @@ export const DATABASE_ENTITIES = [
   CardHistory,
   ChatSession,
   ChatMessage,
+  GithubInstallation,
+  GithubRepoGrant,
 ];
 
 export function buildTypeOrmConfig(

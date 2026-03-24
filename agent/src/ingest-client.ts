@@ -34,11 +34,14 @@ export interface CreateRunResult {
   status: string;
 }
 
-export async function createRun(agentName: string, trigger: string = 'manual', configSnapshot?: Record<string, unknown>): Promise<CreateRunResult> {
+export async function createRun(agentName: string, trigger: string = 'manual', configSnapshot?: Record<string, unknown>, opts?: {
+  metadata?: Record<string, unknown>;
+  linkedCardId?: string;
+}): Promise<CreateRunResult> {
   return request<CreateRunResult>({
     method: 'POST',
     path: '/ingest/runs',
-    body: { agentName, trigger, configSnapshot },
+    body: { agentName, trigger, configSnapshot, ...opts },
   });
 }
 
@@ -148,6 +151,27 @@ export async function sendMetrics(opts: {
   logBufferSize?: number;
 }): Promise<void> {
   await request({ method: 'POST', path: '/ingest/metrics', body: opts });
+}
+
+// ── GitHub Token ──
+
+/** Fetch a GitHub installation token from the backend (requires JWT or falls back to env var) */
+export async function fetchGithubToken(): Promise<string | null> {
+  try {
+    const url = `${BACKEND_URL}/api/github/status`;
+    const res = await fetch(url, {
+      headers: { 'X-Agent-Token': AGENT_TOKEN },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { configured: boolean; installUrl: string | null };
+    if (!data.configured) return null;
+
+    // The agent can't call JWT-guarded endpoints directly, so the token resolution
+    // happens server-side through the code provider. The agent only needs env var fallback.
+    return process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN || null;
+  } catch {
+    return process.env.GITHUB_TOKEN || process.env.ZEROCLAW_GITHUB_TOKEN || null;
+  }
 }
 
 // ── Health check ──

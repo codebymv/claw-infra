@@ -13,6 +13,7 @@ import { CodeProviderGithub } from './code.provider.github';
 import { CodePr, CodePrState } from '../database/entities/code-pr.entity';
 import { CodeCommit } from '../database/entities/code-commit.entity';
 import { CodePrReview } from '../database/entities/code-pr-review.entity';
+import { GithubAppService } from './github-app.service';
 
 @Injectable()
 export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
@@ -31,6 +32,7 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
     private readonly commitRepository: Repository<CodeCommit>,
     private readonly githubProvider: CodeProviderGithub,
     private readonly config: ConfigService,
+    private readonly githubApp: GithubAppService,
   ) {}
 
   onModuleInit() {
@@ -95,6 +97,18 @@ export class CodeSyncService implements OnModuleInit, OnModuleDestroy {
       const [owner, name] = full.split('/');
       if (!owner || !name) continue;
       byKey.set(`${owner}/${name}`.toLowerCase(), { owner, name });
+    }
+
+    // Include repos granted via GitHub App integration
+    try {
+      const grants = await this.githubApp.listGrantedRepos();
+      for (const grant of grants) {
+        const [owner, name] = grant.repoFullName.split('/');
+        if (!owner || !name) continue;
+        byKey.set(`${owner}/${name}`.toLowerCase(), { owner, name });
+      }
+    } catch {
+      // GitHub App may not be configured — that's fine
     }
 
     return Array.from(byKey.values());

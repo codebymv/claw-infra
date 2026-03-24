@@ -70,6 +70,13 @@ const AVAILABLE_COMMANDS: CommandSuggestion[] = [
     examples: ['/history', '/history 20'],
     category: 'chat',
   },
+  {
+    command: '/search',
+    description: 'Search through past chat messages',
+    syntax: '/search <query>',
+    examples: ['/search deploy error', '/search database'],
+    category: 'chat',
+  },
 ];
 
 export function CommandAutocomplete({ 

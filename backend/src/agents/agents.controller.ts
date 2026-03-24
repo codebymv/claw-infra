@@ -107,6 +107,14 @@ class ListRunsQueryDto implements ListRunsQuery {
   @Transform(({ value }) => parseInt(value as string))
   @IsNumber()
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 @Controller('agents')
@@ -141,6 +149,23 @@ export class AgentsController {
       projectId: query.projectId,
       limit: query.limit,
     });
+  }
+
+  @Get('projects/:projectId/runs')
+  getRunsByProject(
+    @Param('projectId') projectId: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: AgentRunStatus,
+  ) {
+    return this.agentsService.getRunsByProject(projectId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      status,
+    });
+  }
+
+  @Get('cards/:cardId/runs')
+  getRunsByCard(@Param('cardId') cardId: string) {
+    return this.agentsService.getRunsByCard(cardId);
   }
 
   @Post()
