@@ -222,6 +222,17 @@ export const projectsApi = {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return api.get<{ format: string; data: any; filename: string }>(`/projects/${projectId}/analytics/export${qs}`);
   },
+
+  // Linked Repos
+  getLinkedRepos: (projectId: string) => api.get<LinkedRepo[]>(`/projects/${projectId}/repos`),
+  linkRepo: (projectId: string, repoFullName: string) =>
+    api.post<LinkedRepo[]>(`/projects/${projectId}/repos`, { repoFullName }),
+  unlinkRepo: (projectId: string, repoId: string) =>
+    api.delete(`/projects/${projectId}/repos/${repoId}`),
+  getActivity: (projectId: string, limit?: number) => {
+    const qs = limit ? `?limit=${limit}` : '';
+    return api.get<ProjectCodeActivity>(`/projects/${projectId}/activity${qs}`);
+  },
 };
 
 // --- Code Visibility ---
@@ -836,4 +847,38 @@ export interface ProjectInsights {
     velocityTrend: Array<{ date: string; velocity: number }>;
   };
   recommendations: string[];
+}
+
+export interface LinkedRepo {
+  id: string;
+  provider: string;
+  owner: string;
+  name: string;
+  isActive: boolean;
+  defaultBranch: string;
+}
+
+export interface ProjectCodeActivity {
+  commits: Array<{
+    id: string;
+    sha: string;
+    message: string;
+    author: string;
+    committedAt: string;
+    additions: number;
+    deletions: number;
+    filesChanged: number;
+  }>;
+  prs: Array<{
+    id: string;
+    number: number;
+    title: string;
+    author: string;
+    state: 'open' | 'closed' | 'merged';
+    openedAt: string;
+    mergedAt: string | null;
+    additions: number;
+    deletions: number;
+    changedFiles: number;
+  }>;
 }

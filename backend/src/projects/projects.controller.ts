@@ -175,4 +175,68 @@ export class ProjectsController {
       { targetUserId: userId },
     );
   }
+
+  // --- Linked Repos ---
+
+  @Get(':id/repos')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getLinkedRepos(@Param('id') projectId: string) {
+    return this.projectsService.getLinkedRepos(projectId);
+  }
+
+  @Post(':id/repos')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async linkRepo(
+    @Param('id') projectId: string,
+    @Body() body: { repoFullName: string },
+    @Request() req,
+  ) {
+    const result = await this.projectsService.linkRepo(
+      projectId,
+      body.repoFullName,
+    );
+
+    await this.auditLogService.logProjectAccess(
+      req.user.id,
+      projectId,
+      'link_repo',
+      { repoFullName: body.repoFullName },
+    );
+
+    return result;
+  }
+
+  @Delete(':id/repos/:repoId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async unlinkRepo(
+    @Param('id') projectId: string,
+    @Param('repoId') repoId: string,
+    @Request() req,
+  ) {
+    await this.projectsService.unlinkRepo(projectId, repoId);
+
+    await this.auditLogService.logProjectAccess(
+      req.user.id,
+      projectId,
+      'unlink_repo',
+      { repoId },
+    );
+  }
+
+  @Get(':id/activity')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getProjectActivity(
+    @Param('id') projectId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.projectsService.getProjectActivity(
+      projectId,
+      limit ? parseInt(limit, 10) : 20,
+    );
+  }
 }

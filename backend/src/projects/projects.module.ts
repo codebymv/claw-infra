@@ -32,6 +32,9 @@ import { CardHistory } from '../database/entities/card-history.entity';
 import { ProjectMember } from '../database/entities/project-member.entity';
 import { User } from '../database/entities/user.entity';
 import { ApiKey } from '../database/entities/api-key.entity';
+import { CodeRepo } from '../database/entities/code-repo.entity';
+import { CodeCommit } from '../database/entities/code-commit.entity';
+import { CodePr } from '../database/entities/code-pr.entity';
 import { WsModule } from '../ws/ws.module';
 import { AuthModule } from '../auth/auth.module';
 
@@ -47,6 +50,9 @@ import { AuthModule } from '../auth/auth.module';
       ProjectMember,
       User,
       ApiKey,
+      CodeRepo,
+      CodeCommit,
+      CodePr,
     ]),
     WsModule,
     AuthModule,

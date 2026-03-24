@@ -6,12 +6,15 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
   JoinColumn,
 } from 'typeorm';
 import { ChatSession } from './chat-session.entity';
 import { User } from './user.entity';
 import { ProjectMember } from './project-member.entity';
 import { KanbanBoard } from './kanban-board.entity';
+import { CodeRepo } from './code-repo.entity';
 
 export enum ProjectStatus {
   ACTIVE = 'active',
@@ -77,6 +80,14 @@ export class Project {
 
   @OneToMany(() => ChatSession, (session) => session.activeProject)
   chatSessions: ChatSession[];
+
+  @ManyToMany(() => CodeRepo, (repo) => repo.projects, { eager: false })
+  @JoinTable({
+    name: 'project_linked_repos',
+    joinColumn: { name: 'project_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'repo_id', referencedColumnName: 'id' },
+  })
+  linkedRepos: CodeRepo[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

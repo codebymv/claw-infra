@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryDeepPartialEntity, ILike } from 'typeorm';
+import { Repository, QueryDeepPartialEntity, ILike, In } from 'typeorm';
 import {
   Project,
   ProjectStatus,
@@ -17,6 +17,9 @@ import {
   ProjectMember,
   ProjectRole,
 } from '../database/entities/project-member.entity';
+import { CodeRepo } from '../database/entities/code-repo.entity';
+import { CodeCommit } from '../database/entities/code-commit.entity';
+import { CodePr } from '../database/entities/code-pr.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
@@ -33,6 +36,12 @@ export class ProjectsService {
     private readonly boardRepo: Repository<KanbanBoard>,
     @InjectRepository(ProjectMember)
     private readonly memberRepo: Repository<ProjectMember>,
+    @InjectRepository(CodeRepo)
+    private readonly codeRepoRepo: Repository<CodeRepo>,
+    @InjectRepository(CodeCommit)
+    private readonly commitRepo: Repository<CodeCommit>,
+    @InjectRepository(CodePr)
+    private readonly prRepo: Repository<CodePr>,
     private readonly gateway: AppGateway,
   ) {}
 
@@ -402,6 +411,86 @@ export class ProjectsService {
         `Access denied: insufficient permissions (${member.role})`,
       );
     }
+  }
+
+  async getLinkedRepos(projectId: string): Promise<CodeRepo[]> {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+      relations: ['linkedRepos'],
+    });
+    if (!project) throw new NotFoundException('Project not found');
+    return project.linkedRepos ?? [];
+  }
+
+  async linkRepo(projectId: string, repoFullName: string): Promise<CodeRepo[]> {
+    const [owner, name] = repoFullName.split('/');
+    if (!owner || !name) {
+      throw new BadRequestException('Invalid repo format. Expected owner/name');
+    }
+
+    const repo = await this.codeRepoRepo.findOne({ where: { owner, name } });
+    if (!repo) {
+      throw new NotFoundException(`Repository ${repoFullName} not found. Ensure it has been synced via GitHub integration.`);
+    }
+
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+      relations: ['linkedRepos'],
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const alreadyLinked = project.linkedRepos?.some((r) => r.id === repo.id);
+    if (alreadyLinked) {
+      throw new ConflictException('Repository is already linked to this project');
+    }
+
+    project.linkedRepos = [...(project.linkedRepos ?? []), repo];
+    await this.projectRepo.save(project);
+
+    this.logger.log(`Linked repo ${repoFullName} to project ${projectId}`);
+    return project.linkedRepos;
+  }
+
+  async unlinkRepo(projectId: string, repoId: string): Promise<void> {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+      relations: ['linkedRepos'],
+    });
+    if (!project) throw new NotFoundException('Project not found');
+
+    const before = project.linkedRepos?.length ?? 0;
+    project.linkedRepos = (project.linkedRepos ?? []).filter((r) => r.id !== repoId);
+    if (project.linkedRepos.length === before) {
+      throw new NotFoundException('Repository not linked to this project');
+    }
+
+    await this.projectRepo.save(project);
+    this.logger.log(`Unlinked repo ${repoId} from project ${projectId}`);
+  }
+
+  async getProjectActivity(
+    projectId: string,
+    limit = 20,
+  ): Promise<{ commits: CodeCommit[]; prs: CodePr[] }> {
+    const repos = await this.getLinkedRepos(projectId);
+    if (repos.length === 0) return { commits: [], prs: [] };
+
+    const repoIds = repos.map((r) => r.id);
+
+    const [commits, prs] = await Promise.all([
+      this.commitRepo.find({
+        where: { repoId: In(repoIds) },
+        order: { committedAt: 'DESC' },
+        take: limit,
+      }),
+      this.prRepo.find({
+        where: { repoId: In(repoIds) },
+        order: { openedAt: 'DESC' },
+        take: limit,
+      }),
+    ]);
+
+    return { commits, prs };
   }
 
   private async createDefaultBoard(projectId: string): Promise<KanbanBoard> {

@@ -8,6 +8,8 @@ import { ArrowLeft, Settings, Users, Search, BarChart3, Plus, Cpu } from 'lucide
 import { StatusBadge } from '@/components/shared/status-badge';
 import { KanbanBoardView } from '../../../components/projects/kanban-board-view';
 import { CreateCardDialog } from '../../../components/projects/create-card-dialog';
+import { RepoLinker } from '../../../components/projects/repo-linker';
+import { CodeActivity } from '../../../components/projects/code-activity';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -253,6 +255,12 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Linked Repos & Code Activity */}
+      <div className="container mx-auto px-4 pb-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RepoLinker projectId={projectId} />
+        <CodeActivity projectId={projectId} />
+      </div>
 
       {/* Create Card Dialog - only show if we have a board with columns */}
       {board && board.columns && board.columns.length > 0 && (

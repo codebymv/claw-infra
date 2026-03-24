@@ -5,11 +5,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToMany,
   Index,
 } from 'typeorm';
 import { CodePr } from './code-pr.entity';
 import { CodeCommit } from './code-commit.entity';
 import { CodeSyncState } from './code-sync-state.entity';
+import type { Project } from './project.entity';
 
 @Entity('code_repos')
 @Index(['provider', 'owner', 'name'], { unique: true })
@@ -46,4 +48,7 @@ export class CodeRepo {
 
   @OneToMany(() => CodeSyncState, (state) => state.repo)
   syncStates: CodeSyncState[];
+
+  @ManyToMany('Project', 'linkedRepos')
+  projects: Project[];
 }
