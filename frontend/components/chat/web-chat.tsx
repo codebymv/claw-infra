@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader2, AlertCircle, Wifi, WifiOff, FolderOpen } from 'lucide-react';
+import { Send, Loader2, AlertCircle, Wifi, WifiOff, FolderOpen, ChevronUp, Clock, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,8 +50,11 @@ export function WebChat({ className }: WebChatProps) {
   const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
   const [availableProjects, setAvailableProjects] = useState<{ id: string; name: string }[]>([]);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
@@ -116,6 +119,7 @@ export function WebChat({ className }: WebChatProps) {
     const handleMessageHistory = (data: { messages: ChatMessageData[] }) => {
       console.log('Received message history:', data.messages.length, 'messages');
       setMessages(data.messages);
+      setHasMore(data.messages.length >= 50);
     };
 
     const handleChatEvent = (event: ChatMessageData) => {
@@ -131,6 +135,15 @@ export function WebChat({ className }: WebChatProps) {
     const handleMessageResponse = (response: any) => {
       console.log('Received message response:', response);
       setIsLoading(false);
+
+      // Mark the last pending user message as confirmed
+      setMessages(prev => {
+        const idx = prev.findLastIndex(m => m.metadata?.pending);
+        if (idx === -1) return prev;
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], metadata: { ...updated[idx].metadata, pending: false } };
+        return updated;
+      });
       
       if (response.success && response.response) {
         const responseMessage: ChatMessageData = {
@@ -222,6 +235,65 @@ export function WebChat({ className }: WebChatProps) {
     };
   }, [socket, session?.userId]);
 
+  // Fallback: if WebSocket doesn't deliver history within 2s, fetch via REST
+  useEffect(() => {
+    if (!session) return;
+
+    const timeout = setTimeout(() => {
+      setMessages((current) => {
+        if (current.length === 0) {
+          api
+            .get<{ messages: ChatMessageData[] }>('/chat/messages?limit=50')
+            .then((data) => {
+              if (data.messages && data.messages.length > 0) {
+                setMessages(data.messages.reverse());
+              }
+            })
+            .catch(() => {});
+        }
+        return current;
+      });
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [session?.sessionId]);
+
+  // Load older messages with scroll position preservation
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMore || messages.length === 0) return;
+
+    setIsLoadingMore(true);
+    const oldestMessage = messages[0];
+    const container = messagesContainerRef.current;
+    const prevScrollHeight = container?.scrollHeight ?? 0;
+
+    try {
+      const data = await api.get<{
+        messages: ChatMessageData[];
+        hasMore: boolean;
+      }>(`/chat/messages?limit=50&before=${oldestMessage.id}`);
+
+      if (data.messages && data.messages.length > 0) {
+        setMessages((prev) => [...data.messages.reverse(), ...prev]);
+        setHasMore(data.hasMore);
+
+        // Preserve scroll position after prepending
+        requestAnimationFrame(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - prevScrollHeight;
+          }
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, messages]);
+
   // Handle input changes and typing indicators
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -302,7 +374,7 @@ export function WebChat({ className }: WebChatProps) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Add user message to UI immediately
+    // Add user message to UI immediately (marked pending until response arrives)
     const userMessage: ChatMessageData = {
       id: `user_${Date.now()}`,
       content: messageContent,
@@ -310,6 +382,7 @@ export function WebChat({ className }: WebChatProps) {
       type: isCommand ? 'command' : 'message',
       timestamp: new Date().toISOString(),
       userId: session?.userId,
+      metadata: { pending: true },
     };
     setMessages(prev => [...prev, userMessage]);
 
@@ -431,7 +504,7 @@ export function WebChat({ className }: WebChatProps) {
 
       <CardContent className="flex-1 flex flex-col p-0">
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <div className="text-center">
@@ -443,6 +516,24 @@ export function WebChat({ className }: WebChatProps) {
             </div>
           ) : (
             <>
+              {hasMore && messages.length > 0 && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground gap-1"
+                    onClick={loadOlderMessages}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ChevronUp className="h-3 w-3" />
+                    )}
+                    {isLoadingMore ? 'Loading...' : 'Load older messages'}
+                  </Button>
+                </div>
+              )}
               {messages.map((message) => (
                 <ChatMessage
                   key={message.id}

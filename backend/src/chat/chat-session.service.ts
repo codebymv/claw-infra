@@ -28,7 +28,7 @@ export class ChatSessionService {
   private readonly logger = new Logger(ChatSessionService.name);
   private readonly SESSION_TIMEOUT_HOURS = 24;
   private readonly INACTIVE_SESSION_DAYS = 30;
-  private readonly MAX_MESSAGES_PER_SESSION = 100;
+  private readonly MAX_MESSAGES_PER_SESSION = 500;
 
   constructor(
     @InjectRepository(ChatSession)
@@ -200,30 +200,46 @@ export class ChatSessionService {
     );
     await this.updateSessionActivity(userId);
 
-    // Enforce 100 message limit
+    // Enforce message limit
     await this.enforceMessageLimit(session.id);
 
     return savedMessage;
   }
 
   /**
-   * Get message history for a user
+   * Get message history for a user, with optional cursor-based pagination
    */
   async getMessageHistory(
     userId: string,
-    limit: number = 100
+    limit: number = 50,
+    before?: string,
   ): Promise<ChatMessage[]> {
     const session = await this.getSession(userId);
     if (!session) {
       return [];
     }
 
-    return await this.chatMessageRepository.find({
-      where: { sessionId: session.id },
-      order: { timestamp: 'DESC' },
-      take: limit,
-      relations: ['user', 'project'],
-    });
+    const qb = this.chatMessageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.user', 'user')
+      .leftJoinAndSelect('message.project', 'project')
+      .where('message.sessionId = :sessionId', { sessionId: session.id })
+      .orderBy('message.timestamp', 'DESC')
+      .take(limit);
+
+    if (before) {
+      const cursorMessage = await this.chatMessageRepository.findOne({
+        where: { id: before },
+        select: ['timestamp'],
+      });
+      if (cursorMessage) {
+        qb.andWhere('message.timestamp < :beforeTimestamp', {
+          beforeTimestamp: cursorMessage.timestamp,
+        });
+      }
+    }
+
+    return await qb.getMany();
   }
 
   /**
@@ -320,19 +336,19 @@ export class ChatSessionService {
   }
 
   /**
-   * Enforce the 100 message limit per session
+   * Enforce the message limit per session
    */
   private async enforceMessageLimit(sessionId: string): Promise<void> {
     const messageCount = await this.chatMessageRepository.count({
       where: { sessionId },
     });
 
-    if (messageCount > 100) {
+    if (messageCount > this.MAX_MESSAGES_PER_SESSION) {
       // Get the oldest messages to delete
       const messagesToDelete = await this.chatMessageRepository.find({
         where: { sessionId },
         order: { timestamp: 'ASC' },
-        take: messageCount - 100,
+        take: messageCount - this.MAX_MESSAGES_PER_SESSION,
         select: ['id'],
       });
 
@@ -343,7 +359,7 @@ export class ChatSessionService {
         // Update the session message count
         await this.chatSessionRepository.update(
           { id: sessionId },
-          { messageCount: 100 }
+          { messageCount: this.MAX_MESSAGES_PER_SESSION }
         );
       }
     }

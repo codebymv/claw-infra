@@ -82,13 +82,14 @@ export class ChatController {
   async getMessages(
     @Req() req: AuthenticatedRequest,
     @Query('limit') limit?: string,
+    @Query('before') before?: string,
   ) {
     try {
       const messageLimit = limit ? parseInt(limit, 10) : 50;
       
-      if (Number.isNaN(messageLimit) || messageLimit < 1 || messageLimit > 100) {
+      if (Number.isNaN(messageLimit) || messageLimit < 1 || messageLimit > 500) {
         throw new HttpException(
-          'Limit must be between 1 and 100',
+          'Limit must be between 1 and 500',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -96,6 +97,7 @@ export class ChatController {
       const messages = await this.chatSessionService.getMessageHistory(
         req.user.id,
         messageLimit,
+        before,
       );
 
       return {
@@ -105,9 +107,11 @@ export class ChatController {
           source: msg.source,
           type: msg.type,
           timestamp: msg.timestamp,
+          userId: msg.userId,
           metadata: msg.metadata,
         })),
         count: messages.length,
+        hasMore: messages.length === messageLimit,
       };
     } catch (error) {
       if (error instanceof HttpException) {

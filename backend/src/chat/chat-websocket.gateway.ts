@@ -240,6 +240,26 @@ export class ChatWebSocketGateway
         timestamp: new Date().toISOString(),
       });
 
+      // Send recent message history so chat persists across refreshes
+      try {
+        const recentMessages = await this.chatSessionService.getMessageHistory(userId, 50);
+        if (recentMessages.length > 0) {
+          client.emit('message_history', {
+            messages: recentMessages.reverse().map((msg) => ({
+              id: msg.id,
+              content: msg.content,
+              source: msg.source,
+              type: msg.type,
+              timestamp: msg.timestamp,
+              userId: msg.userId,
+              metadata: msg.metadata,
+            })),
+          });
+        }
+      } catch (historyError) {
+        this.logger.warn(`Failed to send message history for user ${userId}:`, historyError);
+      }
+
       // Broadcast user online status
       this.server.to(`user:${userId}`).emit('user:online', { userId });
 

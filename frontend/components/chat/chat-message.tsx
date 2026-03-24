@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Bot, User, Terminal, AlertCircle, MessageSquare } from 'lucide-react';
+import { Bot, User, Terminal, AlertCircle, MessageSquare, Clock, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatRelativeTime } from '@/lib/utils';
 import { ChatMessageData } from './web-chat';
@@ -106,8 +106,14 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
           )}
           
           {showTimestamp && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
               {formatRelativeTime(new Date(message.timestamp))}
+              {isUser && message.metadata?.pending === true && (
+                <Clock className="h-3 w-3 animate-pulse" />
+              )}
+              {isUser && message.metadata?.pending === false && (
+                <Check className="h-3 w-3" />
+              )}
             </span>
           )}
         </div>
