@@ -356,21 +356,21 @@ export function WebChat({ className }: WebChatProps) {
     switch (connectionStatus) {
       case 'connected':
         return (
-          <Badge variant="outline" className="text-green-600 border-green-600">
+          <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-600/30 dark:border-emerald-400/30">
             <Wifi className="h-3 w-3 mr-1" />
             Connected
           </Badge>
         );
       case 'connecting':
         return (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
+          <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-600/30 dark:border-amber-400/30">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             Connecting
           </Badge>
         );
       case 'disconnected':
         return (
-          <Badge variant="outline" className="text-red-600 border-red-600">
+          <Badge variant="outline" className="text-rose-600 dark:text-rose-400 border-rose-600/30 dark:border-rose-400/30">
             <WifiOff className="h-3 w-3 mr-1" />
             Disconnected
           </Badge>

@@ -162,18 +162,18 @@ export function CommandAutocomplete({
 
   const getCategoryColor = (category: CommandSuggestion['category']) => {
     switch (category) {
-      case 'project': return 'bg-blue-100 text-blue-800';
-      case 'chat': return 'bg-green-100 text-green-800';
-      case 'system': return 'bg-purple-100 text-purple-800';
-      case 'help': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'project': return 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25';
+      case 'chat': return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25';
+      case 'system': return 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/25';
+      case 'help': return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   return (
     <div
       ref={containerRef}
-      className="absolute z-50 w-96 bg-white border border-gray-200 rounded-lg shadow-lg"
+      className="absolute z-50 w-96 bg-popover border border-border rounded-lg shadow-lg"
       style={{
         top: position.top - 8, // Position above the input
         left: position.left,
@@ -190,13 +190,13 @@ export function CommandAutocomplete({
               key={cmd.command}
               className={`p-2 rounded cursor-pointer transition-colors ${
                 index === selectedIndex 
-                  ? 'bg-blue-50 border border-blue-200' 
-                  : 'hover:bg-gray-50'
+                  ? 'bg-primary/10 border border-primary/25' 
+                  : 'hover:bg-accent'
               }`}
               onClick={() => onSelect(cmd.command)}
             >
               <div className="flex items-center justify-between mb-1">
-                <code className="text-sm font-mono font-medium text-blue-600">
+                <code className="text-sm font-mono font-medium text-primary">
                   {cmd.command}
                 </code>
                 <Badge 
@@ -210,12 +210,12 @@ export function CommandAutocomplete({
                 {cmd.description}
               </div>
               {cmd.syntax && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground/70">
                   <span className="font-medium">Syntax:</span> <code>{cmd.syntax}</code>
                 </div>
               )}
               {cmd.examples && cmd.examples.length > 0 && (
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground/70 mt-1">
                   <span className="font-medium">Examples:</span>{' '}
                   {cmd.examples.map((example, i) => (
                     <span key={i}>

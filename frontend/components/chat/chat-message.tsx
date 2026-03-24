@@ -46,18 +46,18 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
   // Get message styling
   const getMessageStyling = () => {
     if (isError) {
-      return 'border-red-200 bg-red-50 text-red-900';
+      return 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300';
     }
     if (isSystem) {
-      return 'border-blue-200 bg-blue-50 text-blue-900';
+      return 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300';
     }
     if (isCommand) {
-      return 'border-purple-200 bg-purple-50 text-purple-900';
+      return 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300';
     }
     if (isUser) {
-      return 'border-green-200 bg-green-50 text-green-900 ml-8';
+      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ml-8';
     }
-    return 'border-gray-200 bg-gray-50 text-gray-900 mr-8';
+    return 'border-border bg-muted/30 text-foreground mr-8';
   };
 
   // Get source badge
