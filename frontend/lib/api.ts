@@ -32,6 +32,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(msg);
   }
 
+  // 204 No Content has no body — return undefined instead of crashing
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -705,15 +707,15 @@ export interface UpdateProjectRequest {
 export interface UpdateBoardRequest {
   name?: string;
   description?: string;
-  settings?: Record<string, any>;
+  layout?: Record<string, any>;
 }
 
 export interface CreateColumnRequest {
   name: string;
   description?: string;
-  position?: number;
+  order?: number;
   wipLimit?: number;
-  rules?: Record<string, any>;
+  rules?: Array<{ type: string; config: any }>;
 }
 
 export interface UpdateColumnRequest {
@@ -757,7 +759,9 @@ export interface MoveCardRequest {
 
 export interface BulkUpdateCardsRequest {
   cardIds: string[];
-  updates: Partial<UpdateCardRequest>;
+  operation: 'update' | 'move' | 'delete';
+  updateData?: Partial<UpdateCardRequest>;
+  targetColumnId?: string;
 }
 
 export interface CreateCommentRequest {

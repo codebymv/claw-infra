@@ -54,7 +54,7 @@ export class AgentQueryDto {
   search?: string;
 }
 
-@Controller('api/v1/agent/projects')
+@Controller('v1/agent/projects')
 @UseGuards(ThrottlerGuard, ProjectAuthGuard)
 export class AgentProjectController {
   constructor(

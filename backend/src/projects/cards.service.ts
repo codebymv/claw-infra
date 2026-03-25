@@ -95,7 +95,7 @@ export class CardsService {
     await this.createHistoryEntry(
       saved.id,
       HistoryAction.CREATED,
-      dto.reporterId,
+      dto.reporterId || 'system',
       {
         action: 'Card created',
         details: { title: saved.title, columnId },
@@ -113,7 +113,7 @@ export class CardsService {
       saved.id,
       'create',
       result,
-      dto.reporterId,
+      dto.reporterId || 'system',
     );
 
     this.logger.log(`Created card ${saved.id} in column ${columnId}`);

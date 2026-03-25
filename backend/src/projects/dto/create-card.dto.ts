@@ -42,8 +42,13 @@ export class CreateCardDto {
   @IsUUID()
   assigneeId?: string;
 
+  @IsOptional()
   @IsUUID()
-  reporterId: string;
+  columnId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  reporterId?: string;
 
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,2' })

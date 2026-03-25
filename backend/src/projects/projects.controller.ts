@@ -344,7 +344,7 @@ export class ProjectsController {
       dto.reporterId = req.user.id;
     }
     const board = await this.kanbanService.getDefaultBoard(projectId);
-    const columnId = (dto as any).columnId || board.columns?.[0]?.id;
+    const columnId = dto.columnId || board.columns?.[0]?.id;
     if (!columnId) {
       throw new Error('No column available');
     }
