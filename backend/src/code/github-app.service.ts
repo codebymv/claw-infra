@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GithubInstallation } from '../database/entities/github-installation.entity';
 import { GithubRepoGrant } from '../database/entities/github-repo-grant.entity';
+import { CodeRepo } from '../database/entities/code-repo.entity';
 
 interface InstallationTokenResponse {
   token: string;
@@ -34,6 +35,8 @@ export class GithubAppService {
     private readonly installationRepo: Repository<GithubInstallation>,
     @InjectRepository(GithubRepoGrant)
     private readonly repoGrantRepo: Repository<GithubRepoGrant>,
+    @InjectRepository(CodeRepo)
+    private readonly codeRepoRepo: Repository<CodeRepo>,
   ) {}
 
   getAppId(): string | undefined {
@@ -305,7 +308,32 @@ export class GithubAppService {
       });
     }
 
-    return this.repoGrantRepo.save(grant);
+    const saved = await this.repoGrantRepo.save(grant);
+
+    // Ensure a code_repos record exists immediately so it can be linked to projects
+    await this.ensureCodeRepo(repoFullName).catch((err) =>
+      this.logger.warn(`Failed to ensure code_repo for ${repoFullName}: ${err.message}`),
+    );
+
+    return saved;
+  }
+  private async ensureCodeRepo(repoFullName: string): Promise<void> {
+    const [owner, name] = repoFullName.split('/');
+    if (!owner || !name) return;
+
+    const existing = await this.codeRepoRepo.findOne({
+      where: { provider: 'github', owner, name },
+    });
+    if (existing) return;
+
+    const repo = this.codeRepoRepo.create({
+      provider: 'github',
+      owner,
+      name,
+      isActive: true,
+    });
+    await this.codeRepoRepo.save(repo);
+    this.logger.log(`Created code_repo for ${repoFullName}`);
   }
 
   /** Disable a repo from tracking */
