@@ -110,11 +110,11 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" disabled={loading}>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading}>
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="z-[100] bg-popover shadow-lg">
                   <DropdownMenuItem>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
@@ -163,11 +163,11 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" disabled={loading}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={loading}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="z-[100] bg-popover shadow-lg">
               <DropdownMenuItem>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
