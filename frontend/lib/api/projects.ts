@@ -60,7 +60,7 @@ class ProjectsApi {
   }
 
   async updateProject(id: string, data: UpdateProjectRequest): Promise<Project> {
-    return api.patch(`/projects/${id}`, data);
+    return api.put(`/projects/${id}`, data);
   }
 
   async deleteProject(id: string): Promise<void> {
@@ -68,11 +68,11 @@ class ProjectsApi {
   }
 
   async archiveProject(id: string): Promise<Project> {
-    return api.post(`/projects/${id}/archive`);
+    return api.put(`/projects/${id}/archive`);
   }
 
   async unarchiveProject(id: string): Promise<Project> {
-    return api.post(`/projects/${id}/unarchive`);
+    return api.put(`/projects/${id}/unarchive`);
   }
 }
 

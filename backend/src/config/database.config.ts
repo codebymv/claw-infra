@@ -83,7 +83,7 @@ export function buildTypeOrmConfig(
     url: config.get<string>('DATABASE_URL'),
     entities: DATABASE_ENTITIES,
     synchronize: false,
-    migrationsRun: false,
+    migrationsRun: true,
     logging: nodeEnv === 'development',
     ssl: nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
     migrations: [join(__dirname, '..', 'database', 'migrations', '*.{js,ts}')],

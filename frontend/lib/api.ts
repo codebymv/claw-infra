@@ -39,6 +39,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
@@ -135,9 +137,9 @@ export const projectsApi = {
   list: () => api.get<Project[]>('/projects'),
   getById: (id: string) => api.get<Project>(`/projects/${id}`),
   create: (data: CreateProjectRequest) => api.post<Project>('/projects', data),
-  update: (id: string, data: UpdateProjectRequest) => api.patch<Project>(`/projects/${id}`, data),
+  update: (id: string, data: UpdateProjectRequest) => api.put<Project>(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
-  archive: (id: string) => api.patch<Project>(`/projects/${id}/archive`, {}),
+  archive: (id: string) => api.put<Project>(`/projects/${id}/archive`),
   
   // Kanban Board Management
   getBoard: (projectId: string) => api.get<KanbanBoard>(`/projects/${projectId}/kanban`),
