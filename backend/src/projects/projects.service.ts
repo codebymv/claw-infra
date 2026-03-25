@@ -434,9 +434,18 @@ export class ProjectsService {
       throw new BadRequestException('Invalid repo format. Expected owner/name');
     }
 
-    const repo = await this.codeRepoRepo.findOne({ where: { owner, name } });
+    let repo = await this.codeRepoRepo.findOne({ where: { owner, name } });
     if (!repo) {
-      throw new NotFoundException(`Repository ${repoFullName} not found. Ensure it has been synced via GitHub integration.`);
+      // Auto-create the code_repos entry so users can link repos that
+      // haven't been backfilled yet.
+      repo = this.codeRepoRepo.create({
+        provider: 'github',
+        owner,
+        name,
+        isActive: true,
+      });
+      repo = await this.codeRepoRepo.save(repo);
+      this.logger.log(`Auto-created code_repo entry for ${repoFullName}`);
     }
 
     const project = await this.projectRepo.findOne({
