@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppToast } from '@/components/layout/app-shell';
 import { projectsApi, type Project, type CreateProjectRequest } from '@/lib/api/projects';
 
@@ -95,7 +94,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
           <DialogDescription>
@@ -130,25 +129,19 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
 
           <div className="space-y-2">
             <Label htmlFor="template">Template</Label>
-            <Select
+            <select
+              id="template"
               value={formData.template}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, template: value as CreateProjectRequest['template'] }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, template: e.target.value as CreateProjectRequest['template'] }))}
               disabled={loading}
+              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="z-[200]">
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    <div>
-                      <div className="font-medium">{template.name}</div>
-                      <div className="text-xs text-muted-foreground">{template.description}</div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {templates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} — {template.description}
+                </option>
+              ))}
+            </select>
             {selectedTemplate && (
               <div className="text-xs text-muted-foreground">
                 Columns: {selectedTemplate.columns.join(' → ')}
