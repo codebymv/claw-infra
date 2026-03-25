@@ -308,6 +308,22 @@ export class ProjectApiClient {
     return this.makeRequest(`/api/projects/${projectId}/analytics/insights?timeRange=${timeRange}`);
   }
 
+  async getLinkedRepos(projectId: string): Promise<any[]> {
+    return this.makeRequest(`/api/projects/${projectId}/repos`);
+  }
+
+  async linkRepo(projectId: string, repoFullName: string): Promise<any[]> {
+    return this.makeRequest(`/api/projects/${projectId}/repos`, 'POST', { repoFullName });
+  }
+
+  async unlinkRepo(projectId: string, repoId: string): Promise<void> {
+    return this.makeRequest(`/api/projects/${projectId}/repos/${repoId}`, 'DELETE');
+  }
+
+  async getProjectCodeActivity(projectId: string, limit = 15): Promise<any> {
+    return this.makeRequest(`/api/projects/${projectId}/activity?limit=${limit}`);
+  }
+
   async getProjectHealth(projectId: string): Promise<any> {
     return this.makeRequest(`/api/v1/agent/projects/${projectId}/health`);
   }

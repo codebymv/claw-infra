@@ -17,6 +17,11 @@ interface ProjectContext {
     status: string;
     priority: string;
   }>;
+  linkedRepos?: Array<{
+    id: string;
+    owner: string;
+    name: string;
+  }>;
 }
 
 interface UserSession {
@@ -114,6 +119,7 @@ class ProjectContextManager {
 
     return `🎯 **Active Project**: ${context.projectName}
 📋 ${context.boards?.length || 0} boards • ${context.recentCards?.length || 0} recent cards
+🔗 ${context.linkedRepos?.length || 0} linked repos
 ⏰ Selected ${timeDisplay}`;
   }
 

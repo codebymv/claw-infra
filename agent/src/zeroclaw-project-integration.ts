@@ -8,7 +8,11 @@ import {
   searchTasks, 
   addComment, 
   getProjectAnalytics,
-  processNaturalLanguageCommand 
+  processNaturalLanguageCommand,
+  getLinkedRepos,
+  linkRepo,
+  unlinkRepo,
+  getProjectCodeActivity
 } from './project-zeroclaw-tools';
 import { projectBrowser } from './project-browser';
 import { contextualCommands } from './contextual-commands';
@@ -118,6 +122,42 @@ export const PROJECT_MANAGEMENT_ZEROCLAW_TOOLS = {
       timeRange: { type: 'string', required: false, enum: ['7d', '30d', '90d'], default: '30d' }
     },
     handler: getProjectAnalytics
+  },
+
+  // Repository linking
+  get_linked_repos: {
+    description: 'Get repositories linked to a project for code tracking',
+    parameters: {
+      projectId: { type: 'string', required: true, description: 'Project ID' }
+    },
+    handler: getLinkedRepos
+  },
+
+  link_repo: {
+    description: 'Link a GitHub repository to a project to track code activity',
+    parameters: {
+      projectId: { type: 'string', required: true, description: 'Project ID' },
+      repoFullName: { type: 'string', required: true, description: 'Repository full name (owner/name)' }
+    },
+    handler: linkRepo
+  },
+
+  unlink_repo: {
+    description: 'Unlink a GitHub repository from a project',
+    parameters: {
+      projectId: { type: 'string', required: true, description: 'Project ID' },
+      repoId: { type: 'string', required: true, description: 'Repository ID to unlink' }
+    },
+    handler: unlinkRepo
+  },
+
+  get_code_activity: {
+    description: 'Get recent code activity (commits, PRs) from linked repositories for a project',
+    parameters: {
+      projectId: { type: 'string', required: true, description: 'Project ID' },
+      limit: { type: 'number', required: false, default: 15, description: 'Max items to return' }
+    },
+    handler: getProjectCodeActivity
   },
 
   // Natural language processing

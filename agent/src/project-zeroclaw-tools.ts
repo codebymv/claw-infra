@@ -434,3 +434,91 @@ export async function processNaturalLanguageCommand(command: string, userId?: st
 
 Just mention what you want to do with your projects and I'll help you get it done!`;
 }
+
+export async function getLinkedRepos(args: { projectId: string }): Promise<string> {
+  try {
+    const client = getProjectClient();
+    const repos = await client.getLinkedRepos(args.projectId);
+
+    if (repos.length === 0) {
+      return `🔗 No repositories linked to this project.
+Link a repo with: link repo "owner/name" to project`;
+    }
+
+    const repoList = repos.map((r: any) =>
+      `• **${r.owner}/${r.name}** (${r.defaultBranch || 'main'}) ${r.isActive ? '🟢' : '🔴'}`
+    ).join('\n');
+
+    return `🔗 **Linked Repositories** (${repos.length})\n\n${repoList}`;
+  } catch (error: any) {
+    return `❌ Failed to get linked repos: ${error.message}`;
+  }
+}
+
+export async function linkRepo(args: {
+  projectId: string;
+  repoFullName: string;
+}): Promise<string> {
+  try {
+    const client = getProjectClient();
+    const repos = await client.linkRepo(args.projectId, args.repoFullName);
+
+    return `✅ Linked repository **${args.repoFullName}** to project
+🔗 Total linked repos: ${repos.length}
+
+Code activity (commits, PRs) from this repo will now appear in the project.`;
+  } catch (error: any) {
+    return `❌ Failed to link repo: ${error.message}`;
+  }
+}
+
+export async function unlinkRepo(args: {
+  projectId: string;
+  repoId: string;
+}): Promise<string> {
+  try {
+    const client = getProjectClient();
+    await client.unlinkRepo(args.projectId, args.repoId);
+
+    return `✅ Repository unlinked from project successfully.`;
+  } catch (error: any) {
+    return `❌ Failed to unlink repo: ${error.message}`;
+  }
+}
+
+export async function getProjectCodeActivity(args: {
+  projectId: string;
+  limit?: number;
+}): Promise<string> {
+  try {
+    const client = getProjectClient();
+    const activity = await client.getProjectCodeActivity(args.projectId, args.limit || 15);
+
+    if (activity.commits.length === 0 && activity.prs.length === 0) {
+      return `📊 No code activity found for this project.
+Ensure a repository is linked and has recent commits or PRs.`;
+    }
+
+    let result = `📊 **Code Activity**\n\n`;
+
+    if (activity.prs.length > 0) {
+      const prStateEmoji: Record<string, string> = { open: '🟢', closed: '🔴', merged: '🟣' };
+      result += `**Pull Requests** (${activity.prs.length}):\n`;
+      result += activity.prs.slice(0, 10).map((pr: any) =>
+        `• ${prStateEmoji[pr.state] || '⚪'} #${pr.number} ${pr.title} — ${pr.author} (+${pr.additions}/-${pr.deletions})`
+      ).join('\n');
+      result += '\n\n';
+    }
+
+    if (activity.commits.length > 0) {
+      result += `**Recent Commits** (${activity.commits.length}):\n`;
+      result += activity.commits.slice(0, 10).map((c: any) =>
+        `• \`${c.sha.slice(0, 7)}\` ${c.message} — ${c.author} (+${c.additions}/-${c.deletions})`
+      ).join('\n');
+    }
+
+    return result;
+  } catch (error: any) {
+    return `❌ Failed to get code activity: ${error.message}`;
+  }
+}
