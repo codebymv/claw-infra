@@ -48,7 +48,7 @@ export function KanbanBoardView({ board, cards, onCardUpdate, onCardMove }: Kanb
 
     try {
       // Call the API to move the card
-      await projectsApi.moveCard(board.projectId, draggedCard.id, { columnId, position });
+      await projectsApi.moveCard(board.projectId, draggedCard.id, { targetColumnId: columnId, position });
       onCardMove();
     } catch (error) {
       console.error('Failed to move card:', error);
@@ -71,27 +71,36 @@ export function KanbanBoardView({ board, cards, onCardUpdate, onCardMove }: Kanb
 
   if (!board.columns || board.columns.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 text-gray-400">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          </div>
-          <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-            No Columns
-          </h3>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Add columns to organize your cards.
-          </p>
-          <div className="mt-6">
-            <Button onClick={() => setCreateColumnDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Column
-            </Button>
+      <>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 text-gray-400">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+              No Columns
+            </h3>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Add columns to organize your cards.
+            </p>
+            <div className="mt-6">
+              <Button onClick={() => setCreateColumnDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Column
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+        <ColumnManagementDialog
+          open={createColumnDialogOpen}
+          onOpenChange={setCreateColumnDialogOpen}
+          onSuccess={onCardMove}
+          projectId={board.projectId}
+          mode="create"
+        />
+      </>
     );
   }
 

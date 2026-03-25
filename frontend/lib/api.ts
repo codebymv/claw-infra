@@ -751,7 +751,7 @@ export interface UpdateCardRequest {
 }
 
 export interface MoveCardRequest {
-  columnId: string;
+  targetColumnId: string;
   position: number;
 }
 
