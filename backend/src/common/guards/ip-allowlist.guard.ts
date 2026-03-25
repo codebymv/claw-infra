@@ -62,6 +62,15 @@ export class IpAllowlistGuard implements CanActivate {
       return true;
     }
 
+    // Authenticated browser sessions use JWT Bearer tokens; allow from any IP.
+    // The downstream JwtAuthGuard will validate the token itself.
+    if (request.headers.authorization?.startsWith('Bearer ')) {
+      return true;
+    }
+
+    // Auth endpoints must be reachable so users can log in from any IP.
+    if (path.startsWith('/api/auth/')) return true;
+
     const clientIp = this.extractIp(request);
 
     if (this.isRailwayInternal(clientIp)) return true;
