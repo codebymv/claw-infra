@@ -114,7 +114,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-[100] bg-popover shadow-lg">
+                <DropdownMenuContent align="end">
                   <DropdownMenuItem>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
@@ -167,7 +167,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[100] bg-popover shadow-lg">
+            <DropdownMenuContent align="end">
               <DropdownMenuItem>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit
