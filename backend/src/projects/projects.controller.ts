@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -20,10 +21,19 @@ import {
 import { ProjectsService } from './projects.service';
 import { KanbanService } from './kanban.service';
 import { CardsService } from './cards.service';
+import { CommentsService } from './comments.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
 import { ListCardsQueryDto } from './dto/list-cards-query.dto';
+import { CreateColumnDto } from './dto/create-column.dto';
+import { UpdateColumnDto } from './dto/update-column.dto';
+import { ReorderColumnsDto } from './dto/reorder-columns.dto';
+import { CreateCardDto } from './dto/create-card.dto';
+import { UpdateCardDto } from './dto/update-card.dto';
+import { MoveCardDto } from './dto/move-card.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 import { AuditLogService } from './auth/audit-log.service';
 
 @Controller('projects')
@@ -33,6 +43,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly kanbanService: KanbanService,
     private readonly cardsService: CardsService,
+    private readonly commentsService: CommentsService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -246,7 +257,9 @@ export class ProjectsController {
   }
 
   // --- Convenience routes for frontend ---
+  // These proxy to the board-scoped controllers using the project's default board.
 
+  // Board
   @Get(':id/kanban')
   @UseGuards(ProjectAccessGuard)
   @RequireProjectPermission('read')
@@ -254,6 +267,59 @@ export class ProjectsController {
     return this.kanbanService.getDefaultBoard(projectId);
   }
 
+  @Patch(':id/kanban')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async updateDefaultBoard(
+    @Param('id') projectId: string,
+    @Body() dto: any,
+  ) {
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    return this.kanbanService.updateBoard(board.id, dto);
+  }
+
+  // Columns
+  @Post(':id/kanban/columns')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async createColumn(
+    @Param('id') projectId: string,
+    @Body() dto: CreateColumnDto,
+  ) {
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    return this.kanbanService.createColumn(board.id, dto);
+  }
+
+  @Patch(':id/kanban/columns/reorder')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async reorderColumns(
+    @Param('id') projectId: string,
+    @Body() dto: ReorderColumnsDto,
+  ) {
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    return this.kanbanService.reorderColumns(board.id, dto);
+  }
+
+  @Patch(':id/kanban/columns/:columnId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async updateColumn(
+    @Param('columnId') columnId: string,
+    @Body() dto: UpdateColumnDto,
+  ) {
+    return this.kanbanService.updateColumn(columnId, dto);
+  }
+
+  @Delete(':id/kanban/columns/:columnId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteColumn(@Param('columnId') columnId: string) {
+    return this.kanbanService.deleteColumn(columnId);
+  }
+
+  // Cards
   @Get(':id/cards')
   @UseGuards(ProjectAccessGuard)
   @RequireProjectPermission('read')
@@ -264,5 +330,120 @@ export class ProjectsController {
     const board = await this.kanbanService.getDefaultBoard(projectId);
     const result = await this.cardsService.listCards(board.id, query);
     return result.items;
+  }
+
+  @Post(':id/cards')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async createCard(
+    @Param('id') projectId: string,
+    @Body() dto: CreateCardDto,
+    @Request() req,
+  ) {
+    if (!dto.reporterId) {
+      dto.reporterId = req.user.id;
+    }
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    const columnId = (dto as any).columnId || board.columns?.[0]?.id;
+    if (!columnId) {
+      throw new Error('No column available');
+    }
+    return this.cardsService.createCard(board.id, columnId, dto);
+  }
+
+  @Get(':id/cards/:cardId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getCard(@Param('cardId') cardId: string) {
+    return this.cardsService.getCardById(cardId);
+  }
+
+  @Patch(':id/cards/:cardId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async updateCard(
+    @Param('cardId') cardId: string,
+    @Body() dto: UpdateCardDto,
+    @Request() req,
+  ) {
+    return this.cardsService.updateCard(cardId, dto, req.user.id);
+  }
+
+  @Patch(':id/cards/:cardId/move')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async moveCard(
+    @Param('cardId') cardId: string,
+    @Body() dto: MoveCardDto,
+    @Request() req,
+  ) {
+    return this.cardsService.moveCard(cardId, dto, req.user.id);
+  }
+
+  @Delete(':id/cards/:cardId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCard(
+    @Param('cardId') cardId: string,
+    @Request() req,
+  ) {
+    return this.cardsService.deleteCard(cardId, req.user.id);
+  }
+
+  @Patch(':id/cards/bulk')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async bulkUpdateCards(
+    @Param('id') projectId: string,
+    @Body() dto: any,
+    @Request() req,
+  ) {
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    return this.cardsService.bulkOperation(board.id, dto, req.user.id);
+  }
+
+  // Comments
+  @Get(':id/cards/:cardId/comments')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getComments(
+    @Param('cardId') cardId: string,
+    @Query() query: any,
+  ) {
+    return this.commentsService.listComments(cardId, query);
+  }
+
+  @Post(':id/cards/:cardId/comments')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async createComment(
+    @Param('cardId') cardId: string,
+    @Body() dto: CreateCommentDto,
+    @Request() req,
+  ) {
+    return this.commentsService.createComment(cardId, dto, req.user.id);
+  }
+
+  @Patch(':id/cards/:cardId/comments/:commentId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('write')
+  async updateComment(
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateCommentDto,
+    @Request() req,
+  ) {
+    return this.commentsService.updateComment(commentId, dto, req.user.id);
+  }
+
+  @Delete(':id/cards/:cardId/comments/:commentId')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteComment(
+    @Param('commentId') commentId: string,
+    @Request() req,
+  ) {
+    return this.commentsService.deleteComment(commentId, req.user.id);
   }
 }
