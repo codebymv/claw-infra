@@ -114,7 +114,7 @@ export function KanbanColumn({
         {/* Cards Container */}
         <div
           className={`min-h-[200px] space-y-3 ${
-            isDragOver ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-dashed border-blue-300 dark:border-blue-600 rounded-lg p-2' : ''
+            isDragOver ? 'bg-emerald-50 dark:bg-emerald-900/20 border-2 border-dashed border-emerald-300 dark:border-emerald-600 rounded-lg p-2' : ''
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}

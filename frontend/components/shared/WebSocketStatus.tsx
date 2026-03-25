@@ -71,7 +71,7 @@ export function WebSocketStatus() {
           <div className="mt-3 flex gap-2">
             <button
               onClick={reconnect}
-              className="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+              className="flex-1 px-3 py-1.5 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-colors"
             >
               Retry Connection
             </button>

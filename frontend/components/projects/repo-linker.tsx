@@ -76,12 +76,12 @@ export function RepoLinker({ projectId }: RepoLinkerProps) {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <GitBranch className="h-5 w-5 text-purple-500" />
+          <GitBranch className="h-5 w-5 text-primary" />
           Linked Repositories
         </h3>
         <button
           onClick={openPicker}
-          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-md text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
         >
           <Plus className="h-3.5 w-3.5 mr-1" />
           Link Repo

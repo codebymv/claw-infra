@@ -52,7 +52,7 @@ export function CodeActivity({ projectId }: CodeActivityProps) {
   const stateColor = (state: string) => {
     switch (state) {
       case 'merged':
-        return 'text-purple-600 dark:text-purple-400';
+        return 'text-emerald-600 dark:text-emerald-400';
       case 'open':
         return 'text-green-600 dark:text-green-400';
       case 'closed':

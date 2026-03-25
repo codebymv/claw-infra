@@ -162,9 +162,9 @@ export function CommandAutocomplete({
 
   const getCategoryColor = (category: CommandSuggestion['category']) => {
     switch (category) {
-      case 'project': return 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/25';
+      case 'project': return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25';
       case 'chat': return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25';
-      case 'system': return 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/25';
+      case 'system': return 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/25';
       case 'help': return 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25';
       default: return 'bg-muted text-muted-foreground border-border';
     }

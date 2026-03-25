@@ -57,7 +57,7 @@ export default function ProjectDetailPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             <span className="ml-3 text-gray-600 dark:text-gray-400">Loading project...</span>
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function ProjectDetailPage() {
               <div className="mt-6">
                 <button
                   type="button"
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
                 >
                   Create Kanban Board
                 </button>
@@ -219,7 +219,7 @@ export default function ProjectDetailPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Cpu className="h-5 w-5 text-blue-500" />
+                <Cpu className="h-5 w-5 text-primary" />
                 Agent Activity
               </h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">

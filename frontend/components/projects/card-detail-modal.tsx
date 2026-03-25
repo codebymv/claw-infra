@@ -140,9 +140,9 @@ export function CardDetailModal({ open, onOpenChange, projectId, cardId, onUpdat
 
   const getTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
-      case 'feature': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'feature': return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200';
       case 'bug': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'epic': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'epic': return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200';
       case 'story': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
@@ -184,7 +184,7 @@ export function CardDetailModal({ open, onOpenChange, projectId, cardId, onUpdat
         
         {loading && !card ? (
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : card && (
           <div className="space-y-6">

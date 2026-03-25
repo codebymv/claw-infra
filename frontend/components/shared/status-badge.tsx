@@ -5,7 +5,7 @@ type Status = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | stri
 const statusConfig: Record<string, { label: string; classes: string; dot?: string }> = {
   queued: {
     label: 'Queued',
-    classes: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+    classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   },
   running: {
     label: 'Running',

@@ -49,10 +49,10 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
       return 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300';
     }
     if (isSystem) {
-      return 'border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+      return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
     }
     if (isCommand) {
-      return 'border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300';
+      return 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400';
     }
     if (isUser) {
       return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ml-8';
@@ -127,7 +127,7 @@ export function ChatMessage({ message, showTimestamp = true, enableMarkdown = tr
             <div className="flex items-center gap-2 text-sm">
               <span className={`inline-block w-2 h-2 rounded-full ${
                 message.metadata.status === 'completed' ? 'bg-green-500' :
-                message.metadata.status === 'running' ? 'bg-blue-500 animate-pulse' :
+                message.metadata.status === 'running' ? 'bg-primary animate-pulse' :
                 message.metadata.status === 'failed' ? 'bg-red-500' :
                 'bg-yellow-500'
               }`} />
