@@ -62,23 +62,17 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
 
     setLoading(true);
     try {
-      const selectedTemplate = templates.find(t => t.id === formData.template);
       const project = await projectsApi.createProject({
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
-        template: formData.template,
-        settings: {
-          defaultColumns: selectedTemplate?.columns || ['To Do', 'In Progress', 'Done'],
-          workflowRules: {},
-          customFields: []
-        }
       });
       
       onSuccess(project);
       onOpenChange(false);
       setFormData({ name: '', description: '', template: 'basic' });
     } catch (err) {
-      toast.error((err as Error).message || 'Failed to create project');
+      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to create project';
+      toast.error(message);
     } finally {
       setLoading(false);
     }
