@@ -18,9 +18,12 @@ import {
   RequireProjectPermission,
 } from './auth/project-access.guard';
 import { ProjectsService } from './projects.service';
+import { KanbanService } from './kanban.service';
+import { CardsService } from './cards.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ListProjectsQueryDto } from './dto/list-projects-query.dto';
+import { ListCardsQueryDto } from './dto/list-cards-query.dto';
 import { AuditLogService } from './auth/audit-log.service';
 
 @Controller('projects')
@@ -28,6 +31,8 @@ import { AuditLogService } from './auth/audit-log.service';
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
+    private readonly kanbanService: KanbanService,
+    private readonly cardsService: CardsService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -238,5 +243,25 @@ export class ProjectsController {
       projectId,
       limit ? parseInt(limit, 10) : 20,
     );
+  }
+
+  // --- Convenience routes for frontend ---
+
+  @Get(':id/kanban')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getDefaultBoard(@Param('id') projectId: string) {
+    return this.kanbanService.getDefaultBoard(projectId);
+  }
+
+  @Get(':id/cards')
+  @UseGuards(ProjectAccessGuard)
+  @RequireProjectPermission('read')
+  async getCardsByProject(
+    @Param('id') projectId: string,
+    @Query() query: ListCardsQueryDto,
+  ) {
+    const board = await this.kanbanService.getDefaultBoard(projectId);
+    return this.cardsService.listCards(board.id, query);
   }
 }

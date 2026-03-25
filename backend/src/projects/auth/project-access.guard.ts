@@ -35,7 +35,7 @@ export class ProjectAccessGuard implements CanActivate {
       ) || 'read';
 
     // Extract project ID from route parameters
-    const projectId = request.params.projectId;
+    const projectId = request.params.projectId || request.params.id;
     if (!projectId) {
       throw new ForbiddenException('Project ID required');
     }
