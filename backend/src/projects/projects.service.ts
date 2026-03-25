@@ -414,12 +414,18 @@ export class ProjectsService {
   }
 
   async getLinkedRepos(projectId: string): Promise<CodeRepo[]> {
-    const project = await this.projectRepo.findOne({
-      where: { id: projectId },
-      relations: ['linkedRepos'],
-    });
-    if (!project) throw new NotFoundException('Project not found');
-    return project.linkedRepos ?? [];
+    try {
+      const project = await this.projectRepo.findOne({
+        where: { id: projectId },
+        relations: ['linkedRepos'],
+      });
+      if (!project) throw new NotFoundException('Project not found');
+      return project.linkedRepos ?? [];
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      // If join table doesn't exist yet, return empty
+      return [];
+    }
   }
 
   async linkRepo(projectId: string, repoFullName: string): Promise<CodeRepo[]> {
