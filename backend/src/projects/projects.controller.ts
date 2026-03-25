@@ -262,6 +262,7 @@ export class ProjectsController {
     @Query() query: ListCardsQueryDto,
   ) {
     const board = await this.kanbanService.getDefaultBoard(projectId);
-    return this.cardsService.listCards(board.id, query);
+    const result = await this.cardsService.listCards(board.id, query);
+    return result.items;
   }
 }
