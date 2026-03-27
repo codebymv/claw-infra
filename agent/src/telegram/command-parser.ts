@@ -48,9 +48,9 @@ export class CommandParser implements ICommandParser {
       return naturalCommand;
     }
 
-    // If no pattern matches, treat as general query
+    // If no pattern matches, treat as general message (not a command)
     return {
-      command: '/help',
+      command: '/chat',
       args: {
         positional: [trimmedInput],
         named: {},

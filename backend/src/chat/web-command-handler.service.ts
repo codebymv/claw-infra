@@ -194,13 +194,14 @@ export class WebCommandHandlerService {
     content: string,
     context: WebCommandContext
   ): Promise<WebCommandResult> {
-    // For now, just echo back with a helpful message
-    // In the future, this could be forwarded to AI processing
-    
+    const projectHint = context.activeProjectId
+      ? `\n\nYou have a project selected. Try \`/context\` to see it.`
+      : `\n\nTip: Use \`/projects\` to list projects, then \`/select <name>\` to pick one.`;
+
     return {
       success: true,
       response: {
-        content: `I received your message: "${content}"\n\nI'm a command-based bot. Try typing \`/help\` to see available commands.`,
+        content: `💬 I received your message: "${content}"\n\nI'm a command-based assistant. Type \`/help\` to see all available commands.${projectHint}`,
         type: 'markdown',
       },
     };

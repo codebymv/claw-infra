@@ -232,6 +232,12 @@ export const projectsApi = {
     return api.get<{ format: string; data: any; filename: string }>(`/projects/${projectId}/analytics/export${qs}`);
   },
 
+  // Members
+  addMember: (projectId: string, userId: string, role: string) =>
+    api.post<ProjectMember>(`/projects/${projectId}/members`, { userId, role }),
+  removeMember: (projectId: string, userId: string) =>
+    api.delete(`/projects/${projectId}/members/${userId}`),
+
   // Linked Repos
   getLinkedRepos: (projectId: string) => api.get<LinkedRepo[]>(`/projects/${projectId}/repos`),
   linkRepo: (projectId: string, repoFullName: string) =>

@@ -152,6 +152,9 @@ export class CommandHandler implements ICommandHandler {
         
         case '/reset':
           return await this.handleResetCommand(command);
+
+        case '/chat':
+          return await this.handleChatMessage(command);
         
         default:
           return {
@@ -207,6 +210,22 @@ export class CommandHandler implements ICommandHandler {
   }
 
   // ── Command Handlers ──
+
+  private async handleChatMessage(command: ParsedCommand): Promise<CommandResult> {
+    const userText = command.args.positional[0] || command.rawInput;
+    const projectCtx = command.context.activeProject;
+    const contextHint = projectCtx
+      ? `\n\nYou're currently working in project **${projectCtx.projectName || projectCtx.projectId}**.`
+      : '';
+
+    return {
+      success: true,
+      response: {
+        text: `💬 I received your message: "${userText}"\n\nI'm a command-based assistant. Here are some things you can try:\n\n• \`/projects\` — List your projects\n• \`/select <name>\` — Pick a project to work with\n• \`/tasks\` — View tasks in the selected project\n• \`/create "Title"\` — Create a new task\n• \`/help\` — See all available commands${contextHint}`,
+        parseMode: 'Markdown',
+      },
+    };
+  }
 
   private async handleHelpCommand(command: ParsedCommand): Promise<CommandResult> {
     const specificCommand = command.args.positional[0];

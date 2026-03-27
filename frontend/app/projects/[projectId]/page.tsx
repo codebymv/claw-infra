@@ -10,6 +10,9 @@ import { KanbanBoardView } from '../../../components/projects/kanban-board-view'
 import { CreateCardDialog } from '../../../components/projects/create-card-dialog';
 import { RepoLinker } from '../../../components/projects/repo-linker';
 import { CodeActivity } from '../../../components/projects/code-activity';
+import { ProjectSearchPanel } from '../../../components/projects/project-search-panel';
+import { ProjectAnalyticsPanel } from '../../../components/projects/project-analytics-panel';
+import { ProjectMembersPanel } from '../../../components/projects/project-members-panel';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -22,6 +25,9 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [createCardDialogOpen, setCreateCardDialogOpen] = useState(false);
   const [projectRuns, setProjectRuns] = useState<AgentRun[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -138,25 +144,22 @@ export default function ProjectDetailPage() {
             
             <div className="flex items-center space-x-2">
               <button
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-50 cursor-not-allowed"
-                disabled
-                title="Coming soon"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setSearchOpen(true)}
               >
                 <Search className="h-4 w-4 mr-2" />
                 Search
               </button>
               <button
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-50 cursor-not-allowed"
-                disabled
-                title="Coming soon"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setAnalyticsOpen(true)}
               >
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics
               </button>
               <button
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors opacity-50 cursor-not-allowed"
-                disabled
-                title="Coming soon"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setMembersOpen(true)}
               >
                 <Users className="h-4 w-4 mr-2" />
                 Members
