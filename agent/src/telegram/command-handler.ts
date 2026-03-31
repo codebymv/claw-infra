@@ -213,18 +213,98 @@ export class CommandHandler implements ICommandHandler {
 
   private async handleChatMessage(command: ParsedCommand): Promise<CommandResult> {
     const userText = command.args.positional[0] || command.rawInput;
-    const projectCtx = command.context.activeProject;
-    const contextHint = projectCtx
-      ? `\n\nYou're currently working in project **${projectCtx.projectName || projectCtx.projectId}**.`
-      : '';
 
-    return {
-      success: true,
-      response: {
-        text: `💬 I received your message: "${userText}"\n\nI'm a command-based assistant. Here are some things you can try:\n\n• \`/projects\` — List your projects\n• \`/select <name>\` — Pick a project to work with\n• \`/tasks\` — View tasks in the selected project\n• \`/create "Title"\` — Create a new task\n• \`/help\` — See all available commands${contextHint}`,
-        parseMode: 'Markdown',
-      },
-    };
+    try {
+      const gatewayPort = process.env.ZEROCLAW_GATEWAY_PORT || '8080';
+      const webhookUrl = `http://localhost:${gatewayPort}/webhook`;
+
+      console.log(`[command-handler] Forwarding message to ZeroClaw webhook: ${webhookUrl}`);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`[command-handler] ZeroClaw webhook error: ${response.status} ${errorText}`);
+        return {
+          success: false,
+          response: {
+            text: `❌ **Agent Error**\n\nZeroClaw returned an error (${response.status}). Please try again.\n\nUse \`/help\` to see available commands.`,
+            parseMode: 'Markdown',
+          },
+          error: {
+            code: 'AGENT_ERROR',
+            message: `Webhook returned ${response.status}`,
+          },
+        };
+      }
+
+      // Parse the agent response — handle multiple possible response shapes
+      let agentReply: string;
+      const contentType = response.headers.get('content-type') || '';
+
+      if (contentType.includes('application/json')) {
+        const data: any = await response.json();
+        agentReply = data.response || data.message || data.text || data.reply || data.content || data.output || JSON.stringify(data, null, 2);
+      } else {
+        agentReply = await response.text();
+      }
+
+      if (!agentReply || agentReply.trim() === '' || agentReply === '{}' || agentReply === 'null') {
+        agentReply = '✅ Message received and processed by ZeroClaw (no text response returned).';
+      }
+
+      // Telegram has a 4096 character limit per message — truncate if needed
+      const MAX_LENGTH = 4000;
+      if (agentReply.length > MAX_LENGTH) {
+        agentReply = agentReply.substring(0, MAX_LENGTH) + '\n\n… _(response truncated)_';
+      }
+
+      return {
+        success: true,
+        response: {
+          text: agentReply,
+          parseMode: 'Markdown',
+        },
+      };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('[command-handler] ZeroClaw webhook request timed out');
+        return {
+          success: false,
+          response: {
+            text: `⏳ **Request Timed Out**\n\nThe agent is taking too long to respond. It may still be processing your request in the background.\n\nTry a shorter or more specific message, or use \`/help\` for available commands.`,
+            parseMode: 'Markdown',
+          },
+          error: {
+            code: 'TIMEOUT',
+            message: 'Agent request timed out after 3 minutes',
+          },
+        };
+      }
+
+      console.error('[command-handler] Error forwarding to ZeroClaw:', error);
+      return {
+        success: false,
+        response: {
+          text: `❌ **Connection Error**\n\nCouldn't reach the ZeroClaw agent. The daemon may still be starting up.\n\nError: \`${error.message}\`\n\nUse \`/help\` to see available commands.`,
+          parseMode: 'Markdown',
+        },
+        error: {
+          code: 'CONNECTION_ERROR',
+          message: error.message,
+        },
+      };
+    }
   }
 
   private async handleHelpCommand(command: ParsedCommand): Promise<CommandResult> {
