@@ -1,0 +1,151 @@
+﻿commit 2d125e76a660352e5502289c55dca5a9de00c466
+Author: Matthew Valentine <codebymv@gmail.com>
+Date:   Tue Mar 31 06:45:23 2026 -0700
+
+    fix(telegram): forward non-command messages to ZeroClaw webhook and pass GITHUB_TOKEN to Dockerfile
+
+diff --git a/agent/Dockerfile b/agent/Dockerfile
+index 6a4dc9e..25bc5ae 100644
+--- a/agent/Dockerfile
++++ b/agent/Dockerfile
+@@ -27,6 +27,7 @@ RUN apt-get update \
+ # Install ZeroClaw binary by building from source
+ # This is more reliable than downloading prebuilt binaries
+ ARG ZEROCLAW_VERSION=v0.1.9a
++ARG GITHUB_TOKEN
+ RUN apt-get update && apt-get install -y --no-install-recommends \
+     build-essential \
+     pkg-config \
+@@ -34,7 +35,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
+     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+     && . ~/.cargo/env \
+     && echo "Building ZeroClaw ${ZEROCLAW_VERSION} from source" \
+-    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} https://github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
++    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} \
++       https://x-access-token:${GITHUB_TOKEN}@github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
+     && cd /tmp/zeroclaw \
+     && cargo build --release \
+     && cp target/release/zeroclaw /usr/local/bin/zeroclaw \
+
+commit 9dc5d34fb4cb90ee59ff2b4f937407f2231b53d2
+Author: Matthew Valentine <codebymv@gmail.com>
+Date:   Sun Mar 15 19:37:15 2026 -0700
+
+    redploy
+
+diff --git a/agent/Dockerfile b/agent/Dockerfile
+index 3a781ad..6a4dc9e 100644
+--- a/agent/Dockerfile
++++ b/agent/Dockerfile
+@@ -57,9 +57,13 @@ COPY --from=builder /app/node_modules ./node_modules
+ COPY package.json ./
+ COPY project-manager.js ./
+ COPY projects ./
++COPY projects.sh ./
+ 
+-# Make project-manager.js and projects executable
+-RUN chmod +x project-manager.js projects
++# Make all scripts executable
++RUN chmod +x project-manager.js projects projects.sh
++
++# Create symlink so 'projects' command works
++RUN ln -sf /app/projects.sh /usr/local/bin/projects
+ 
+ # Symlink Railway CLI binary from local node_modules
+ RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway
+
+commit 143864a4ba6af2def408f75632ce3cd0b73a5a62
+Author: Matthew Valentine <codebymv@gmail.com>
+Date:   Sun Mar 15 15:39:18 2026 -0700
+
+    fixes
+
+diff --git a/agent/Dockerfile b/agent/Dockerfile
+index a6a36cb..3a781ad 100644
+--- a/agent/Dockerfile
++++ b/agent/Dockerfile
+@@ -56,9 +56,10 @@ COPY --from=builder /app/dist ./dist
+ COPY --from=builder /app/node_modules ./node_modules
+ COPY package.json ./
+ COPY project-manager.js ./
++COPY projects ./
+ 
+-# Make project-manager.js executable
+-RUN chmod +x project-manager.js
++# Make project-manager.js and projects executable
++RUN chmod +x project-manager.js projects
+ 
+ # Symlink Railway CLI binary from local node_modules
+ RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway
+
+commit c994a29fd43be1007c64392e8ddc553ed3f46122
+Author: Matthew Valentine <codebymv@gmail.com>
+Date:   Sun Mar 15 14:09:43 2026 -0700
+
+    updates
+
+diff --git a/agent/Dockerfile b/agent/Dockerfile
+index ee50349..a6a36cb 100644
+--- a/agent/Dockerfile
++++ b/agent/Dockerfile
+@@ -55,6 +55,10 @@ WORKDIR /app
+ COPY --from=builder /app/dist ./dist
+ COPY --from=builder /app/node_modules ./node_modules
+ COPY package.json ./
++COPY project-manager.js ./
++
++# Make project-manager.js executable
++RUN chmod +x project-manager.js
+ 
+ # Symlink Railway CLI binary from local node_modules
+ RUN ln -s /app/node_modules/.bin/railway /usr/local/bin/railway
+
+commit c572afec9b0d415612ea1fd05e775a3026a09f54
+Author: Matthew Valentine <codebymv@gmail.com>
+Date:   Fri Mar 13 16:00:41 2026 -0700
+
+    fixes
+
+diff --git a/agent/Dockerfile b/agent/Dockerfile
+index f15a7a7..ee50349 100644
+--- a/agent/Dockerfile
++++ b/agent/Dockerfile
+@@ -24,19 +24,26 @@ RUN apt-get update \
+ 
+ # Railway CLI is now installed via npm in the builder stage
+ 
+-# Install ZeroClaw binary from GitHub releases
+-# Using specific version v0.1.9a which is confirmed to exist
++# Install ZeroClaw binary by building from source
++# This is more reliable than downloading prebuilt binaries
+ ARG ZEROCLAW_VERSION=v0.1.9a
+-RUN ARCH=$(dpkg --print-architecture) && \
+-    if [ "$ARCH" = "amd64" ]; then TARGET="x86_64-unknown-linux-gnu"; \
+-    elif [ "$ARCH" = "arm64" ]; then TARGET="aarch64-unknown-linux-gnu"; \
+-    else echo "Unsupported arch: $ARCH" && exit 1; fi && \
+-    URL="https://github.com/zeroclaw-labs/zeroclaw/releases/download/${ZEROCLAW_VERSION}/zeroclaw-${TARGET}.tar.gz" && \
+-    echo "Downloading ZeroClaw ${ZEROCLAW_VERSION} from $URL" && \
+-    curl -fsSL "$URL" -o /tmp/zeroclaw.tar.gz && \
+-    tar -xzf /tmp/zeroclaw.tar.gz -C /usr/local/bin/ && \
+-    chmod +x /usr/local/bin/zeroclaw && \
+-    rm /tmp/zeroclaw.tar.gz
++RUN apt-get update && apt-get install -y --no-install-recommends \
++    build-essential \
++    pkg-config \
++    libssl-dev \
++    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
++    && . ~/.cargo/env \
++    && echo "Building ZeroClaw ${ZEROCLAW_VERSION} from source" \
++    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} https://github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
++    && cd /tmp/zeroclaw \
++    && cargo build --release \
++    && cp target/release/zeroclaw /usr/local/bin/zeroclaw \
++    && chmod +x /usr/local/bin/zeroclaw \
++    && cd / \
++    && rm -rf /tmp/zeroclaw ~/.cargo \
++    && apt-get remove -y build-essential pkg-config libssl-dev \
++    && apt-get autoremove -y \
++    && rm -rf /var/lib/apt/lists/*
+ 
+ # Create workspace directory
+ RUN mkdir -p /app/workspace /root/.zeroclaw
