@@ -27,6 +27,7 @@ RUN apt-get update \
 # Install ZeroClaw binary by building from source
 # This is more reliable than downloading prebuilt binaries
 ARG ZEROCLAW_VERSION=v0.1.9a
+ARG GITHUB_TOKEN
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
@@ -34,7 +35,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && . ~/.cargo/env \
     && echo "Building ZeroClaw ${ZEROCLAW_VERSION} from source" \
-    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} https://github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
+    && git clone --depth 1 --branch ${ZEROCLAW_VERSION} \
+       https://x-access-token:${GITHUB_TOKEN}@github.com/zeroclaw-labs/zeroclaw.git /tmp/zeroclaw \
     && cd /tmp/zeroclaw \
     && cargo build --release \
     && cp target/release/zeroclaw /usr/local/bin/zeroclaw \
