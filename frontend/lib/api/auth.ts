@@ -29,3 +29,9 @@ class AuthApi {
 }
 
 export const authApi = new AuthApi();
+
+export const apiKeysApi = {
+  list: () => authApi.getApiKeys(),
+  create: (name: string, type?: string) => authApi.createApiKey(name, type),
+  revoke: (id: string) => authApi.revokeApiKey(id),
+};

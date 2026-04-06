@@ -17,6 +17,7 @@ import {
   LogLineEvent,
 } from './log-parser';
 import * as ingest from './ingest-client';
+import { MAX_RETRIES, BASE_DELAY_MS } from './ingest-client';
 
 const AGENT_NAME = process.env.ZEROCLAW_AGENT_NAME || 'zeroclaw-primary';
 const METRICS_INTERVAL_MS = parseInt(process.env.METRICS_INTERVAL_MS || '15000', 10);
@@ -268,12 +269,12 @@ async function gracefulShutdown(signal: string): Promise<void> {
     }
 
     // Cleanup project client
-    await ingest.cleanupProjectClient().catch(err => {
+    await cleanupProjectClient().catch(err => {
       console.error('[reporter] Failed to cleanup project client:', err);
     });
 
     // Cleanup Telegram
-    await ingest.shutdownTelegramBotCommands().catch(err => {
+    await shutdownTelegramBotCommands().catch(err => {
       console.error('[reporter] Failed to cleanup Telegram bot commands:', err);
     });
 

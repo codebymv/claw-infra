@@ -34,7 +34,7 @@ export default function ProjectsPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await projectsApi.getProjects();
+      const data = await projectsApi.list();
       setProjects(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load projects');
@@ -48,9 +48,9 @@ export default function ProjectsPage() {
 
     // Filter by status
     if (filterMode === 'active') {
-      filtered = filtered.filter(p => !p.archivedAt);
+      filtered = filtered.filter(p => !p.isArchived);
     } else if (filterMode === 'archived') {
-      filtered = filtered.filter(p => p.archivedAt);
+      filtered = filtered.filter(p => p.isArchived);
     }
 
     // Filter by search query

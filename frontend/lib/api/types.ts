@@ -13,6 +13,8 @@ export interface AgentRun {
   linkedCardId?: string | null;
   linkedCard?: AgentRunLinkedCard | null;
   steps?: AgentStep[];
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface AgentRunLinkedCard {
@@ -195,6 +197,10 @@ export interface Project {
   updatedAt: string;
   board?: KanbanBoard;
   members?: ProjectMember[];
+  cardCount?: number;
+  completedCardCount?: number;
+  boards?: Array<{ id: string; name: string }>;
+  memberCount?: number;
 }
 
 export interface ProjectMember {
@@ -306,6 +312,15 @@ export interface GitHubRepoGrantEntry {
   createdAt: string;
 }
 
+export interface GithubAccessibleRepo {
+  full_name: string;
+  name: string;
+  owner: { login: string };
+  private: boolean;
+  default_branch: string;
+  html_url: string;
+}
+
 export interface CodeBackfillResponse {
   accepted: boolean;
   message: string;
@@ -372,4 +387,81 @@ export interface CodeQuality {
   revertOrHotfixFollowupCount: number;
   revertOrHotfixFollowupRate: number;
   hotfixWindowHours: number;
+}
+
+export interface SearchResult<T> {
+  id: string;
+  type: string;
+  score: number;
+  highlights: string[];
+  item: T;
+}
+
+export interface SearchResponse {
+  results: SearchResult<Card>[];
+  total: number;
+  executionTime: number;
+  facets?: {
+    priorities?: Record<string, number>;
+    statuses?: Record<string, number>;
+    types?: Record<string, number>;
+    assignees?: Record<string, number>;
+  };
+}
+
+export interface AnalyticsTimeRange {
+  startDate: string;
+  endDate: string;
+}
+
+export interface VelocityMetrics {
+  completedCards: number;
+  averageCompletionTime: number;
+  throughput: number;
+  cycleTime: number;
+  leadTime: number;
+  burndownData: Array<{
+    date: string;
+    remaining: number;
+    completed: number;
+    total: number;
+  }>;
+}
+
+export interface TeamProductivityMetrics {
+  totalCards: number;
+  completedCards: number;
+  completionRate: number;
+  averageCardsPerUser: number;
+  topPerformers: Array<{
+    userId: string;
+    username: string;
+    completedCards: number;
+    averageCompletionTime: number;
+  }>;
+  collaborationScore: number;
+}
+
+export interface ProjectInsights {
+  projectId: string;
+  projectName: string;
+  timeRange: AnalyticsTimeRange;
+  velocity: VelocityMetrics;
+  productivity: TeamProductivityMetrics;
+  statusDistribution: Record<string, number>;
+  priorityDistribution: Record<string, number>;
+  typeDistribution: Record<string, number>;
+  columnMetrics: Array<{
+    columnId: string;
+    columnName: string;
+    cardCount: number;
+    averageTimeInColumn: number;
+    bottleneckScore: number;
+  }>;
+  trends: {
+    cardCreationTrend: Array<{ date: string; count: number }>;
+    completionTrend: Array<{ date: string; count: number }>;
+    velocityTrend: Array<{ date: string; velocity: number }>;
+  };
+  recommendations: string[];
 }

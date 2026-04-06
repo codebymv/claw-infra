@@ -122,7 +122,7 @@ export function ProjectSearchPanel({ projectId, open, onClose, onCardClick }: Pr
         {/* Facet Filters */}
         {showFilters && facets && (
           <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 space-y-2">
-            {Object.entries(facets.priorities).length > 0 && (
+            {facets.priorities && Object.entries(facets.priorities).length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Priority</p>
                 <div className="flex flex-wrap gap-1">
@@ -143,7 +143,7 @@ export function ProjectSearchPanel({ projectId, open, onClose, onCardClick }: Pr
                 </div>
               </div>
             )}
-            {Object.entries(facets.statuses).length > 0 && (
+            {facets.statuses && Object.entries(facets.statuses).length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Status</p>
                 <div className="flex flex-wrap gap-1">
@@ -164,7 +164,7 @@ export function ProjectSearchPanel({ projectId, open, onClose, onCardClick }: Pr
                 </div>
               </div>
             )}
-            {Object.entries(facets.types).length > 0 && (
+            {facets.types && Object.entries(facets.types).length > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Type</p>
                 <div className="flex flex-wrap gap-1">

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Copy, Trash2, Plus, Eye, EyeOff, Shield, Terminal, Check, X, Github, ToggleLeft, ToggleRight, ExternalLink, RefreshCw } from 'lucide-react';
 import { SectionCard } from '@/components/shared/section-card';
 import { PageLoader } from '@/components/shared/loading-spinner';
-import { apiKeysApi, costsApi, githubApi, type ApiKeyEntry, type CostBudget, type GithubInstallation, type GithubAccessibleRepo, type GithubRepoGrantEntry } from '@/lib/api';
+import { apiKeysApi, costsApi, githubApi, type ApiKeyEntry, type CostBudget, type GitHubInstallation, type GithubAccessibleRepo, type GitHubRepoGrantEntry } from '@/lib/api';
 import { formatRelativeTime, formatDateTime, cn } from '@/lib/utils';
 import { useAppToast } from '@/components/layout/app-shell';
 import { useDynamicTitle } from '@/hooks/useDynamicTitle';
@@ -36,9 +36,9 @@ export default function SettingsPage() {
   // GitHub App state
   const [ghConfigured, setGhConfigured] = useState(false);
   const [ghInstallUrl, setGhInstallUrl] = useState<string | null>(null);
-  const [ghInstallations, setGhInstallations] = useState<GithubInstallation[]>([]);
+  const [ghInstallations, setGhInstallations] = useState<GitHubInstallation[]>([]);
   const [ghRepos, setGhRepos] = useState<GithubAccessibleRepo[]>([]);
-  const [ghGrants, setGhGrants] = useState<GithubRepoGrantEntry[]>([]);
+  const [ghGrants, setGhGrants] = useState<GitHubRepoGrantEntry[]>([]);
   const [ghLoading, setGhLoading] = useState(false);
   const [ghReposLoading, setGhReposLoading] = useState(false);
 
@@ -59,8 +59,8 @@ export default function SettingsPage() {
           setGhInstallUrl(status.installUrl);
           if (status.configured) {
             const [installations, grants] = await Promise.all([
-              githubApi.listInstallations(),
-              githubApi.listGrantedRepos(),
+              githubApi.getInstallations(),
+              githubApi.getGrantedRepos(),
             ]);
             setGhInstallations(installations);
             setGhGrants(grants);
@@ -131,7 +131,7 @@ export default function SettingsPage() {
   async function loadGhRepos() {
     setGhReposLoading(true);
     try {
-      const repos = await githubApi.listRepos();
+      const repos = await githubApi.getRepos();
       setGhRepos(repos);
     } catch (err) {
       toast.error((err as Error).message || 'Failed to load repos');

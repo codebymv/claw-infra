@@ -26,7 +26,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
     if (loading) return;
     setLoading(true);
     try {
-      const updated = await projectsApi.archiveProject(project.id);
+      const updated = await projectsApi.archive(project.id);
       onUpdate(updated);
       toast.success('Project archived');
     } catch (err) {
@@ -43,7 +43,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
     }
     setLoading(true);
     try {
-      await projectsApi.deleteProject(project.id);
+      await projectsApi.delete(project.id);
       onDelete(project.id);
       toast.success('Project deleted');
     } catch (err) {
@@ -71,7 +71,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
                   >
                     {project.name}
                   </Link>
-                  {project.archivedAt && (
+                  {project.isArchived && (
                     <Badge variant="secondary" className="text-xs">
                       Archived
                     </Badge>
@@ -149,7 +149,7 @@ export function ProjectCard({ project, viewMode, onUpdate, onDelete }: ProjectCa
               >
                 {project.name}
               </Link>
-              {project.archivedAt && (
+              {project.isArchived && (
                 <Badge variant="secondary" className="text-xs">
                   Archived
                 </Badge>

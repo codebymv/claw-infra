@@ -6,12 +6,17 @@ import type {
   Column,
   Card,
   Comment,
+  ProjectInsights,
+  SearchResponse,
 } from './types';
+
+export type { Project } from './types';
 
 export interface CreateProjectRequest {
   name: string;
   description?: string;
   settings?: Record<string, unknown>;
+  template?: 'basic' | 'software' | 'marketing';
 }
 
 export interface UpdateProjectRequest {
@@ -253,6 +258,16 @@ class ProjectsApi {
   async getActivity(projectId: string, limit?: number): Promise<ProjectCodeActivity> {
     const qs = limit ? `?limit=${limit}` : '';
     return api.get(`/projects/${projectId}/activity${qs}`);
+  }
+
+  async getInsights(projectId: string, params?: { start_date?: string; end_date?: string; timeRange?: string }): Promise<ProjectInsights> {
+    const query = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : '';
+    return api.get(`/projects/${projectId}/insights${query}`);
+  }
+
+  async searchCards(projectId: string, params: Record<string, string>): Promise<SearchResponse> {
+    const query = '?' + new URLSearchParams(params).toString();
+    return api.get(`/projects/${projectId}/search/cards${query}`);
   }
 }
 

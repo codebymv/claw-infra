@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { projectsApi, githubApi, type LinkedRepo, type GithubAccessibleRepo } from '@/lib/api';
+import { projectsApi, githubApi } from '@/lib/api';
+import type { LinkedRepo, GithubAccessibleRepo } from '@/lib/api';
 import { GitBranch, Plus, X, Loader2 } from 'lucide-react';
 
 interface RepoLinkerProps {
@@ -35,7 +36,7 @@ export function RepoLinker({ projectId }: RepoLinkerProps) {
   const openPicker = async () => {
     setShowPicker(true);
     try {
-      const repos = await githubApi.listRepos();
+      const repos = await githubApi.getRepos();
       setAvailableRepos(repos);
     } catch {
       setAvailableRepos([]);

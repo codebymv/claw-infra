@@ -20,7 +20,7 @@ import {
 import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
-import { IdempotencyService } from '../common/services/idempotency.service';
+import { IdempotencyService } from '../common/idempotency.service';
 import { AgentsService } from './agents.service';
 import {
   AgentRunStatus,

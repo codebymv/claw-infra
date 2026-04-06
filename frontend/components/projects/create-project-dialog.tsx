@@ -62,7 +62,7 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
 
     setLoading(true);
     try {
-      const project = await projectsApi.createProject({
+      const project = await projectsApi.create({
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
       });

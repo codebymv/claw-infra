@@ -1,8 +1,8 @@
 const BACKEND_URL = (process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const AGENT_TOKEN = process.env.AGENT_API_KEY || '';
 
-const MAX_RETRIES = parseInt(process.env.INGEST_MAX_RETRIES || '5', 10);
-const BASE_DELAY_MS = parseInt(process.env.INGEST_BASE_DELAY_MS || '1000', 10);
+export const MAX_RETRIES = parseInt(process.env.INGEST_MAX_RETRIES || '5', 10);
+export const BASE_DELAY_MS = parseInt(process.env.INGEST_BASE_DELAY_MS || '1000', 10);
 const MAX_DELAY_MS = parseInt(process.env.INGEST_MAX_DELAY_MS || '30000', 10);
 const JITTER_FACTOR = parseFloat(process.env.INGEST_JITTER_FACTOR || '0.3');
 

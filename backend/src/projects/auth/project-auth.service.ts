@@ -147,18 +147,7 @@ async validateCardAccess(
       );
     }
 
-    return context;
-  }
-
-    const context = await this.validateProjectAccess(card.id, userId);
-
-    if (!this.hasPermission(context.permissions, requiredPermission)) {
-      throw new ForbiddenException(
-        `Access denied: insufficient permissions (${requiredPermission} required)`,
-      );
-    }
-
-    return context;
+return context;
   }
 
   async validateBoardAccess(
