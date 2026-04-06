@@ -4,54 +4,58 @@ export class AddPerformanceIndexes1710000000001 implements MigrationInterface {
   name = 'AddPerformanceIndexes1710000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Note: Using regular INDEX (not CONCURRENTLY) because TypeORM wraps migrations in a transaction
+    // and CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
+    // For large tables, run these indexes manually in production during low-traffic periods:
+    //   CREATE INDEX CONCURRENTLY idx_name ON table(column);
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_runs_status_createdAt 
+      CREATE INDEX IF NOT EXISTS idx_agent_runs_status_createdAt 
       ON agent_runs(status, createdAt DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_runs_agent_status_started 
+      CREATE INDEX IF NOT EXISTS idx_agent_runs_agent_status_started 
       ON agent_runs(agentName, status, startedAt DESC)
       WHERE status IN ('running', 'queued')
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cards_board_status_createdAt 
+      CREATE INDEX IF NOT EXISTS idx_cards_board_status_createdAt 
       ON cards(board_id, status, createdAt DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cards_column_position 
+      CREATE INDEX IF NOT EXISTS idx_cards_column_position 
       ON cards(column_id, position)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_session_timestamp 
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_session_timestamp 
       ON chat_messages(session_id, timestamp DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_comments_card_created 
+      CREATE INDEX IF NOT EXISTS idx_comments_card_created 
       ON comments(card_id, createdAt DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cost_records_run_created 
+      CREATE INDEX IF NOT EXISTS idx_cost_records_run_created 
       ON cost_records(run_id, createdAt DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_logs_run_level_created 
+      CREATE INDEX IF NOT EXISTS idx_agent_logs_run_level_created 
       ON agent_logs(run_id, level, createdAt DESC)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_steps_run_created 
+      CREATE INDEX IF NOT EXISTS idx_agent_steps_run_created 
       ON agent_steps(run_id, createdAt)
     `);
 
     await queryRunner.query(`
-      CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_project_members_user_project 
+      CREATE INDEX IF NOT EXISTS idx_project_members_user_project 
       ON project_members(userId, projectId)
     `);
   }
