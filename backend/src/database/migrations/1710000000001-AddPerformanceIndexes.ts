@@ -56,7 +56,7 @@ export class AddPerformanceIndexes1710000000001 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_project_members_user_project 
-      ON project_members("userId", "projectId")
+      ON project_members(user_id, project_id)
     `);
   }
 
