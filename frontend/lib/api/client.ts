@@ -5,7 +5,7 @@ function getToken(): string | null {
   return localStorage.getItem('access_token');
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<{ data: T }> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -24,22 +24,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<{ da
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error((err as { message: string }).message || 'Request failed');
+    const msg = Array.isArray((err as any).message)
+      ? (err as any).message.join(', ')
+      : typeof (err as any).message === 'string'
+        ? (err as any).message
+        : (err as any).error || res.statusText || 'Request failed';
+    throw new Error(msg);
   }
 
-  const data = await res.json();
-  return { data };
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
 }
 
-export const apiClient = {
-  get: <T>(path: string, options?: { params?: Record<string, any> }) => {
-    const url = options?.params 
-      ? `${path}?${new URLSearchParams(options.params).toString()}`
-      : path;
-    return request<T>(url);
-  },
+export const api = {
+  get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),

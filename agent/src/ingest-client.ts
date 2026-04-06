@@ -1,29 +1,125 @@
 const BACKEND_URL = (process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000').replace(/\/+$/, '');
 const AGENT_TOKEN = process.env.AGENT_API_KEY || '';
 
+const MAX_RETRIES = parseInt(process.env.INGEST_MAX_RETRIES || '5', 10);
+const BASE_DELAY_MS = parseInt(process.env.INGEST_BASE_DELAY_MS || '1000', 10);
+const MAX_DELAY_MS = parseInt(process.env.INGEST_MAX_DELAY_MS || '30000', 10);
+const JITTER_FACTOR = parseFloat(process.env.INGEST_JITTER_FACTOR || '0.3');
+
 interface RequestOptions {
   method: 'POST' | 'PATCH' | 'GET';
   path: string;
   body?: Record<string, unknown>;
+  idempotencyKey?: string;
+  skipRetry?: boolean;
 }
 
-async function request<T = unknown>(opts: RequestOptions): Promise<T> {
+interface PendingRequest {
+  opts: RequestOptions;
+  resolve: (value: unknown) => void;
+  reject: (reason: unknown) => void;
+  attempts: number;
+  nextDelay: number;
+}
+
+let requestQueue: PendingRequest[] = [];
+let isProcessingQueue = false;
+let isBackendHealthy = true;
+
+function calculateDelay(attempt: number): number {
+  const exponentialDelay = BASE_DELAY_MS * Math.pow(2, attempt);
+  const cappedDelay = Math.min(exponentialDelay, MAX_DELAY_MS);
+  const jitter = cappedDelay * JITTER_FACTOR * Math.random();
+  return Math.round(cappedDelay + jitter);
+}
+
+function isRetryable(status: number): boolean {
+  return status >= 500 || status === 429 || status === 408;
+}
+
+async function requestWithRetry<T = unknown>(opts: RequestOptions): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const pending: PendingRequest = {
+      opts,
+      resolve: resolve as (value: unknown) => void,
+      reject,
+      attempts: 0,
+      nextDelay: BASE_DELAY_MS,
+    };
+    requestQueue.push(pending);
+    processQueue();
+  });
+}
+
+async function processQueue(): Promise<void> {
+  if (isProcessingQueue) return;
+  isProcessingQueue = true;
+
+  while (requestQueue.length > 0) {
+    const pending = requestQueue.shift();
+    if (!pending) break;
+
+    try {
+      const result = await executeRequest(pending.opts);
+      pending.resolve(result);
+    } catch (error) {
+      if (pending.opts.skipRetry || pending.attempts >= MAX_RETRIES) {
+        pending.reject(error);
+        continue;
+      }
+
+      pending.attempts++;
+      pending.nextDelay = calculateDelay(pending.attempts);
+      
+      console.warn(
+        `[ingest] Request failed (attempt ${pending.attempts}/${MAX_RETRIES}), retrying in ${pending.nextDelay}ms:`,
+        error instanceof Error ? error.message : error
+      );
+
+      await new Promise(r => setTimeout(r, pending.nextDelay));
+      requestQueue.unshift(pending);
+    }
+  }
+
+  isProcessingQueue = false;
+}
+
+async function executeRequest<T = unknown>(opts: RequestOptions): Promise<T> {
   const url = `${BACKEND_URL}/api${opts.path}`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Agent-Token': AGENT_TOKEN,
+  };
+
+  if (opts.idempotencyKey) {
+    headers['X-Idempotency-Key'] = opts.idempotencyKey;
+  }
+
   const res = await fetch(url, {
     method: opts.method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Agent-Token': AGENT_TOKEN,
-    },
+    headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    
+    if (isRetryable(res.status)) {
+      throw new Error(`Retryable error: ${res.status}`);
+    }
+    
     throw new Error(`Ingest API ${opts.method} ${opts.path} → ${res.status}: ${text}`);
   }
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
+}
+
+async function request<T = unknown>(opts: RequestOptions): Promise<T> {
+  return requestWithRetry<T>(opts);
 }
 
 // ── Runs ──
@@ -34,6 +130,13 @@ export interface CreateRunResult {
   status: string;
 }
 
+let runCounter = 0;
+function generateIdempotencyKey(prefix: string): string {
+  const timestamp = Date.now();
+  const counter = ++runCounter;
+  return `${prefix}-${timestamp}-${counter}`;
+}
+
 export async function createRun(agentName: string, trigger: string = 'manual', configSnapshot?: Record<string, unknown>, opts?: {
   metadata?: Record<string, unknown>;
   linkedCardId?: string;
@@ -42,6 +145,7 @@ export async function createRun(agentName: string, trigger: string = 'manual', c
     method: 'POST',
     path: '/ingest/runs',
     body: { agentName, trigger, configSnapshot, ...opts },
+    idempotencyKey: generateIdempotencyKey('run'),
   });
 }
 

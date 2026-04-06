@@ -104,14 +104,19 @@ export class ProjectAuthGuard implements CanActivate {
         return null;
       }
 
-      // For API keys, we need to create a user context
-      // API keys represent system/agent access, so we'll use a special system user context
+      // API keys should NOT have automatic admin access to all projects
+      // They need to be explicitly granted access via project membership
+      // For project-scoped operations, ProjectAccessGuard will check membership
+      
+      // Create a minimal user context for API key
+      // The isApiKey flag allows downstream guards to handle appropriately
       return {
-        id: 'system',
-        email: 'system@api',
-        role: 'admin', // API keys have admin privileges
+        id: `apikey:${apiKey.id}`,
+        email: `apikey@${apiKey.name.toLowerCase().replace(/\s+/g, '-')}`,
+        role: 'user', // Default role - actual permissions depend on project membership
         apiKey: apiKey,
         isApiKey: true,
+        apiKeyType: apiKey.type,
       };
     } catch {
       return null;

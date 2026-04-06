@@ -120,7 +120,7 @@ export class ProjectAuthService {
     };
   }
 
-  async validateCardAccess(
+async validateCardAccess(
     cardId: string,
     userId: string,
     requiredPermission: 'read' | 'write' | 'admin' = 'read',
@@ -128,16 +128,27 @@ export class ProjectAuthService {
     // Get card with project information
     const card = await this.projectRepo.manager
       .createQueryBuilder()
-      .select('project.*')
+      .select('card.id', 'cardId')
+      .addSelect('board.project_id', 'projectId')
       .from('cards', 'card')
       .innerJoin('kanban_boards', 'board', 'board.id = card.board_id')
-      .innerJoin('projects', 'project', 'project.id = board.project_id')
       .where('card.id = :cardId', { cardId })
       .getRawOne();
 
     if (!card) {
       throw new NotFoundException(`Card ${cardId} not found`);
     }
+
+    const context = await this.validateProjectAccess(card.projectId, userId);
+
+    if (!this.hasPermission(context.permissions, requiredPermission)) {
+      throw new ForbiddenException(
+        `Access denied: insufficient permissions (${requiredPermission} required)`,
+      );
+    }
+
+    return context;
+  }
 
     const context = await this.validateProjectAccess(card.id, userId);
 
@@ -158,9 +169,9 @@ export class ProjectAuthService {
     // Get board with project information
     const board = await this.projectRepo.manager
       .createQueryBuilder()
-      .select('project.*')
+      .select('board.id', 'boardId')
+      .addSelect('board.project_id', 'projectId')
       .from('kanban_boards', 'board')
-      .innerJoin('projects', 'project', 'project.id = board.project_id')
       .where('board.id = :boardId', { boardId })
       .getRawOne();
 
@@ -168,7 +179,7 @@ export class ProjectAuthService {
       throw new NotFoundException(`Board ${boardId} not found`);
     }
 
-    const context = await this.validateProjectAccess(board.id, userId);
+    const context = await this.validateProjectAccess(board.projectId, userId);
 
     if (!this.hasPermission(context.permissions, requiredPermission)) {
       throw new ForbiddenException(
@@ -187,11 +198,11 @@ export class ProjectAuthService {
     // Get comment with project information
     const comment = await this.projectRepo.manager
       .createQueryBuilder()
-      .select('project.*')
+      .select('comment.id', 'commentId')
+      .addSelect('board.project_id', 'projectId')
       .from('comments', 'comment')
       .innerJoin('cards', 'card', 'card.id = comment.card_id')
       .innerJoin('kanban_boards', 'board', 'board.id = card.board_id')
-      .innerJoin('projects', 'project', 'project.id = board.project_id')
       .where('comment.id = :commentId', { commentId })
       .getRawOne();
 
@@ -199,7 +210,7 @@ export class ProjectAuthService {
       throw new NotFoundException(`Comment ${commentId} not found`);
     }
 
-    const context = await this.validateProjectAccess(comment.id, userId);
+    const context = await this.validateProjectAccess(comment.projectId, userId);
 
     if (!this.hasPermission(context.permissions, requiredPermission)) {
       throw new ForbiddenException(

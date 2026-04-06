@@ -37,18 +37,24 @@ interface RunState {
   totalCostUsd: number;
 }
 
-let currentRun: RunState | null = null;
-let daemonProcess: ChildProcess | null = null;
-let logBuffer: Array<{
+interface PendingLog {
   runId: string;
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   metadata?: Record<string, unknown>;
-}> = [];
+  timestamp: number;
+}
+
+let currentRun: RunState | null = null;
+let daemonProcess: ChildProcess | null = null;
+let pendingLogs: PendingLog[] = [];
 let metricsTimer: NodeJS.Timeout | null = null;
 let logFlushTimer: NodeJS.Timeout | null = null;
+let heartbeatTimer: NodeJS.Timeout | null = null;
 let lastCpuUsage: NodeJS.CpuUsage = process.cpuUsage();
 let lastCpuTime: number = Date.now();
+let isShuttingDown = false;
+let backendHealthy = false;
 
 // ── Event handlers ──
 
@@ -186,34 +192,128 @@ async function onLlmCall(event: LlmCallEvent): Promise<void> {
 function onLogLine(event: LogLineEvent): void {
   if (!currentRun) return;
 
-  // Check buffer capacity and drop oldest if full
-  if (logBuffer.length >= MAX_LOG_BUFFER_SIZE) {
-    logBuffer.shift(); // Remove oldest log
-    
-    // Log warning at 80% capacity (only once per run)
-    if (logBuffer.length === Math.floor(MAX_LOG_BUFFER_SIZE * 0.8)) {
-      console.warn(`[reporter] Log buffer at 80% capacity (${logBuffer.length}/${MAX_LOG_BUFFER_SIZE}), oldest logs will be dropped`);
-    }
-  }
-
-  logBuffer.push({
+  pendingLogs.push({
     runId: currentRun.runId,
     level: event.level,
     message: event.message,
     metadata: event.target ? { target: event.target } : undefined,
+    timestamp: Date.now(),
   });
+
+  if (pendingLogs.length >= MAX_LOG_BUFFER_SIZE) {
+    const dropped = pendingLogs.splice(0, pendingLogs.length - MAX_LOG_BUFFER_SIZE);
+    console.warn(`[reporter] Dropped ${dropped.length} oldest logs (buffer full)`);
+  }
 }
 
 // ── Log batching ──
 
 async function flushLogs(): Promise<void> {
-  if (logBuffer.length === 0) return;
+  if (pendingLogs.length === 0) return;
 
-  const batch = logBuffer.splice(0, logBuffer.length);
+  const batch = pendingLogs.splice(0, pendingLogs.length);
   try {
-    await ingest.sendLogBatch(batch);
+    await ingest.sendLogBatch(batch.map(l => ({
+      runId: l.runId,
+      level: l.level,
+      message: l.message,
+      metadata: l.metadata,
+    })));
   } catch (err) {
-    console.error(`[reporter] Failed to flush ${batch.length} logs:`, err);
+    console.error(`[reporter] Failed to flush ${batch.length} logs, re-queueing:`, err);
+    pendingLogs.unshift(...batch);
+    throw err;
+  }
+}
+
+// ── Graceful shutdown ──
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) {
+    console.log(`[reporter] Already shutting down, ignoring ${signal}`);
+    return;
+  }
+  
+  isShuttingDown = true;
+  console.log(`[reporter] Received ${signal}, starting graceful shutdown...`);
+
+  const shutdownTimeout = setTimeout(() => {
+    console.error('[reporter] Graceful shutdown timeout exceeded, forcing exit');
+    process.exit(1);
+  }, 10000);
+
+  try {
+    // Stop timers
+    if (metricsTimer) clearInterval(metricsTimer);
+    if (logFlushTimer) clearInterval(logFlushTimer);
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+
+    // Flush pending logs
+    if (pendingLogs.length > 0) {
+      console.log(`[reporter] Flushing ${pendingLogs.length} pending logs...`);
+      await flushLogs();
+    }
+
+    // Complete current run if any
+    if (currentRun) {
+      console.log(`[reporter] Completing run ${currentRun.runId}...`);
+      await ingest.completeRun(currentRun.runId, {
+        status: 'failed',
+        errorMessage: 'Agent shutdown',
+        durationMs: Date.now() - currentRun.startedAt,
+        totalTokensIn: currentRun.totalTokensIn,
+        totalTokensOut: currentRun.totalTokensOut,
+        totalCostUsd: currentRun.totalCostUsd.toFixed(6),
+      });
+    }
+
+    // Cleanup project client
+    await ingest.cleanupProjectClient().catch(err => {
+      console.error('[reporter] Failed to cleanup project client:', err);
+    });
+
+    // Cleanup Telegram
+    await ingest.shutdownTelegramBotCommands().catch(err => {
+      console.error('[reporter] Failed to cleanup Telegram bot commands:', err);
+    });
+
+    // Kill daemon
+    if (daemonProcess) {
+      console.log('[reporter] Stopping daemon...');
+      daemonProcess.kill('SIGTERM');
+      await new Promise<void>((resolve) => {
+        daemonProcess?.on('exit', () => resolve());
+        setTimeout(() => {
+          daemonProcess?.kill('SIGKILL');
+          resolve();
+        }, 5000);
+      });
+    }
+
+    clearTimeout(shutdownTimeout);
+    console.log('[reporter] Graceful shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    console.error('[reporter] Error during shutdown:', err);
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
+}
+
+// ── Heartbeat ──
+
+async function sendHeartbeat(): Promise<void> {
+  if (!currentRun || !backendHealthy) return;
+
+  try {
+    const healthy = await ingest.checkHealth();
+    backendHealthy = healthy;
+    if (!healthy) {
+      console.warn('[reporter] Backend health check failed');
+    }
+  } catch (err) {
+    backendHealthy = false;
+    console.error('[reporter] Heartbeat failed:', err);
   }
 }
 
@@ -357,25 +457,21 @@ function startDaemon(): ChildProcess {
 function cleanup(): void {
   if (metricsTimer) clearInterval(metricsTimer);
   if (logFlushTimer) clearInterval(logFlushTimer);
-  flushLogs();
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
   
-  // Cleanup project client workspaces
-  cleanupProjectClient().catch(err => {
-    console.error('[reporter] Failed to cleanup project client:', err);
-  });
-
-  // Cleanup Telegram bot commands
-  shutdownTelegramBotCommands().catch(err => {
-    console.error('[reporter] Failed to cleanup Telegram bot commands:', err);
-  });
+  // Sync flush remaining logs
+  if (pendingLogs.length > 0) {
+    console.log(`[reporter] Warning: ${pendingLogs.length} logs still pending after cleanup`);
+  }
 }
 
-// ── Main ──
+// ── Daemon lifecycle ──
 
 async function main(): Promise<void> {
   console.log('[reporter] claw-infra agent reporter starting');
   console.log(`[reporter] Agent name: ${AGENT_NAME}`);
   console.log(`[reporter] Backend: ${process.env.BACKEND_INTERNAL_URL || 'http://localhost:3000'}`);
+  console.log(`[reporter] Max retries: ${MAX_RETRIES}, Base delay: ${BASE_DELAY_MS}ms`);
 
   generateConfig();
   setupWorkspace();
@@ -403,36 +499,32 @@ async function main(): Promise<void> {
   }
 
   console.log('[reporter] Waiting for claw-infra backend...');
-  let backendReady = false;
   for (let i = 0; i < 30; i++) {
-    backendReady = await ingest.checkHealth();
-    if (backendReady) break;
+    backendHealthy = await ingest.checkHealth();
+    if (backendHealthy) break;
     await new Promise((r) => setTimeout(r, 2000));
   }
 
-  if (!backendReady) {
+  if (!backendHealthy) {
     console.warn('[reporter] Backend not reachable after 60s — starting daemon anyway');
   } else {
     console.log('[reporter] Backend is healthy');
   }
 
+  // Start periodic tasks
   metricsTimer = setInterval(collectMetrics, METRICS_INTERVAL_MS);
   logFlushTimer = setInterval(flushLogs, LOG_BATCH_INTERVAL_MS);
+  heartbeatTimer = setInterval(sendHeartbeat, 30000); // Heartbeat every 30s
 
   daemonProcess = startDaemon();
-  // ZeroClaw handles Telegram natively via [channels_config.telegram] in config.toml.
-  // No custom orchestrator needed — [agent].max_tool_iterations controls iteration cap.
 
+  // Graceful shutdown handlers
   for (const sig of ['SIGTERM', 'SIGINT'] as const) {
-    process.on(sig, () => {
-      console.log(`[reporter] Received ${sig}, shutting down...`);
-      daemonProcess?.kill(sig);
-      cleanup();
-      setTimeout(() => process.exit(0), 3000);
-    });
+    process.on(sig, () => gracefulShutdown(sig));
   }
 }
 
+// Start the agent
 main().catch((err) => {
   console.error('[reporter] Fatal error:', err);
   process.exit(1);

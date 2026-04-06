@@ -20,6 +20,7 @@ import { AgentStep, StepStatus } from '../database/entities/agent-step.entity';
 import { Card } from '../database/entities/card.entity';
 import { AppGateway } from '../ws/app.gateway';
 import { AlertsService } from '../alerts/alerts.service';
+import { createLikePattern } from '../common/utils/search.util';
 
 export interface CreateRunDto {
   agentName: string;
@@ -614,8 +615,9 @@ export class AgentsService {
       .take(limit);
 
     if (q) {
+      const searchPattern = createLikePattern(q, 'contains');
       qb.andWhere('card.title ILIKE :q OR card.id::text ILIKE :q', {
-        q: `%${q}%`,
+        q: searchPattern,
       });
     }
 

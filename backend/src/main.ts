@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import helmet from 'helmet';
@@ -8,6 +8,8 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IpAllowlistGuard } from './common/guards/ip-allowlist.guard';
 import { validateStartupEnv } from './config/env.validation';
+
+const logger = new Logger('Bootstrap');
 
 function parseCsvOrigins(raw: string | undefined): string[] {
   if (!raw) return [];
@@ -26,22 +28,20 @@ async function bootstrap() {
 
   validateStartupEnv(config);
 
-  // Enable graceful shutdown hooks
   app.enableShutdownHooks();
 
-  // Run database migrations before starting the server
   const dataSource = app.get(DataSource);
   try {
-    console.log('Running database migrations...');
+    logger.log('Running database migrations...');
     const migrations = await dataSource.runMigrations({ transaction: 'none' });
     if (migrations.length > 0) {
-      console.log(`Applied ${migrations.length} migration(s):`);
-      migrations.forEach((m) => console.log(`  - ${m.name}`));
+      logger.log(`Applied ${migrations.length} migration(s):`);
+      migrations.forEach((m) => logger.log(`  - ${m.name}`));
     } else {
-      console.log('No pending migrations');
+      logger.log('No pending migrations');
     }
   } catch (error) {
-    console.error('Migration failed:', error);
+    logger.error('Migration failed:', error);
     process.exit(1);
   }
 
@@ -90,17 +90,14 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (server-to-server, curl, etc.)
       if (!origin) return callback(null, true);
 
-      // Explicitly allow configured production origins
       if (allowedOrigins.has(origin)) return callback(null, true);
 
-      // Allow localhost only outside production
       if (!isProd && /^https?:\/\/localhost(:\d+)?$/.test(origin))
         return callback(null, true);
 
-      console.warn(`[CORS] Blocked origin: ${origin}`);
+      logger.warn(`[CORS] Blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -108,24 +105,23 @@ async function bootstrap() {
 
   const port = config.get<string>('PORT') || 3000;
   await app.listen(port);
-  console.log(`Backend listening on port ${port}`);
+  logger.log(`Backend listening on port ${port}`);
 
-  // Graceful shutdown handling
   const gracefulShutdown = async (signal: string) => {
-    console.log(`Received ${signal}, starting graceful shutdown...`);
+    logger.log(`Received ${signal}, starting graceful shutdown...`);
 
     const shutdownTimeout = setTimeout(() => {
-      console.error('Graceful shutdown timeout exceeded, forcing exit');
+      logger.error('Graceful shutdown timeout exceeded, forcing exit');
       process.exit(1);
-    }, 30000); // 30 second timeout
+    }, 30000);
 
     try {
       await app.close();
       clearTimeout(shutdownTimeout);
-      console.log('Graceful shutdown completed');
+      logger.log('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      console.error('Error during graceful shutdown:', error);
+      logger.error('Error during graceful shutdown:', error);
       clearTimeout(shutdownTimeout);
       process.exit(1);
     }

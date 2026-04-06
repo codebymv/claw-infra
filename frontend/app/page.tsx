@@ -1,19 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Bot, DollarSign, Activity, Zap, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { StatCard } from '@/components/shared/stat-card';
 import { SectionCard } from '@/components/shared/section-card';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { PageLoader, StatCardSkeleton, ChartSkeleton } from '@/components/shared/loading-spinner';
 import { LastUpdated } from '@/components/shared/last-updated';
-import { RunTimelineChart } from '@/components/charts/run-timeline-chart';
-import { CostTrendChart } from '@/components/charts/cost-trend-chart';
 import { agentsApi, costsApi, type AgentRun, type DashboardStats, type TimelinePoint, type CostTrendPoint } from '@/lib/api';
 import { formatRelativeTime, formatDuration, formatCost } from '@/lib/utils';
 import { useAppToast } from '@/components/layout/app-shell';
 import { useDynamicTitle } from '@/hooks/useDynamicTitle';
 import Link from 'next/link';
+
+const RunTimelineChart = dynamic(
+  () => import('@/components/charts/run-timeline-chart').then((m) => m.RunTimelineChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+);
+
+const CostTrendChart = dynamic(
+  () => import('@/components/charts/cost-trend-chart').then((m) => m.CostTrendChart),
+  { ssr: false, loading: () => <ChartSkeleton /> }
+);
 
 export default function DashboardPage() {
   useDynamicTitle('Dashboard | ClawInfra');
@@ -27,32 +36,33 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [statsData, timelineData, trendData, activeData, costData] = await Promise.all([
-          agentsApi.getStats(),
-          agentsApi.getTimeline(7),
-          costsApi.getTrend(30),
-          agentsApi.getActive(),
-          costsApi.getSummary({ period: '1d' }),
-        ]);
-        setStats(statsData);
-        setTimeline(timelineData);
-        setCostTrend(trendData);
-        setActiveRuns(activeData);
-        setCostSummary(costData);
-        setLastRefreshed(new Date());
-      } catch (err) {
-        toast.error((err as Error).message || 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const [statsData, timelineData, trendData, activeData, costData] = await Promise.all([
+        agentsApi.getStats(),
+        agentsApi.getTimeline(7),
+        costsApi.getTrend(30),
+        agentsApi.getActive(),
+        costsApi.getSummary({ period: '1d' }),
+      ]);
+      setStats(statsData);
+      setTimeline(timelineData);
+      setCostTrend(trendData);
+      setActiveRuns(activeData);
+      setCostSummary(costData);
+      setLastRefreshed(new Date());
+    } catch (err) {
+      toast.error((err as Error).message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
     }
-    load();
-    const interval = setInterval(load, 15000);
+  }, [toast]);
+
+  useEffect(() => {
+    loadDashboardData();
+    const interval = setInterval(loadDashboardData, 15000);
     return () => clearInterval(interval);
-  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadDashboardData]);
 
   if (loading) return (
     <div className="space-y-6 animate-fade-in">

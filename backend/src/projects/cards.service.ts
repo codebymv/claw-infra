@@ -13,14 +13,15 @@ import {
   Between,
   Like,
   ILike,
+  DataSource,
 } from 'typeorm';
 import { Card, CardStatus } from '../database/entities/card.entity';
 import { Column, ColumnRuleType } from '../database/entities/column.entity';
 import { KanbanBoard } from '../database/entities/kanban-board.entity';
 import {
-  CardHistory,
-  HistoryAction,
-} from '../database/entities/card-history.entity';
+  createLikePattern,
+} from '../common/utils/search.util';
+import { CardHistory, HistoryAction } from '../database/entities/card-history.entity';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
@@ -42,6 +43,7 @@ export class CardsService {
     private readonly historyRepo: Repository<CardHistory>,
     private readonly gateway: ProjectWebSocketGateway,
     private readonly pubSub: ProjectPubSubService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createCard(
@@ -197,9 +199,10 @@ export class CardsService {
     }
 
     if (query.search) {
+      const searchPattern = createLikePattern(query.search, 'contains');
       queryBuilder.andWhere(
         '(card.title ILIKE :search OR card.description ILIKE :search)',
-        { search: `%${query.search}%` },
+        { search: searchPattern },
       );
     }
 
@@ -365,12 +368,25 @@ export class CardsService {
   async deleteCard(id: string, userId: string): Promise<void> {
     const card = await this.getCardById(id);
 
-    // Shift remaining cards to fill the gap
-    await this.shiftCardsPosition(card.columnId, card.position + 1, -1);
+    await this.dataSource.transaction(async (manager) => {
+      // Shift remaining cards to fill the gap
+      await manager
+        .createQueryBuilder()
+        .update(Card)
+        .set({
+          position: () => 'position - 1',
+        })
+        .where('columnId = :columnId AND position > :position', {
+          columnId: card.columnId,
+          position: card.position,
+        })
+        .execute();
 
-    await this.cardRepo.delete(id);
+      // Delete the card
+      await manager.delete(Card, id);
+    });
 
-    // Broadcast card deletion
+    // Broadcast card deletion (outside transaction as it's not critical)
     await this.pubSub.publishCardEvent(
       card.board.projectId,
       id,
@@ -746,17 +762,30 @@ export class CardsService {
       {} as Record<string, Card[]>,
     );
 
-    // Delete cards
-    await this.cardRepo.delete({ id: In(cardIds) });
+    await this.dataSource.transaction(async (manager) => {
+      // Delete cards within transaction
+      await manager.delete(Card, { id: In(cardIds) });
 
-    // Adjust positions in each affected column
-    for (const [columnId, columnCards] of Object.entries(cardsByColumn)) {
-      const sortedCards = columnCards.sort((a, b) => a.position - b.position);
-
-      for (const card of sortedCards) {
-        await this.shiftCardsPosition(columnId, card.position + 1, -1);
+      // Adjust positions in each affected column
+      for (const [columnId, columnCards] of Object.entries(cardsByColumn)) {
+        // Sort cards by position descending to avoid position conflicts
+        const sortedCards = [...columnCards].sort((a, b) => b.position - a.position);
+        
+        for (const card of sortedCards) {
+          await manager
+            .createQueryBuilder()
+            .update(Card)
+            .set({
+              position: () => 'position - 1',
+            })
+            .where('columnId = :columnId AND position > :position', {
+              columnId,
+              position: card.position,
+            })
+            .execute();
+        }
       }
-    }
+    });
   }
 
   private async enforceColumnRules(

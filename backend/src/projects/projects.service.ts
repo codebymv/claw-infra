@@ -18,6 +18,7 @@ import {
   ProjectRole,
 } from '../database/entities/project-member.entity';
 import { CodeRepo } from '../database/entities/code-repo.entity';
+import { createLikePattern } from '../common/utils/search.util';
 import { CodeCommit } from '../database/entities/code-commit.entity';
 import { CodePr } from '../database/entities/code-pr.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -171,9 +172,10 @@ export class ProjectsService {
     }
 
     if (query.search) {
+      const searchPattern = createLikePattern(query.search, 'contains');
       queryBuilder.andWhere(
         '(project.name ILIKE :search OR project.description ILIKE :search)',
-        { search: `%${query.search}%` },
+        { search: searchPattern },
       );
     }
 

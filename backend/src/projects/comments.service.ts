@@ -15,6 +15,7 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { ListCommentsQueryDto } from './dto/list-comments-query.dto';
 import { ProjectWebSocketGateway } from './ws/project-websocket.gateway';
 import { ProjectPubSubService } from './ws/project-pubsub.service';
+import { createLikePattern } from '../common/utils/search.util';
 import * as DOMPurify from 'isomorphic-dompurify';
 import { marked } from 'marked';
 
@@ -332,24 +333,50 @@ export class CommentsService {
     return mentions;
   }
 
+  private async batchFindUsersByMention(mentions: string[]): Promise<Map<string, User>> {
+    if (mentions.length === 0) return new Map();
+
+    const patterns = mentions.map((m) => createLikePattern(m, 'contains'));
+    const placeholders = patterns.map((_, i) => `:p${i}`).join(' OR ');
+    const params: Record<string, string> = {};
+    patterns.forEach((p, i) => {
+      params[`p${i}`] = p;
+    });
+
+    const users = await this.userRepo
+      .createQueryBuilder('user')
+      .where(`user.email ILIKE ${placeholders} OR user.display_name ILIKE ${placeholders}`, params)
+      .getMany();
+
+    const userMap = new Map<string, User>();
+    for (const user of users) {
+      for (const mention of mentions) {
+        const pattern = createLikePattern(mention, 'contains');
+        const regex = new RegExp(mention, 'i');
+        if (regex.test(user.email) || (user.displayName && regex.test(user.displayName))) {
+          userMap.set(mention.toLowerCase(), user);
+          break;
+        }
+      }
+    }
+
+    return userMap;
+  }
+
   private async processMentions(
     html: string,
     mentions: string[],
   ): Promise<string> {
+    if (mentions.length === 0) return html;
+
+    // Batch fetch all users at once to avoid N+1 queries
+    const userMap = await this.batchFindUsersByMention(mentions);
+
     let processedHtml = html;
-
     for (const mention of mentions) {
-      // Try to find user by email or display name
-      const user = await this.userRepo
-        .createQueryBuilder('user')
-        .where('user.email ILIKE :mention', { mention: `%${mention}%` })
-        .orWhere('user.display_name ILIKE :mention', {
-          mention: `%${mention}%`,
-        })
-        .getOne();
-
+      const user = userMap.get(mention.toLowerCase());
+      
       if (user) {
-        // Replace @username with a styled mention
         const mentionRegex = new RegExp(`@${mention}\\b`, 'g');
         processedHtml = processedHtml.replace(
           mentionRegex,
@@ -365,33 +392,19 @@ export class CommentsService {
     comment: Comment,
     mentions: string[],
   ): Promise<void> {
-    // Get mentioned users by email or display name
-    const mentionedUsers: User[] = [];
+    if (mentions.length === 0) return;
 
-    for (const mention of mentions) {
-      const user = await this.userRepo
-        .createQueryBuilder('user')
-        .where('user.email ILIKE :mention', { mention: `%${mention}%` })
-        .orWhere('user.display_name ILIKE :mention', {
-          mention: `%${mention}%`,
-        })
-        .getOne();
-
-      if (user && !mentionedUsers.find((u) => u.id === user.id)) {
-        mentionedUsers.push(user);
-      }
-    }
+    // Batch fetch all users at once to avoid N+1 queries
+    const userMap = await this.batchFindUsersByMention(mentions);
+    const mentionedUsers = Array.from(userMap.values()).filter(
+      (user) => user.id !== comment.authorId,
+    );
 
     for (const user of mentionedUsers) {
-      // Skip self-mentions
-      if (user.id === comment.authorId) continue;
-
-      // Send notification (this would integrate with a notification service)
       this.logger.log(
         `Sending mention notification to user ${user.id} for comment ${comment.id}`,
       );
 
-      // Broadcast mention notification
       await this.pubSub.publishProjectEvent({
         type: 'create',
         resource: 'comment',

@@ -6,6 +6,7 @@ import {
   Param,
   UseGuards,
   BadRequestException,
+  Req,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -19,6 +20,7 @@ import {
 import type { Request } from 'express';
 import { ApiKeyGuard, RequireApiKeyType } from '../common/guards/api-key.guard';
 import { ApiKeyType } from '../database/entities/api-key.entity';
+import { IdempotencyService } from '../common/services/idempotency.service';
 import { AgentsService } from './agents.service';
 import {
   AgentRunStatus,
@@ -143,12 +145,42 @@ class UpdateStepStatusDto {
 @RequireApiKeyType(ApiKeyType.AGENT)
 @Throttle({ ingest: { ttl: 60000, limit: 30 } })
 export class AgentIngestController {
-  constructor(private readonly agentsService: AgentsService) {}
+  constructor(
+    private readonly agentsService: AgentsService,
+    private readonly idempotencyService: IdempotencyService,
+  ) {}
 
   @Post('runs')
-  async createRun(@Body() dto: IngestRunDto) {
-    const created = await this.agentsService.createRun(dto);
-    return created;
+  async createRun(@Body() dto: IngestRunDto, @Req() req: Request) {
+    const idempotencyKey = req.headers['x-idempotency-key'] as string | undefined;
+    
+    if (idempotencyKey && this.idempotencyService.isEnabled()) {
+      const tokenPrefix = this.readTokenPrefix(req);
+      const keyHash = this.idempotencyService.buildKeyHash(
+        idempotencyKey,
+        'POST /ingest/runs',
+        tokenPrefix,
+      );
+      
+      const existing = await this.idempotencyService.findByHash(keyHash);
+      if (existing) {
+        return existing.responseBody;
+      }
+      
+      const created = await this.agentsService.createRun(dto);
+      
+      await this.idempotencyService.persistResponse({
+        keyHash,
+        route: 'POST /ingest/runs',
+        tokenPrefix,
+        statusCode: 201,
+        responseBody: created,
+      });
+      
+      return created;
+    }
+    
+    return this.agentsService.createRun(dto);
   }
 
   @Post('runs/:id/start')

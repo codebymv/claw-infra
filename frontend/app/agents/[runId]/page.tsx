@@ -351,8 +351,10 @@ export default function RunDetailPage() {
           {/* Log filters */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 mb-3">
             <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <label htmlFor="log-search" className="sr-only">Search logs</label>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
               <input
+                id="log-search"
                 type="text"
                 placeholder="Search logs..."
                 value={logSearchQuery}
@@ -360,13 +362,15 @@ export default function RunDetailPage() {
                 className="h-8 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/30 transition-all sm:w-48"
               />
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="group" aria-label="Filter logs by level">
               {['debug', 'info', 'warn', 'error'].map((level) => (
                 <button
                   key={level}
                   onClick={() => setLogLevelFilter(logLevelFilter === level ? null : level)}
+                  aria-pressed={logLevelFilter === level}
+                  aria-label={`Filter by ${level} level`}
                   className={cn(
-                    'shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-all duration-200',
+                    'shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50',
                     logLevelFilter === level
                       ? level === 'error' ? 'bg-rose-500/15 text-rose-500 border border-rose-500/25'
                       : level === 'warn' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/25'
@@ -380,7 +384,7 @@ export default function RunDetailPage() {
               ))}
             </div>
             {filteredLogs.length !== allLogs.length && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground" aria-live="polite">
                 {filteredLogs.length} / {allLogs.length}
               </span>
             )}
