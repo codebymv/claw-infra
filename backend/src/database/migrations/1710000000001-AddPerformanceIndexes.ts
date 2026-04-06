@@ -10,18 +10,18 @@ export class AddPerformanceIndexes1710000000001 implements MigrationInterface {
     //   CREATE INDEX CONCURRENTLY idx_name ON table(column);
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_agent_runs_status_createdAt 
-      ON agent_runs(status, createdAt DESC)
+      ON agent_runs(status, created_at DESC)
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_agent_runs_agent_status_started 
-      ON agent_runs(agentName, status, startedAt DESC)
+      ON agent_runs(agent_name, status, started_at DESC)
       WHERE status IN ('running', 'queued')
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_cards_board_status_createdAt 
-      ON cards(board_id, status, createdAt DESC)
+      ON cards(board_id, status, created_at DESC)
     `);
 
     await queryRunner.query(`
@@ -36,27 +36,27 @@ export class AddPerformanceIndexes1710000000001 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_comments_card_created 
-      ON comments(card_id, createdAt DESC)
+      ON comments(card_id, created_at DESC)
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_cost_records_run_created 
-      ON cost_records(run_id, createdAt DESC)
+      ON cost_records(run_id, created_at DESC)
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_agent_logs_run_level_created 
-      ON agent_logs(run_id, level, createdAt DESC)
+      ON agent_logs(run_id, level, created_at DESC)
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_agent_steps_run_created 
-      ON agent_steps(run_id, createdAt)
+      ON agent_steps(run_id, created_at)
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS idx_project_members_user_project 
-      ON project_members(userId, projectId)
+      ON project_members("userId", "projectId")
     `);
   }
 
